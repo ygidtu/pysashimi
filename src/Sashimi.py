@@ -5,13 +5,11 @@ make sashimi plot
 """
 import math
 
-import matplotlib
-
-matplotlib.use("TkAgg")
-from matplotlib import pyplot as plt
 import numpy as np
-from scipy.interpolate import spline
 import seaborn as sns
+from matplotlib import pyplot as plt
+
+plt.switch_backend("Agg")
 
 
 class Sashimi(object):
@@ -137,50 +135,36 @@ class Sashimi(object):
                 )
                 self.ax.add_patch(rect)
 
-    def __plot_junction__(self, junction, count, coverage, bottom, color):
+    def __plot_junction__(self, junction, count, y, color):
         u"""
         plot junctions
         :param junction: [start, end]
         :param count: number of this junctions
-        :param coverage: reads coverage
-        :param bottom: the base line of this junction
+        :param y: y axises, calculated by reads coverages
         :param color: color of this junction line
         :return:
         """
-
-        left_low = coverage[junction[0] - self.start] + bottom
-        right_low = coverage[junction[1] - self.start] + bottom
-
-        bottom = min([left_low, right_low])
-        top = bottom + 5
+        bottom = min([y[junction[0] - self.start - 1], y[junction[1] - self.start + 1]])
 
         # get the x and y axis
-        x_axis, y_axis = [], []
-        start, end = (junction[0] - self.start) / self.scale_size, (junction[1] - self.start) / self.scale_size + 1,
+        start = (junction[0] - self.start) / self.scale_size + self.__x_start__
+        end = (junction[1] - self.start) / self.scale_size + 1 + self.__x_start__
+        middle = (start + end) / 2
 
-        step = 1 if end - start > 100 else (end - start) / 100
-        while start < end:
-            x_axis.append(start + self.__x_start__)
-            y_axis.append(top)
-            start += step
+        # get the x and y axis
+        x_axis = np.linspace(0, np.pi, 201)
+        y_axis = np.sin(x_axis) * 5 + bottom
 
-        y_axis[0], y_axis[-1] = bottom, bottom
-
-        x_new = np.linspace(x_axis[0], x_axis[-1], 500)
-
-        y_new = spline(xk=x_axis, yk=y_axis, xnew=x_new, order=3, kind='smoothest', conds=None)
-
+        # print(y_axis)
         self.ax.plot(
-            x_new,
-            y_new,
-            "-",
+            x_axis * (end - start) / np.pi + start,
+            y_axis,
             c=color,
-            linewidth=1
+            linewidth=math.log10(count + 1)
         )
 
         # get text position
-        count_endpoint = x_new[len(x_new) // 2]
-        self.ax.text(count_endpoint, top + 1, str(count), fontsize=10)
+        self.ax.text(middle, max(y_axis) + 1, str(count), fontsize=5)
 
     def __plot_coverage__(self):
         u"""
@@ -212,8 +196,8 @@ class Sashimi(object):
                 self.__plot_junction__(
                     junction=junction,
                     count=count,
-                    coverage=coverage,
-                    bottom=bottom + 40,
+                    y=y1,
+                    base=bottom,
                     color=self.colors[i]
                 )
 
@@ -233,16 +217,4 @@ class Sashimi(object):
         """
         self.fig.savefig(outfile)
         plt.close(self.fig)
-        # plt.show()
-
-
-if __name__ == '__main__':
-
-    x = [1, 2, 3, 4, 5]
-    y = [0, 2, 2, 2, 0]
-
-    x_new = np.linspace(min(x), max(x), 100)
-    y_new = spline(x, y, x_new)
-    plt.plot(x_new, y_new, "-")
-    plt.show()
 

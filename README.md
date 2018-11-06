@@ -1,8 +1,5 @@
 # pysashimi
 
-**For now, this suite of scripts still have a lot issues, not meets my needs
-
-
 Pure python scripts to make sashimi plots
 
 Why am I write this?
