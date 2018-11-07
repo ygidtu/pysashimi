@@ -62,13 +62,13 @@ class Annotation(object):
                 if lines[0] > chromosome:
                     break
 
-                if int(lines[3]) > end:
+                if re.search(r"(transcripts|rna)", lines[2], re.I) and int(lines[3]) > end:
                     break
 
-                if int(lines[4]) < start:
+                if re.search(r"(transcripts|rna)", lines[2], re.I) and int(lines[4]) < start:
                     continue
 
-                if lines[2] == "transcript" or \
+                if re.search(r"(transcripts|rna)", lines[2], re.I) or \
                         (
                             re.search(r"rna", lines[2], re.I) and
                             "Parent" in lines[8]

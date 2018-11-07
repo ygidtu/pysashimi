@@ -181,7 +181,10 @@ class Sashimi(object):
             for j in range(len(coverage)):
 
                 x.append(j / self.scale_size + self.__x_start__)
-                y1.append(coverage[j] / scale_y + bottom)
+                if scale_y == 0:
+                    y1.append(bottom)
+                else:
+                    y1.append(coverage[j] / scale_y + bottom)
                 y2.append(self.boundary + 60 * i)
                 # y = self.boundary + 60 * i
 
