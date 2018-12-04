@@ -38,7 +38,7 @@ class Main(object):
 
         try:
             args = self.parser.parse_args(sys.argv[1:])
-            print(args)
+
             tran = Transcripts()
             for i in range(5):
                 tran.add_transcript("1", "+")
@@ -81,7 +81,8 @@ class Main(object):
                     start=start,
                     end=end,
                     transcripts=ref.query(chromosome, start, end) if ref is not None else None,
-                    coverages=coverages
+                    coverages=coverages,
+                    sites=args.sites
                 ).save(args.output)
 
         except argparse.ArgumentError as err:
@@ -164,6 +165,20 @@ class Main(object):
         )
 
         plot.add_argument(
+            "--sites",
+            type=str,
+            default=None,
+            help="add annotation lines at specified position, eg: 100,200"
+        )
+
+        plot.add_argument(
+            "--dpi",
+            type=int,
+            default=300,
+            help="Set dpi for output picture [default: %(default)s]"
+        )
+
+        plot.add_argument(
             "-s",
             "--strand",
             choices=["NONE", "SENSE", "ANTISENSE", "MATE1_SENSE", "MATE2_SENSE"],
@@ -177,7 +192,7 @@ class Main(object):
             help="Path to bgziped bed files, with tabix index",
             default=None
         )
-
+    
         plot.add_argument(
             "-t", "--threshold",
             type=int,
@@ -189,7 +204,7 @@ class Main(object):
             "-o", "--output",
             type=str,
             help="Path to output figure",
-            required=True
+            required=False
         )
 
 

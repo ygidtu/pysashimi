@@ -7,7 +7,6 @@ extract transcripts with its exons
 generate index
 """
 import os
-import logging
 import re
 import json
 from annotation.Transcripts import Transcripts
@@ -24,15 +23,12 @@ class Annotation(object):
         :param infile: path to the input file
         """
         self.__index_gap__ = 5000
-        self.logger = logging.getLogger("pysashimi")
         self.infile = os.path.abspath(infile)
         self.__infile_index__ = self.infile + ".idx"
 
         if not os.path.exists(self.infile) or\
                 not os.path.isfile(self.infile):
             raise FileNotFoundError("%s is not existed file" % self.infile)
-
-        self.logger.info("Reading: %s" % self.infile)
 
     def query(self, chromosome, start, end):
         u"""
@@ -73,13 +69,17 @@ class Annotation(object):
                             re.search(r"rna", lines[2], re.I) and
                             "Parent" in lines[8]
                         ):
-                    transcript.add_transcript(
-                        trancript=re.search(
-                                pattern=r"(transcript_id|ID)[= ]\"?(?P<id>\w+)\"?;",
-                                string=lines[8]
-                            ).groupdict()["id"],
-                        strand=lines[6]
-                    )
+                    
+                    try:
+                        transcript.add_transcript(
+                            trancript=re.search(
+                                    pattern=r"(transcript_id|ID)[= ]\"?(?P<id>\w+)\"?;",
+                                    string=lines[8]
+                                ).groupdict()["id"],
+                            strand=lines[6]
+                        )
+                    except AttributeError:
+                        continue
 
                 if lines[2] == "exon":
                     transcript.add_exon(

@@ -104,8 +104,9 @@ class Coverage(object):
         try:
             f = pysam.AlignmentFile(self.infile, require_index=True)
         except IOError:
-            f = pysam.AlignmentFile(self.infile)
-            pysam.index(f)
+            pysam.index(self.infile)
+            f = pysam.AlignmentFile(self.infile, require_index=True)
+
         for line in f.fetch(self.chromosome, self.start, self.end):
 
             samflag, read_start, CIGAR = line.flag, line.reference_start, line.cigarstring
