@@ -5,25 +5,27 @@ Created by ygidtu@gmail.com at 2018.12.16
 
 Tests
 """
+from tqdm import tqdm
+import multiprocessing as mp
 import os
 import sys
 import argparse as ap
-import matplotlib
-matplotlib.use('Agg')
 import pickle
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
-from matplotlib.patches import PathPatch
+# import matplotlib.pyplot as plt
+# from matplotlib.path import Path
+# from matplotlib.patches import PathPatch
 # from pylab import linspace
 
 from new_src.sashimi_plot_utils import draw_sashimi_plot
 from new_src.transcripts import read_reads_depth, read_transcripts
 from new_src.plot_settings import parse_settings
+from new_src.format_gtf import format_gtf
 
 
 __dir__ = os.path.dirname(__file__)
 
 
+'''
 def test_path(show_axis, chrom, strand, font_size, nxticks=4):
     pts = [
         (0, 0),
@@ -65,6 +67,7 @@ def test_path(show_axis, chrom, strand, font_size, nxticks=4):
     # ax.xlim(0, max(graphcoords))
 
     plt.show()
+'''
 
 
 def get_sites_from_splice_id(string):
@@ -139,13 +142,40 @@ def test_sashimi(args):
     u"""
     Created by Zhang yiming at 2018.12.19
     This function is used to test the function of sashimi plotting
-    :param args: argument parser
+    :param bam: list of input BAM files
+    :param gtf: path to gtf file
+    :param output: path to output file
+    :param event: event id, chr:100-200-100-200:+ etc
+    :param config: path to config file, default using settings.ini file under this suite of scripts
     :return:
     """
-    chromosome, start, end, strand = get_sites_from_splice_id(args.event)
+    bam, gtf, output, event, config = args
+
+    output = os.path.abspath(output)
+    out_dir = os.path.dirname(output)
+
+    try:
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+    except IOError as err:
+        print("Create output directory failed, please check %s" % out_dir)
+
+    formatted_gtf = os.path.join(out_dir, os.path.basename(gtf))
+
+    if not os.path.exists(formatted_gtf):
+        format_gtf(gtf, formatted_gtf)
+
+    bam_list = []
+    for i in bam:
+        if not os.path.exists(i):
+            raise ValueError("%s not found" % i)
+
+        bam_list.append(os.path.abspath(i))
+
+    chromosome, start, end, strand = get_sites_from_splice_id(event)
 
     splice_region = read_transcripts(
-        gtf_file=args.gtf,
+        gtf_file=formatted_gtf + ".gz",
         chromosome=chromosome,
         start=start,
         end=end,
@@ -153,7 +183,7 @@ def test_sashimi(args):
     )
 
     reads_depth = read_reads_depth(
-        bam_list=args.bam,
+        bam_list=bam,
         splice_region=splice_region
         # strand=strand
     )
@@ -165,15 +195,44 @@ def test_sashimi(args):
     average_depths_dict,
     mRNAs_object,
     """
-    hive_plot_settings, struct_plot_settings, sashimi_plot_settings = parse_settings(args.config)
+    hive_plot_settings, struct_plot_settings, sashimi_plot_settings = parse_settings(config)
 
     draw_sashimi_plot(
-        output_file_path=args.output,
+        output_file_path=output,
         settings=sashimi_plot_settings,
-        var_pos=args.event,
+        var_pos=event,
         average_depths_dict=reads_depth,
         mRNAs_object=splice_region
     )
+
+
+def test_in_batch(infile, output, gtf, bam, config, n_job):
+    u"""
+    test plot in batch
+    :return:
+    """
+    args = []
+    with open(infile) as r:
+        for line in r:
+            if line.startswith("#"):
+                continue
+            lines = line.split()
+
+            tmp = [
+                bam,
+                gtf,
+                os.path.join(output, lines[3] + ".pdf"),
+                lines[3],
+                config,
+            ]
+
+            # if os.path.exists(tmp[2]):
+            #     continue
+
+            args.append(tmp)
+
+    with mp.Pool(processes=n_job) as pool:
+        list(tqdm(pool.imap(test_sashimi, args), total=len(args)))
 
 
 if __name__ == '__main__':
@@ -184,4 +243,24 @@ if __name__ == '__main__':
     #
     # print(data)
 
-    test_sashimi(command_line_args())
+    args = command_line_args()
+    #
+    # test_sashimi(
+    #     [
+    #         args.bam,
+    #         args.gtf,
+    #         args.output,
+    #         args.event,
+    #         args.config,
+    #     ]
+    # )
+
+    test_in_batch(
+        infile=args.event,
+        config=args.config,
+        gtf=args.gtf,
+        bam=args.bam,
+        output=args.output,
+        n_job=12
+    )
+

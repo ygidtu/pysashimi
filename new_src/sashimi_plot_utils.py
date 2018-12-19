@@ -5,14 +5,36 @@ Migrated from SplicePlot sashimi_plot_utils
 """
 
 import matplotlib
-# matplotlib.use('svg')
-from pylab import *
+matplotlib.use('svg')
+import pylab
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 import math
 import matplotlib.pyplot as plt
 
 from new_src.transcripts import SpliceRegion
+
+
+def __get_limited_index__(num, length):
+    u"""
+    Created by Zhang yimint at 2018.12.19
+
+    Due to the original author didn't draw any element out of provided range
+    So the scripts will through a lot of IndexError
+
+    This function is used to scale that index into the reasonable range
+
+    :param num: current index
+    :param length: the list or numpy array length
+    :return: int, 0 <= num <= length - 1
+    """
+    if num < 0:
+        return 0
+
+    if num >= length:
+        return length - 1
+
+    return num
 
 
 def plot_density_single(
@@ -32,26 +54,26 @@ def plot_density_single(
         numbering_font_size=6,
         junction_log_base=10
 ):
+    u"""
+    @2018.12.19 remove unnecessary x label
+    @2018.12.19 replace junc_comp_function with a new Junction class,
+                due to cmp function is removed in Python3
 
-    def junc_comp_function(a,b):
-
-        u"""
-        [original description]
-            junc_comp_function is a __cmp__ function which allows junctions to be
-                sorted based on the length of the intron that they span
-
-                junctions with shorter intronic regions come first
-        [now]
-            @2018.12.19 remove unnecessary x label
-        """
-        
-        a_coordinates = list(map(int, a.split(':')[1].split('-')))
-        b_coordinates = list(map(int, b.split(':')[1].split('-')))
-
-        a_distance = a_coordinates[1] - a_coordinates[0]
-        b_distance = b_coordinates[1] - b_coordinates[0]
-
-        return a_distance - b_distance
+    :param read_depth_object:
+    :param graphcoords:
+    :param graphToGene:
+    :param axvar:
+    :param color:
+    :param ymax:
+    :param number_junctions:
+    :param resolution:
+    :param showXaxis:
+    :param nxticks:
+    :param font_size:
+    :param numbering_font_size:
+    :param junction_log_base:
+    :return:
+    """
     
     # extract data from read_depth_object
     tx_start = read_depth_object.start
@@ -61,6 +83,7 @@ def plot_density_single(
     # chrom = read_depth_object.chrm
 
     wiggle = read_depth_object.wiggle
+
     jxns = read_depth_object.junctions_dict
 
     maxheight = max(wiggle)
@@ -79,12 +102,12 @@ def plot_density_single(
     for i in range(len(graphcoords)):
         tmpval.append(wiggle[i])
         if abs(graphcoords[i] - prevx) > resolution:
-            compressed_wiggle.append(mean(tmpval))
+            compressed_wiggle.append(pylab.mean(tmpval))
             compressed_x.append(prevx)
             prevx = graphcoords[i]
             tmpval = []
 
-    fill_between(
+    pylab.fill_between(
         compressed_x,
         compressed_wiggle,
         y2=0,
@@ -101,13 +124,22 @@ def plot_density_single(
     #     sslists.append(tmp)
 
     # sort the junctions by intron length for better plotting look
-    jxns_sorted_list = sorted(list(jxns.keys()), key=junc_comp_function)
+    jxns_sorted_list = sorted(jxns.keys())
+
     current_height = -3 * ymin / 4
 
     for plotted_count, jxn in enumerate(jxns_sorted_list):
-        leftss, rightss = list(map(int, jxn.split(":")[1].split("-")))
+        # leftss, rightss = list(map(int, jxn.split(":")[1].split("-")))
 
-        ss1, ss2 = [graphcoords[leftss - tx_start - 1], graphcoords[rightss - tx_start]]
+        leftss, rightss = jxn.start, jxn.end
+
+        # @2018.12.19
+        # set junctions coordinate here
+        # the junction out of boundaries, set the boundaries as coordinate
+        ss1 = graphcoords[__get_limited_index__(leftss - tx_start - 1, len(graphcoords))]
+        ss2 = graphcoords[__get_limited_index__(rightss - tx_start, len(graphcoords))]
+
+        # ss1, ss2 = graphcoords[leftss - tx_start - 1], graphcoords[
 
         # mid = (ss1 + ss2) / 2
 
@@ -118,8 +150,9 @@ def plot_density_single(
 
         # draw junction on top
         else:
-            leftdens = wiggle[leftss - tx_start - 1]
-            rightdens = wiggle[rightss - tx_start]
+
+            leftdens = wiggle[__get_limited_index__(leftss - tx_start - 1, len(wiggle))]
+            rightdens = wiggle[__get_limited_index__(rightss - tx_start, len(wiggle))]
 
             pts = [(ss1, leftdens),
                    (ss1, leftdens + current_height),
@@ -128,12 +161,33 @@ def plot_density_single(
             midpt = cubic_bezier(pts, .5)
 
         if number_junctions:
-            text(midpt[0], midpt[1], '{0}'.format(round(jxns[jxn],2)),
-                 fontsize=numbering_font_size, ha='center', va='center', backgroundcolor='w')
+            pylab.text(
+                midpt[0],
+                midpt[1],
+                '{0}'.format(round(jxns[jxn],2)),
+                fontsize=numbering_font_size,
+                ha='center',
+                va='center',
+                backgroundcolor='w'
+            )
 
-        a = Path(pts, [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4])
-        p = PathPatch(a, ec=color, lw=log(jxns[jxn] + 1) /\
-            log(junction_log_base), fc='none')
+        a = Path(
+            pts,
+            [
+                Path.MOVETO,
+                Path.CURVE4,
+                Path.CURVE4,
+                Path.CURVE4
+            ]
+        )
+
+        p = PathPatch(
+            a,
+            ec=color,
+            lw=pylab.log(jxns[jxn] + 1) / pylab.log(junction_log_base),
+            fc='none'
+        )
+
         axvar.add_patch(p)
 
     # Format plot
@@ -151,15 +205,18 @@ def plot_density_single(
         #        fontsize=font_size)
 
         max_graphcoords = max(graphcoords) - 1
-        xticks(linspace(0, max_graphcoords, nxticks),
-               [graphToGene[int(x)] for x in \
-                linspace(0, max_graphcoords, nxticks)],
-               fontsize=font_size)
+
+        pylab.xticks(
+            pylab.linspace(0, max_graphcoords, nxticks),
+            [graphToGene[int(x)] for x in pylab.linspace(0, max_graphcoords, nxticks)],
+            fontsize=font_size
+        )
+
     else:
         axvar.spines['bottom'].set_color('none')
-        xticks([])
+        pylab.xticks([])
 
-    xlim(0, max(graphcoords))
+    pylab.xlim(0, max(graphcoords))
     # Return modified axis
     return axvar
 
@@ -233,9 +290,9 @@ def plot_density(
 
     if plot_title is not None and plot_title != '':
         # Use custom title if given
-        suptitle(plot_title, fontsize=10)
+        pylab.suptitle(plot_title, fontsize=10)
     elif plot_title == '':
-        suptitle(event, fontsize=10)
+        pylab.suptitle(event, fontsize=10)
         
     plotted_axes = []
 
@@ -259,9 +316,9 @@ def plot_density(
         else:
             showXaxis = True 
 
-        ax1 = subplot2grid(
+        ax1 = plt.subplot2grid(
             (nfiles + 2, 1),
-            (i,0),
+            (i, 0),
             colspan=1
         )
         
@@ -315,8 +372,12 @@ def plot_density(
     # Reset axes based on this.
     # Set fake ymin bound to allow lower junctions to be visible
     fake_ymin = -0.5 * max_used_yval
-    universal_yticks = linspace(0, max_used_yval,
-                                nyticks + 1)
+    universal_yticks = pylab.linspace(
+        0,
+        max_used_yval,
+        nyticks + 1
+    )
+
     # Round up yticks
     universal_ticks = list(map(math.ceil, universal_yticks))
     for sample_num, curr_ax in enumerate(plotted_axes):
@@ -329,21 +390,29 @@ def plot_density(
                     curr_yticklabels.append("")
                 else:
                     if label % 1 != 0:
-                        curr_yticklabels.append("%.1f" %(label))
+                        curr_yticklabels.append("%.1f" % label)
                     else:
-                        curr_yticklabels.append("%d" %(label))
-            curr_ax.set_yticklabels(curr_yticklabels,
-                                    fontsize=font_size)
+                        curr_yticklabels.append("%d" % label)
+
+            curr_ax.set_yticklabels(
+                curr_yticklabels,
+                fontsize=font_size
+            )
+
             curr_ax.spines["left"].set_bounds(0, max_used_yval)
             curr_ax.set_yticks(universal_yticks)
             curr_ax.yaxis.set_ticks_position('left')
             curr_ax.spines["right"].set_color('none')
+
             if show_ylabel:
                 y_horz_alignment = 'left'
-                curr_ax.set_ylabel('Depth',
-                                       fontsize=font_size,
-                                       va="center",
-                                       ha=y_horz_alignment,labelpad=10)
+
+                curr_ax.set_ylabel(
+                    'Depth',
+                    fontsize=font_size,
+                    va="center",
+                    ha=y_horz_alignment,labelpad=10
+                )
 
         else:
             curr_ax.spines["left"].set_color('none')
@@ -370,15 +439,15 @@ def plot_density(
                 
 
     # Draw gene structure
-    ax1 = subplot2grid(
+    ax1 = pylab.subplot2grid(
         (nfiles + 2, 1),
-        (nfiles,0),
+        (nfiles, 0),
         colspan=1,
         rowspan=2
     )
 
     plot_mRNAs(tx_start, mRNAs, graphcoords, reverse_minus)
-    subplots_adjust(hspace=.1, wspace=.7)
+    pylab.subplots_adjust(hspace=.1, wspace=.7)
 
 
 def getScaling(
@@ -394,13 +463,13 @@ def getScaling(
     """
     Compute the scaling factor across various genetic regions.
     """
-    print("getScaling", tx_start, tx_end)
-    exoncoords = zeros((tx_end - tx_start + 1))
+    exoncoords = pylab.zeros((tx_end - tx_start + 1))
     for i in range(len(exon_starts)):
-        exoncoords[exon_starts[i] - tx_start : exon_ends[i] - tx_start] = 1
+        exoncoords[exon_starts[i] - tx_start: exon_ends[i] - tx_start] = 1
 
     graphToGene = {}
-    graphcoords = zeros((tx_end - tx_start + 1), dtype='f')
+    graphcoords = pylab.zeros((tx_end - tx_start + 1), dtype='f')
+
     x = 0
     if strand == '+' or not reverse_minus:
         for i in range(tx_end - tx_start + 1):
@@ -418,6 +487,7 @@ def getScaling(
                 x += 1. / exon_scale
             else:
                 x += 1. / intron_scale
+
     return graphcoords, graphToGene
 
 
@@ -441,7 +511,6 @@ def plot_mRNAs(
 
     # @2018.12.19
     # the mRNAs is a dict of {transcript: id, gene: id, exon: [Exon, Exon]}
-    print(mRNAs)
     for mRNA in mRNAs:
         for m in mRNA:
             strand = "+"
@@ -463,11 +532,11 @@ def plot_mRNAs(
                     yloc + exonwidth / 2,
                     yloc + exonwidth / 2
                 ]
-                fill(x, y, 'k', lw=.5, zorder=20)
+                pylab.fill(x, y, 'k', lw=.5, zorder=20)
 
             # Draw intron.
             #axhline(yloc, color='k', lw=.5)
-            plot([min(graphcoords), max(graphcoords)], [yloc,yloc], color='k', lw=0.5)
+            pylab.plot([min(graphcoords), max(graphcoords)], [yloc,yloc], color='k', lw=0.5)
 
             # Draw intron arrows.
             spread = .2 * max(graphcoords) / narrows
@@ -478,15 +547,15 @@ def plot_mRNAs(
                 else:
                     x = [loc + spread, loc, loc + spread]
                 y = [yloc - exonwidth / 5, yloc, yloc + exonwidth / 5]
-                plot(x, y, lw=.5, color='k')
+                pylab.plot(x, y, lw=.5, color='k')
 
             yloc += 1
 
-    xlim(0, max(graphcoords)) 
-    ylim(-.5, len(mRNAs) + .5)
-    box(on=False)
-    xticks([])
-    yticks([]) 
+    pylab.xlim(0, max(graphcoords))
+    pylab.ylim(-.5, len(mRNAs) + .5)
+    pylab.box(on=False)
+    pylab.xticks([])
+    pylab.yticks([])
 
 
 def cubic_bezier(pts, t):
@@ -494,10 +563,10 @@ def cubic_bezier(pts, t):
     Get points in a cubic bezier.
     """
     p0, p1, p2, p3 = pts
-    p0 = array(p0)
-    p1 = array(p1)
-    p2 = array(p2)
-    p3 = array(p3)
+    p0 = pylab.array(p0)
+    p1 = pylab.array(p1)
+    p2 = pylab.array(p2)
+    p3 = pylab.array(p3)
     return p0 * (1 - t)**3 + 3 * t * p1 * (1 - t) ** 2 + \
         3 * t**2 * (1 - t) * p2 + t**3 * p3
 
@@ -545,7 +614,7 @@ def draw_sashimi_plot(
         # ordered_genotypes_list              # for now, do not know
     )
 
-    print("save to %s" % output_file_path)
+    # print("save to %s" % output_file_path)
     plt.savefig(
         output_file_path,
         transparent=True

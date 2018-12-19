@@ -322,7 +322,10 @@ class SpliceRegion(object):
         get the very first start site of exons
         :return: int
         """
-        return self.exon_starts[0]
+        if self.exon_starts:
+            return min(self.exon_starts[0], self.start)
+        else:
+            return self.start
 
     @property
     def max_end(self):
@@ -330,7 +333,10 @@ class SpliceRegion(object):
         get the very last end site of exons
         :return: int
         """
-        return self.exon_ends[-1]
+        if self.exon_ends:
+            return max(self.exon_ends[-1], self.end)
+        else:
+            return self.end
 
     @property
     def transcripts(self):
@@ -363,9 +369,90 @@ class SpliceRegion(object):
         tmp.append(exon)
 
         self.__transcripts__[exon.transcript] = tmp
-
         self.__exon_starts__.append(exon.start)
         self.__exon_ends__.append(exon.end)
+
+
+class Junction(object):
+    u"""
+    Created by Zhang yiming at 2018.12.19
+
+    This is used to collect information of single junction
+    And provide relative position comparision
+    """
+
+    __slots__ = [
+        "chromosome",
+        "start",
+        "end"
+    ]
+
+    def __init__(self, chromosome, start, end):
+        u"""
+        init this class
+        :param chromosome:
+        :param start:
+        :param end:
+        """
+        self.chromosome = chromosome
+        self.start = int(start)
+        self.end = int(end)
+
+        if self.end <= self.start:
+            raise ValueError("End site(%d) should bigger than start site(%d)" % (start, end))
+
+    @property
+    def length(self):
+        u"""
+        :return: int, the length of this junction
+        """
+        return self.end - self.start
+
+    def __hash__(self):
+        u"""
+        generate hash
+        :return:
+        """
+        return hash((self.chromosome, self.start, self.end))
+
+    def __str__(self):
+        u"""
+        convert junctions to string
+        :return:
+        """
+        return "{chrom}:{start}-{end}".format(
+            **{
+                "chrom": self.chromosome,
+                "start": self.start,
+                "end": self.end
+            }
+        )
+
+    def __gt__(self, other):
+        u"""
+        great than
+        compare two junction by length
+        :param other:
+        :return:
+        """
+        return self.length > other.length
+
+    def __lt__(self, other):
+        u"""
+        less than
+        compare two junction by length
+        :param other:a
+        :return:
+        """
+        return self.length < other.length
+
+    def __eq__(self, other):
+        u"""
+        same length
+        :param other:
+        :return:
+        """
+        return self.length == other.length
 
 
 class ReadDepth(GenomicLoci):
@@ -414,7 +501,7 @@ class ReadDepth(GenomicLoci):
                 for read in relevant_reads:
 
                     # make sure that the read can be used
-                    cigar_string = read.cigar
+                    cigar_string = read.cigartuples
 
                     # each read must have a cigar string
                     if cigar_string is None:
@@ -422,7 +509,7 @@ class ReadDepth(GenomicLoci):
 
                     # read cannot have insertions or deletions
                     contains_indel = False
-                    spans_more_than_one_junction = False
+                    # spans_more_than_one_junction = False
                     for cigar_event in cigar_string:
                         if cigar_event[0] == 1 or cigar_event[0] == 2:
                             contains_indel = True
@@ -431,21 +518,31 @@ class ReadDepth(GenomicLoci):
                     if contains_indel:
                         continue
 
-                    for index, base_position in enumerate(read.positions):
+                    for index, base_position in enumerate(read.get_reference_positions()):
                         if start_coord <= base_position <= end_coord:
                             depth_vector[base_position - start_coord] += 1
 
                         # junction spanning case
-                        if (index + 1) < len(read.positions) and base_position + 1 != read.positions[index + 1]:
-                            junction_name = '{0}:{1}-{2}'.format(chrm, base_position + 1, read.positions[index + 1] + 1)
-                            if junction_name not in spanned_junctions:
-                                spanned_junctions[junction_name] = 0
+                        if (index + 1) < len(read.positions) and \
+                                base_position + 1 != read.get_reference_positions()[index + 1]:
 
-                            spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
+                            try:
+                                junction_name = Junction(
+                                    chrm,
+                                    base_position + 1,
+                                    read.get_reference_positions()[index + 1] + 1
+                                )
+
+                                if junction_name not in spanned_junctions:
+                                    spanned_junctions[junction_name] = 0
+
+                                spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
+                            except ValueError:
+                                continue
 
             return cls(chrm, start_coord, end_coord, depth_vector, spanned_junctions)
         except IOError:
-            print(('There is no .bam file at {0}'.format(bam_file_path)))
+            print('There is no .bam file at {0}'.format(bam_file_path))
             raise Exception
 
     @classmethod
@@ -486,7 +583,7 @@ class ReadDepth(GenomicLoci):
         # filter through junctions_dict to remove junctions which are no longer in the region
         new_junctions_dict = {}
         for key, value in self.junctions_dict.items():
-            ss_low, ss_high = list(map(int, key.split(':')[1].split('-')))
+            ss_low, ss_high = key.start, key.end
 
             if ss_low >= new_low and ss_high <= new_high:
                 new_junctions_dict[key] = value
@@ -525,7 +622,7 @@ class ReadDepth(GenomicLoci):
 
         new_junctions_dict = {}
 
-        for key, value in list(self.junctions_dict.items()):
+        for key, value in self.junctions_dict.items():
             if key in other.junctions_dict:
                 new_junctions_dict[key] = value + other.junctions_dict[key]
             else:
@@ -626,8 +723,6 @@ def read_transcripts(gtf_file, chromosome, start, end, strand):
         strand=strand
     )
 
-    print(chromosome, start, end)
-
     with pysam.Tabixfile(gtf_file, 'r') as gtf_tabix:
         relevant_exons_iterator = gtf_tabix.fetch(
             chromosome,
@@ -647,7 +742,6 @@ def read_transcripts(gtf_file, chromosome, start, end, strand):
                 exon.end = end
 
             splice_region.add_exon(exon)
-
     return splice_region
 
 
@@ -671,10 +765,10 @@ def read_reads_depth(bam_list, splice_region, alias=None):
             splice_region.end
         )
 
-        # tmp.shrink(
-        #     new_low=splice_region.min_start,
-        #     new_high=splice_region.max_end
-        # )
+        tmp.shrink(
+            new_low=splice_region.min_start,
+            new_high=splice_region.max_end
+        )
 
         # reduce unnecessary characters
         label = re.sub(r"[_.]SJ.out.tab", "", os.path.basename(bam))
