@@ -89,8 +89,8 @@ def command_line_args():
     parser = ap.ArgumentParser(description="Sashimi plot")
 
     parser.add_argument(
-        "bam",
-        nargs="+",
+        "-b",
+        "--bam",
         type=str,
         # required=True,
         help="Path to bam files"
@@ -167,12 +167,12 @@ def test_sashimi(args):
     formatted_gtf = gtf
 
     bam_list = []
-    for i in bam:
+    for i in bam.split(","):
         if not os.path.exists(i):
             raise ValueError("%s not found" % i)
 
         bam_list.append(os.path.abspath(i))
-
+    print(bam_list)
     chromosome, start, end, strand = get_sites_from_splice_id(event)
 
     splice_region = read_transcripts(
@@ -184,7 +184,7 @@ def test_sashimi(args):
     )
 
     reads_depth = read_reads_depth(
-        bam_list=bam,
+        bam_list=bam_list,
         splice_region=splice_region
         # strand=strand
     )
@@ -244,17 +244,26 @@ if __name__ == '__main__':
     #
     # print(data)
 
-    args = command_line_args()
+    # args = command_line_args()
 
-    test_sashimi(
-        [
-            args.bam,
-            args.gtf,
-            args.output,
-            args.event,
-            args.config,
-        ]
-    )
+    # ,/Volumes/WD/tests/splice_plot/L02_99_chr1.bam
+    test_sashimi([
+            "/Volumes/WD/tests/splice_plot/L02_102_chr1.bam",
+            "/Volumes/WD/tests/splice_plot/Homo_sapiens.GRCh38.93.gtf.gz",
+            "/Volumes/WD/tests/splice_plot/test1.pdf",
+            "1:18062-29320:-",
+            os.path.join(__dir__, "new_src/settings.ini")
+    ])
+
+    # test_sashimi(
+    #     [
+    #         args.bam,
+    #         args.gtf,
+    #         args.output,
+    #         args.event,
+    #         args.config,
+    #     ]
+    # )
 
     # test_in_batch(
     #     infile=args.event,

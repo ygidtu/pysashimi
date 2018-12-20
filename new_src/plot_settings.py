@@ -358,7 +358,7 @@ def parse_sashimi_settings(config_parser):
         'show_xlabel'
     }
 
-    OTHER_PARAMS = {'colors','plot_title'}
+    OTHER_PARAMS = {'colors'}
 
     for option in config_parser.options('sashimi_plot'):
         if option in INT_PARAMS:

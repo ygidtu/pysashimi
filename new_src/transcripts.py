@@ -310,7 +310,14 @@ class SpliceRegion(object):
         ordered exon starts
         :return:
         """
-        return sorted(self.__exon_starts__)
+        data = []
+        for i in sorted(self.__exon_starts__):
+            if i < self.start:
+                data.append(self.start)
+            else:
+                data.append(i)
+
+        return data
 
     @property
     def exon_ends(self):
@@ -318,7 +325,13 @@ class SpliceRegion(object):
         ordered exon ends
         :return:
         """
-        return sorted(self.__exon_ends__)
+        data = []
+        for i in sorted(self.exon_ends):
+            if i > self.end:
+                data.append(self.end)
+            else:
+                data.append(i)
+        return data
 
     @property
     def min_start(self):
@@ -326,10 +339,7 @@ class SpliceRegion(object):
         get the very first start site of exons
         :return: int
         """
-        if self.exon_starts:
-            return min(self.exon_starts[0], self.start)
-        else:
-            return self.start
+        return self.start
 
     @property
     def max_end(self):
@@ -337,10 +347,8 @@ class SpliceRegion(object):
         get the very last end site of exons
         :return: int
         """
-        if self.exon_ends:
-            return max(self.exon_ends[-1], self.end)
-        else:
-            return self.end
+
+        return self.end
 
     @property
     def transcripts(self):
@@ -482,9 +490,17 @@ class ReadDepth(GenomicLoci):
 
         self.wiggle = wiggle
         self.junctions_dict = junctions_dict
+        self.max = max(self.wiggle)
 
     @classmethod
-    def determine_depth(cls, bam_file_path, chrm, start_coord, end_coord):
+    def determine_depth(
+            cls,
+            bam_file_path,
+            chrm,
+            start_coord,
+            end_coord,
+            threshold
+    ):
         """
             determine_depth determines the coverage at each base between start_coord and end_coord, inclusive.
 
@@ -544,7 +560,18 @@ class ReadDepth(GenomicLoci):
                             except ValueError:
                                 continue
 
-            return cls(chrm, start_coord, end_coord, depth_vector, spanned_junctions)
+            filtered_junctions = {}
+            for k, v in spanned_junctions.items():
+                if v >= threshold:
+                    filtered_junctions[k] = v
+
+            return cls(
+                chrm,
+                start_coord,
+                end_coord,
+                depth_vector,
+                filtered_junctions
+            )
         except IOError:
             print('There is no .bam file at {0}'.format(bam_file_path))
             raise Exception
@@ -749,12 +776,13 @@ def read_transcripts(gtf_file, chromosome, start, end, strand):
     return splice_region
 
 
-def read_reads_depth(bam_list, splice_region, alias=None):
+def read_reads_depth(bam_list, splice_region, alias=None, threshold=0):
     u"""
     read reads coverage info from all bams
     :param bam_list: list of path to BAM files
     :param splice_region: SpliceRegion
     :param alias: dict {BAM path: BAM alias}
+    :param threshold: filter low abundance junctions
     :return: dict {alias, ReadDepth}
     """
 
@@ -763,10 +791,11 @@ def read_reads_depth(bam_list, splice_region, alias=None):
     res = {}
     for bam in bam_list:
         tmp = ReadDepth.determine_depth(
-            bam,
-            splice_region.chromosome,
-            splice_region.start,
-            splice_region.end
+            bam_file_path=bam,
+            chrm=splice_region.chromosome,
+            start_coord=splice_region.start,
+            end_coord=splice_region.end,
+            threshold=threshold
         )
 
         tmp.shrink(
