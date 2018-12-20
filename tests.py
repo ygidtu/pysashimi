@@ -160,10 +160,11 @@ def test_sashimi(args):
     except IOError as err:
         print("Create output directory failed, please check %s" % out_dir)
 
-    formatted_gtf = os.path.join(out_dir, os.path.basename(gtf))
-
-    if not os.path.exists(formatted_gtf):
-        format_gtf(gtf, formatted_gtf)
+    # formatted_gtf = os.path.join(out_dir, os.path.basename(gtf)) + ".gz"
+    #
+    # if not os.path.exists(formatted_gtf):
+    #     format_gtf(gtf, formatted_gtf)
+    formatted_gtf = gtf
 
     bam_list = []
     for i in bam:
@@ -175,7 +176,7 @@ def test_sashimi(args):
     chromosome, start, end, strand = get_sites_from_splice_id(event)
 
     splice_region = read_transcripts(
-        gtf_file=formatted_gtf + ".gz",
+        gtf_file=formatted_gtf,
         chromosome=chromosome,
         start=start,
         end=end,
@@ -200,9 +201,9 @@ def test_sashimi(args):
     draw_sashimi_plot(
         output_file_path=output,
         settings=sashimi_plot_settings,
-        var_pos=event,
+        event=event,
         average_depths_dict=reads_depth,
-        mRNAs_object=splice_region
+        splice_region=splice_region
     )
 
 
@@ -244,23 +245,24 @@ if __name__ == '__main__':
     # print(data)
 
     args = command_line_args()
-    #
-    # test_sashimi(
-    #     [
-    #         args.bam,
-    #         args.gtf,
-    #         args.output,
-    #         args.event,
-    #         args.config,
-    #     ]
+
+    test_sashimi(
+        [
+            args.bam,
+            args.gtf,
+            args.output,
+            args.event,
+            args.config,
+        ]
+    )
+
+    # test_in_batch(
+    #     infile=args.event,
+    #     config=args.config,
+    #     gtf=args.gtf,
+    #     bam=args.bam,
+    #     output=args.output,
+    #     n_job=12
     # )
 
-    test_in_batch(
-        infile=args.event,
-        config=args.config,
-        gtf=args.gtf,
-        bam=args.bam,
-        output=args.output,
-        n_job=12
-    )
 

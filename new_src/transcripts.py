@@ -7,9 +7,13 @@ Inspired by SplicePlot -> mRNAObjects
 """
 import os
 import re
+from collections import namedtuple
 
 import numpy
 import pysam
+
+
+transcript = namedtuple("Transcript", ["transcript", "gene", "exons"])
 
 
 class GenomicLoci(object):
@@ -246,7 +250,7 @@ class Exon(GenomicLoci):
         convert Exon class to dict
         :return: dict {transcript: id, gene: id, exons: [Exon, Exon]}
         """
-        return {"transcript": self.transcript, "gene": self.gene, "exons": [self]}
+        return transcript(transcript=self.transcript, gene=self.gene, exons=[self])
 
 
 class SpliceRegion(object):
@@ -346,8 +350,8 @@ class SpliceRegion(object):
         :return: [[{transcript: id, gene: id, exon: []}, {}, {}], [{}]]
         """
         data = []
-        for i in self.__transcripts__.values():
-            data.append([x.to_dict() for x in i])
+        for k, v in self.__transcripts__.items():
+            data.append(transcript(transcript=k, gene=v[0].gene, exons=v))
         return data
 
     def add_exon(self, exon):

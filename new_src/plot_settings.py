@@ -5,7 +5,7 @@ import ast
 import configparser
 import sys
 
-from src.drawing import RGB
+from new_src.drawing import RGB
 
 
 def default_hive_settings():
@@ -338,7 +338,7 @@ def parse_sashimi_settings(config_parser):
         'height',
         'intron_scale',
         'exon_scale',
-        'ymax',
+        # @2018.12.20 discard this setting 'ymax',
         'resolution',
         'junction_log_base',
         'font_size',

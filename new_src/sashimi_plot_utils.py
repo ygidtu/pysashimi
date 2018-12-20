@@ -2,11 +2,20 @@
 # -*- coding:utf-8 -*-
 u"""
 Migrated from SplicePlot sashimi_plot_utils
-"""
 
+1. change junctions size with fix number; DONE
+2. change subtitle to y title;
+3. shrink of density not properly working
+4. add transcript id and to mRNAs
+
+TODO 5. add new parameter to force different plot using same y axis (eg: log2)
+TODO 7. tests multiple BAM
+
+"""
+from collections import namedtuple
 import matplotlib
-matplotlib.use('svg')
-import pylab
+# matplotlib.use('svg')
+from matplotlib import pylab
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 import math
@@ -37,6 +46,9 @@ def __get_limited_index__(num, length):
     return num
 
 
+ax_label = namedtuple("NamedAx", ["Ax", "Label"])   # @2018.12.20 using this to handle the ylabel of different ax
+
+
 def plot_density_single(
         read_depth_object,
         # mRNAs,
@@ -53,6 +65,7 @@ def plot_density_single(
         font_size=6,
         numbering_font_size=6,
         junction_log_base=10
+
 ):
     u"""
     @2018.12.19 remove unnecessary x label
@@ -101,8 +114,9 @@ def plot_density_single(
 
     for i in range(len(graphcoords)):
         tmpval.append(wiggle[i])
+
         if abs(graphcoords[i] - prevx) > resolution:
-            compressed_wiggle.append(pylab.mean(tmpval))
+            compressed_wiggle.append(sum(tmpval) / len(tmpval))
             compressed_x.append(prevx)
             prevx = graphcoords[i]
             tmpval = []
@@ -115,7 +129,7 @@ def plot_density_single(
         lw=0
     )
 
-    # @2018.12.19
+    # @2018.12.19 seems useless
     # sslists = []
     # for mRNA in mRNAs:
     #     tmp = []
@@ -127,7 +141,6 @@ def plot_density_single(
     jxns_sorted_list = sorted(jxns.keys())
 
     current_height = -3 * ymin / 4
-
     for plotted_count, jxn in enumerate(jxns_sorted_list):
         # leftss, rightss = list(map(int, jxn.split(":")[1].split("-")))
 
@@ -139,13 +152,14 @@ def plot_density_single(
         ss1 = graphcoords[__get_limited_index__(leftss - tx_start - 1, len(graphcoords))]
         ss2 = graphcoords[__get_limited_index__(rightss - tx_start, len(graphcoords))]
 
-        # ss1, ss2 = graphcoords[leftss - tx_start - 1], graphcoords[
-
-        # mid = (ss1 + ss2) / 2
-
         # draw junction on bottom
         if plotted_count % 2 == 1:
-            pts = [(ss1, 0), (ss1, -current_height), (ss2, -current_height), (ss2, 0)]
+            pts = [
+                (ss1, 0),
+                (ss1, -current_height),
+                (ss2, -current_height),
+                (ss2, 0)
+            ]
             midpt = cubic_bezier(pts, .5)
 
         # draw junction on top
@@ -154,14 +168,17 @@ def plot_density_single(
             leftdens = wiggle[__get_limited_index__(leftss - tx_start - 1, len(wiggle))]
             rightdens = wiggle[__get_limited_index__(rightss - tx_start, len(wiggle))]
 
-            pts = [(ss1, leftdens),
-                   (ss1, leftdens + current_height),
-                   (ss2, rightdens + current_height),
-                   (ss2, rightdens)]
+            pts = [
+                (ss1, leftdens),
+                (ss1, leftdens + current_height),
+                (ss2, rightdens + current_height),
+                (ss2, rightdens)
+            ]
+
             midpt = cubic_bezier(pts, .5)
 
         if number_junctions:
-            pylab.text(
+            t = pylab.text(
                 midpt[0],
                 midpt[1],
                 '{0}'.format(round(jxns[jxn],2)),
@@ -170,6 +187,9 @@ def plot_density_single(
                 va='center',
                 backgroundcolor='w'
             )
+
+            # @2018.12.19 transparent background
+            t.set_bbox(dict(alpha=0))
 
         a = Path(
             pts,
@@ -184,7 +204,8 @@ def plot_density_single(
         p = PathPatch(
             a,
             ec=color,
-            lw=pylab.log(jxns[jxn] + 1) / pylab.log(junction_log_base),
+            # lw=pylab.log(jxns[jxn] + 1) / pylab.log(junction_log_base),
+            lw=0.5,
             fc='none'
         )
 
@@ -199,7 +220,7 @@ def plot_density_single(
     if showXaxis:
         axvar.xaxis.set_ticks_position('bottom')
 
-        # @2018.12.19
+        # @2018.12.19 unnecessary text in figure
         # xlabel('Genomic coordinate (%s), "%s" strand'%(chrom,
         #                                                strand),
         #        fontsize=font_size)
@@ -227,6 +248,7 @@ def plot_density(
         event,
         read_depths_dict,
         splice_region,
+        show_gene=False
         # ordered_genotypes_list
 ):
     u"""
@@ -240,6 +262,7 @@ def plot_density(
     :param event: str, splice event id, only used for subtitle
     :param read_depths_dict:
     :param splice_region:
+    :param show_gene: Boolean value to decide whether show gene id in this graph, used by plot_transcripts()
     :return:
     """
 
@@ -248,7 +271,7 @@ def plot_density(
     intron_scale = settings["intron_scale"]
     exon_scale = settings["exon_scale"]
     colors = settings["colors"]
-    ymax = settings["ymax"]
+    ymax = None      # @2018.12.20 do not use the settings["ymax"], force scripts calculate the best ymax
     number_junctions = settings["number_junctions"]
     resolution = settings["resolution"]
     junction_log_base = settings["junction_log_base"]
@@ -271,11 +294,11 @@ def plot_density(
     exon_ends = splice_region.exon_ends
     tx_start = splice_region.start
     tx_end = splice_region.end
-    mRNAs = splice_region.transcripts
+    transcripts = splice_region.transcripts
     strand = splice_region.start
 
     # Get the right scalings
-    graphcoords, graphToGene = getScaling(
+    graphcoords, graphToGene = get_scaling(
         tx_start,
         tx_end,
         strand,
@@ -290,13 +313,12 @@ def plot_density(
 
     if plot_title is not None and plot_title != '':
         # Use custom title if given
-        pylab.suptitle(plot_title, fontsize=10)
-    elif plot_title == '':
-        pylab.suptitle(event, fontsize=10)
+        pylab.title(plot_title, fontsize=10)
+    elif plot_title == "" or plot_title is None:
+        pylab.title(event, fontsize=10)
         
     plotted_axes = []
-
-    labels_list = []
+    # labels_list = []
 
     u"""
     Modified by Zhang yiming at 2018.12.19
@@ -323,8 +345,7 @@ def plot_density(
         )
         
         # Read sample label
-        sample_label = group_genotype
-        labels_list.append(group_genotype)
+        # labels_list.append(group_genotype)
 
         plotted_ax = plot_density_single(
             read_depth_object=average_read_depth,
@@ -352,7 +373,8 @@ def plot_density(
             junction_log_base=junction_log_base
         )
 
-        plotted_axes.append(plotted_ax)
+        # @2018.12.16 change ax to [ax, label]
+        plotted_axes.append(ax_label(Ax=plotted_ax, Label=group_genotype))
 
 
     ##
@@ -365,9 +387,14 @@ def plot_density(
     else:
         # Compute best ymax value for all samples: take
         # maximum y across all.
-        used_yvals = [curr_ax.get_ylim()[1] for curr_ax in plotted_axes]
+        used_yvals = [curr_ax.Ax.get_ylim()[1] for curr_ax in plotted_axes]
+
         # Round up
         max_used_yval = math.ceil(max(used_yvals))
+
+        # @2018.12.20 if max_used_yval is odd, plus one, for better look
+        if max_used_yval % 2 == 1:
+            max_used_yval += 1
 
     # Reset axes based on this.
     # Set fake ymin bound to allow lower junctions to be visible
@@ -379,10 +406,12 @@ def plot_density(
     )
 
     # Round up yticks
-    universal_ticks = list(map(math.ceil, universal_yticks))
+    # universal_ticks = list(map(math.ceil, universal_yticks))
+
     for sample_num, curr_ax in enumerate(plotted_axes):
         if showYaxis:
-            curr_ax.set_ybound(lower=fake_ymin, upper=1.2*max_used_yval)
+            curr_ax.Ax.set_ybound(lower=fake_ymin, upper=1.2 * max_used_yval)
+
             curr_yticklabels = []
             for label in universal_yticks:
                 if label <= 0:
@@ -394,34 +423,42 @@ def plot_density(
                     else:
                         curr_yticklabels.append("%d" % label)
 
-            curr_ax.set_yticklabels(
+            curr_ax.Ax.set_yticklabels(
                 curr_yticklabels,
                 fontsize=font_size
             )
 
-            curr_ax.spines["left"].set_bounds(0, max_used_yval)
-            curr_ax.set_yticks(universal_yticks)
-            curr_ax.yaxis.set_ticks_position('left')
-            curr_ax.spines["right"].set_color('none')
+            curr_ax.Ax.spines["left"].set_bounds(0, max_used_yval)
+            curr_ax.Ax.set_yticks(universal_yticks)
+            curr_ax.Ax.yaxis.set_ticks_position('left')
+            curr_ax.Ax.spines["right"].set_color('none')
 
             if show_ylabel:
-                y_horz_alignment = 'left'
+                # y_horz_alignment = 'left'
 
-                curr_ax.set_ylabel(
-                    'Depth',
+                # @2018.12.20 using BAM label as ylabel
+                curr_ax.Ax.set_ylabel(
+                    # 'Depth',
+                    curr_ax.Label,
                     fontsize=font_size,
                     va="center",
-                    ha=y_horz_alignment,labelpad=10
+                    # ha=y_horz_alignment,
+                    labelpad=(len(curr_ax.Label) // 5 + 1) * 10,            # the distance between ylabel with axis
+                    rotation="horizontal"
                 )
 
         else:
-            curr_ax.spines["left"].set_color('none')
-            curr_ax.spines["right"].set_color('none')
-            curr_ax.set_yticks([])
+            curr_ax.Ax.spines["left"].set_color('none')
+            curr_ax.Ax.spines["right"].set_color('none')
+            curr_ax.Ax.set_yticks([])
+
+        '''
+         # @2018.12.20 remove extra text inside sashimi 
         ##
         ## Plot sample labels
         ##
         sample_color = colors[sample_num]
+
         # Make sample label y position be halfway between highest
         # and next to highest ytick
         if len(universal_yticks) >= 2:
@@ -429,14 +466,21 @@ def plot_density(
             label_ypos = universal_yticks[-2] + halfway_ypos
         else:
             label_ypos = universal_yticks[-1]
+
         curr_label = labels_list[sample_num]
-        curr_ax.text(max(graphcoords), label_ypos,
-                     curr_label,
-                     fontsize=font_size,
-                     va='bottom',
-                     ha='right',
-                     color=sample_color)
-                
+        t = curr_ax.Ax.text(
+            max(graphcoords),
+            label_ypos,
+            curr_label,
+            fontsize=font_size,
+            va='bottom',
+            ha='right',
+            color=sample_color
+        )
+
+        # @218.12.19 set transparent background
+        t.set_bbox(dict(alpha=0))
+        '''
 
     # Draw gene structure
     ax1 = pylab.subplot2grid(
@@ -446,11 +490,18 @@ def plot_density(
         rowspan=2
     )
 
-    plot_mRNAs(tx_start, mRNAs, graphcoords, reverse_minus)
+    plot_transcripts(
+        tx_start=tx_start,
+        transcripts=transcripts,
+        graphcoords=graphcoords,
+        reverse_minus=reverse_minus,
+        font_size=font_size,
+        show_gene=show_gene
+    )
     pylab.subplots_adjust(hspace=.1, wspace=.7)
 
 
-def getScaling(
+def get_scaling(
         tx_start, 
         tx_end, 
         strand,
@@ -491,68 +542,87 @@ def getScaling(
     return graphcoords, graphToGene
 
 
-def plot_mRNAs(
+def plot_transcripts(
         tx_start,
-        mRNAs,
+        transcripts,
         # strand,
         graphcoords,
-        reverse_minus
+        reverse_minus,
+        font_size,
+        show_gene=False,
+        label_x_axis=-1800
 ):
     """
     [original description]
-    Draw the gene structure.
+    draw the gene structure.
 
     [now]
-    Due to I changed the mRNA class, therefore, this function need be modified
+    due to i changed the mrna class, therefore, this function need be modified
+
+    :param tx_start: the very start of this plot
+    :param tx_end: the very end of this plot
+    :param graphcoords: numpy array, convert the coord of genome to the coord in this plot
+    :param reverse_minus:
+    :param font_size: the font size of transcript label
+    :param show_gene: Boolean value to decide whether to show gene id in this plot
+    :param label_x_axis: the position of transcript ids in x axis
     """
-    yloc = 0 
+    yloc = 1
     exonwidth = .3
     narrows = 50
 
     # @2018.12.19
-    # the mRNAs is a dict of {transcript: id, gene: id, exon: [Exon, Exon]}
-    for mRNA in mRNAs:
-        for m in mRNA:
-            strand = "+"
-            # @2018.12.19
-            # s and e is the start and end site of single exon
-            for exon in m["exons"]:
-                s, e, strand = exon.start, exon.end, exon.strand
-                s = s - tx_start
-                e = e - tx_start
-                x = [
-                    graphcoords[s],
-                    graphcoords[e],
-                    graphcoords[e],
-                    graphcoords[s]
-                ]
-                y = [
-                    yloc - exonwidth / 2,
-                    yloc - exonwidth / 2,
-                    yloc + exonwidth / 2,
-                    yloc + exonwidth / 2
-                ]
-                pylab.fill(x, y, 'k', lw=.5, zorder=20)
+    # the mRNAs is list of namedtuples(transcript=id, gene=id, exons=[Exon, Exon])
+    transcripts = sorted(transcripts, key=lambda x: (len(x.exons), x.exons[0]))
+    for transcript in transcripts:
 
-            # Draw intron.
-            #axhline(yloc, color='k', lw=.5)
-            pylab.plot([min(graphcoords), max(graphcoords)], [yloc,yloc], color='k', lw=0.5)
+        # @2018.12.20 add transcript id, based on fixed coordinates
+        if show_gene:
+            pylab.text(label_x_axis + 400, yloc + 0.1, transcript.gene, fontsize=font_size - 1)
+            pylab.text(label_x_axis + 400, yloc - 0.2, transcript.transcript, fontsize=font_size - 1)
+        else:
+            pylab.text(label_x_axis, yloc - 0.1, transcript.transcript, fontsize=font_size)
 
-            # Draw intron arrows.
-            spread = .2 * max(graphcoords) / narrows
-            for i in range(narrows):
-                loc = float(i) * max(graphcoords) / narrows
-                if strand == '+' or reverse_minus:
-                    x = [loc - spread, loc, loc - spread]
-                else:
-                    x = [loc + spread, loc, loc + spread]
-                y = [yloc - exonwidth / 5, yloc, yloc + exonwidth / 5]
-                pylab.plot(x, y, lw=.5, color='k')
+        strand = "+"
+        # @2018.12.19
+        # s and e is the start and end site of single exon
+        for exon in transcript.exons:
+            s, e, strand = exon.start, exon.end, exon.strand
+            s = s - tx_start
+            e = e - tx_start
+            x = [
+                graphcoords[s],
+                graphcoords[e],
+                graphcoords[e],
+                graphcoords[s]
+            ]
+            y = [
+                yloc - exonwidth / 2,
+                yloc - exonwidth / 2,
+                yloc + exonwidth / 2,
+                yloc + exonwidth / 2
+            ]
+            pylab.fill(x, y, 'k', lw=.5, zorder=20)
 
-            yloc += 1
+        # Draw intron.
+        #axhline(yloc, color='k', lw=.5)
+        pylab.plot([min(graphcoords), max(graphcoords)], [yloc, yloc], color='k', lw=0.5)
+
+        # Draw intron arrows.
+        spread = .2 * max(graphcoords) / narrows
+        for i in range(narrows):
+            loc = float(i) * max(graphcoords) / narrows
+            if strand == '+' or reverse_minus:
+                x = [loc - spread, loc, loc - spread]
+            else:
+                x = [loc + spread, loc, loc + spread]
+            y = [yloc - exonwidth / 5, yloc, yloc + exonwidth / 5]
+            pylab.plot(x, y, lw=.5, color='k')
+
+        yloc += 1
 
     pylab.xlim(0, max(graphcoords))
-    pylab.ylim(-.5, len(mRNAs) + .5)
+    pylab.ylim(-.5, len(transcripts) + .5)
     pylab.box(on=False)
     pylab.xticks([])
     pylab.yticks([])
@@ -574,9 +644,9 @@ def cubic_bezier(pts, t):
 def draw_sashimi_plot(
         output_file_path,
         settings,
-        var_pos,
+        event,
         average_depths_dict,
-        mRNAs_object,
+        splice_region,
         # ordered_genotypes_list
 ):
 
@@ -602,20 +672,26 @@ def draw_sashimi_plot(
 
     """
 
+    assert isinstance(splice_region, SpliceRegion), "splice_region should be SpliceRegion, not %s" % type(splice_region)
+
     plt.figure(
         figsize=[settings['width'], settings['height']]
     )
 
     plot_density(
-        settings,                           # plot settings, untouched
-        var_pos,                            # splice event id, only used for subtitle
-        average_depths_dict,                # reads coverage
-        mRNAs_object,                       # Exon and transcript information
-        # ordered_genotypes_list              # for now, do not know
+        settings,                               # plot settings, untouched
+        event=event,                            # splice event id, only used for subtitle
+        read_depths_dict=average_depths_dict,   # reads coverage
+        splice_region=splice_region,            # Exon and transcript information
+        show_gene=True,                         # decide whether display gene id in this plot
+        # ordered_genotypes_list                # provide the allele information or label for subtitle in SplicePlot
     )
 
     # print("save to %s" % output_file_path)
-    plt.savefig(
-        output_file_path,
-        transparent=True
-    )
+    # plt.savefig(
+    #     output_file_path,
+    #     transparent=True,
+    #     bbox_inches='tight'
+    # )
+
+    plt.show()
