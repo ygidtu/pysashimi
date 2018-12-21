@@ -109,7 +109,7 @@ def plot_density_single(
         ymax = 1.1 * maxheight
     else:
         ymax = ymax
-    ymin = -.5 * ymax   
+    ymin = -.5 * ymax
 
     # Reduce memory footprint by using incremented graphcoords.
     compressed_x = []
@@ -313,19 +313,22 @@ def plot_density(
         
     plotted_axes = []
 
-    ##
-    ## Figure out correct y-axis values
-    ##
-    # Compute best ymax value for all samples: take
-    # maximum y across all.
-    used_yvals = [x.max for x in read_depths_dict.values()]
+    """
+    @ 2018.12.21
+    Figure out correct y-axis values
 
-    # Round up
-    max_used_yval = math.ceil(max(used_yvals))
+    if shared_y is True, compute best ymax value for all samples: take maximum y across all.
+    """
+    max_used_yval = None
+    if shared_y:
+        used_yvals = [x.max for x in read_depths_dict.values()]
 
-    # @2018.12.20 if max_used_yval is odd, plus one, for better look
-    if max_used_yval % 2 == 1:
-        max_used_yval += 1
+        # Round up
+        max_used_yval = math.ceil(max(used_yvals))
+
+        # @2018.12.20 if max_used_yval is odd, plus one, for better look
+        if max_used_yval % 2 == 1:
+            max_used_yval += 1
 
     u"""
     @2018.12.19
@@ -385,6 +388,19 @@ def plot_density(
     # Round up yticks
     for sample_num, curr_ax in enumerate(plotted_axes):
         if showYaxis:
+
+            # @2018.12.20
+            # if shared_y is False, then calculate the best ylimit per axis
+            if not shared_y:
+                used_yvals = [curr_ax.Ax.get_ylim()[1] for curr_ax in plotted_axes]
+
+                # Round up
+                max_used_yval = math.ceil(max(used_yvals))
+
+                # @2018.12.20 if max_used_yval is odd, plus one, for better look
+                if max_used_yval % 2 == 1:
+                    max_used_yval += 1
+
             curr_ax.Ax.set_ybound(lower=fake_ymin, upper=1.2 * max_used_yval)
 
             curr_yticklabels = []
@@ -544,8 +560,9 @@ def plot_transcripts(
     narrows = 50
 
     # @2018.12.19
-    # the mRNAs is list of namedtuples(transcript=id, gene=id, exons=[Exon, Exon])
-    transcripts = sorted(transcripts, key=lambda x: (len(x.exons), x.exons[0]))
+    # @2018.12.21
+    # the API of SpliceRegion has changed, the transcripts here should be sorted
+
     for transcript in transcripts:
 
         # @2018.12.20 add transcript id, based on fixed coordinates
@@ -576,13 +593,15 @@ def plot_transcripts(
             ]
             pylab.fill(x, y, 'k', lw=.5, zorder=20)
 
+        # @2018.12.21
+        # change the intron range
         # Draw intron.
-        pylab.plot([min(graphcoords), max(graphcoords)], [yloc, yloc], color='k', lw=0.5)
+        pylab.plot([graphcoords[transcript.start], graphcoords[transcript.end]], [yloc, yloc], color='k', lw=0.5)
 
         # Draw intron arrows.
-        spread = .2 * max(graphcoords) / narrows
+        spread = .2 * (transcript.end - transcript.start) / narrows
         for i in range(narrows):
-            loc = float(i) * max(graphcoords) / narrows
+            loc = float(i) * (transcript.end - transcript.start) / narrows
             if strand == '+' or reverse_minus:
                 x = [loc - spread, loc, loc - spread]
             else:

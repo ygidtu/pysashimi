@@ -13,7 +13,7 @@ import numpy
 import pysam
 
 
-transcript = namedtuple("Transcript", ["transcript", "gene", "exons"])
+transcript = namedtuple("Transcript", ["transcript", "gene", "start", "end", "exons"])
 
 
 class GenomicLoci(object):
@@ -113,7 +113,7 @@ class GenomicLoci(object):
                 self.start <= other.end and \
                 self.end >= other.start
 
-
+'''
 class Exon(GenomicLoci):
     u"""
     Migrated from SplicePlot Exons class
@@ -251,6 +251,7 @@ class Exon(GenomicLoci):
         :return: dict {transcript: id, gene: id, exons: [Exon, Exon]}
         """
         return transcript(transcript=self.transcript, gene=self.gene, exons=[self])
+'''
 
 
 class SpliceRegion(object):
@@ -290,8 +291,7 @@ class SpliceRegion(object):
         self.start = start
         self.end = end
         self.strand = strand
-        self.__transcripts__ = {}
-        # :param transcripts: a list of dict object, [{transcript: id, gene: id, exons: [Exon, Exon]}]
+        self.__transcripts__ = {}  # {transcript_id: namedtuple(gtf proxy of transcript, [gtf proxy of exons])}
 
         self.__exon_starts__ = []
         self.__exon_ends__ = []
@@ -310,14 +310,7 @@ class SpliceRegion(object):
         ordered exon starts
         :return:
         """
-        data = []
-        for i in sorted(self.__exon_starts__):
-            if i < self.start:
-                data.append(self.start)
-            else:
-                data.append(i)
-
-        return data
+        return sorted(self.__exon_starts__)
 
     @property
     def exon_ends(self):
@@ -325,64 +318,47 @@ class SpliceRegion(object):
         ordered exon ends
         :return:
         """
-        data = []
-        for i in sorted(self.exon_ends):
-            if i > self.end:
-                data.append(self.end)
-            else:
-                data.append(i)
-        return data
-
-    @property
-    def min_start(self):
-        u"""
-        get the very first start site of exons
-        :return: int
-        """
-        return self.start
-
-    @property
-    def max_end(self):
-        u"""
-        get the very last end site of exons
-        :return: int
-        """
-
-        return self.end
+        return sorted(self.__exon_ends__)
 
     @property
     def transcripts(self):
         u"""
-        convert self.__transcripts__ to dict format
+        convert self.__transcripts__ to list format
+
+        Note: wrapper gtf proxy to list and dict format
+            1. there no need to change the code of sashimi plot
+            2. shrink the transcript range
 
         :return: [[{transcript: id, gene: id, exon: []}, {}, {}], [{}]]
         """
-        data = []
-        for k, v in self.__transcripts__.items():
-            data.append(transcript(transcript=k, gene=v[0].gene, exons=v))
-        return data
+        return sorted(self.__transcripts__.values(), key=lambda x: (x.start, x.end, len(x.exons), x.exons[0]))
 
-    def add_exon(self, exon):
+    def add_gtf(self, gtf_line):
         u"""
-        add new exon into this Transcripts class
-        :param exon: object of Exon
+        add new gtf info to this Transcripts class
+        :param gtf_line
         :return:
         """
-        assert isinstance(exon, Exon), "exon should be an object of Exon, not %s" % type(exon)
+        if gtf_line.feature == "transcript":
+            if gtf_line.transcript_id not in self.__transcripts__.keys():
+                self.__transcripts__[gtf_line.transcript_id] = transcript(
+                    transcript=gtf_line.transcript_id,
+                    gene=gtf_line.gene_id,
+                    start=gtf_line.start if gtf_line.start > self.start else self.start,
+                    end=gtf_line.end if gtf_line.end < self.end else self.end,
+                    exons=[]
+                )
+        elif gtf_line.feature == "exon":
+            if gtf_line.start >= self.end or gtf_line.end <= self.start:
+                return
 
-        if exon.start >= self.end or exon.end <= self.start:
-            return
+            if gtf_line.transcript_id not in self.__transcripts__.keys():
+                raise ValueError("gtf file not sorted")
 
-        tmp = self.__transcripts__.get(exon.transcript)
+            self.__transcripts__[gtf_line.transcript_id].exons.append(gtf_line)
 
-        if tmp is None:
-            tmp = []
-
-        tmp.append(exon)
-
-        self.__transcripts__[exon.transcript] = tmp
-        self.__exon_starts__.append(exon.start)
-        self.__exon_ends__.append(exon.end)
+            self.__exon_starts__.append(gtf_line.start if gtf_line.start > self.start else self.start)
+            self.__exon_ends__.append(gtf_line.end if gtf_line.end < self.end else self.end)
 
 
 class Junction(object):
@@ -758,21 +734,13 @@ def read_transcripts(gtf_file, chromosome, start, end, strand):
         relevant_exons_iterator = gtf_tabix.fetch(
             chromosome,
             start - 1,
-            end + 1
+            end + 1,
+            parser=pysam.asGTF()
         )
 
         # min_exon_start, max_exon_end, exons_list = float("inf"), float("-inf"),  []
         for line in relevant_exons_iterator:
-
-            exon = Exon.create_from_gtf(line=line)
-
-            if exon.start < start:
-                exon.start = start
-
-            if exon.end > end:
-                exon.end = end
-
-            splice_region.add_exon(exon)
+            splice_region.add_gtf(line)
     return splice_region
 
 
