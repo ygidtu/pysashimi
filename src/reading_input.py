@@ -645,6 +645,37 @@ def _is_gtf_(infile):
             )
 
 
+def is_bam(infile):
+    u"""
+    check if input file is bam or sam file
+    :param infile: path to input file
+    :return: Boolean
+    """
+    try:
+        with open(infile, "rb") as r:
+            pass
+    except UnicodeDecodeError:
+        return False
+
+    create = False
+    if not os.path.exists(infile + ".bai"):
+        create = True
+    elif os.path.getctime(infile + ".bai") < os.path.getctime(i):
+        os.remove(infile + ".bai")
+        create = True
+    else:
+        try:
+            with pysam.AlignmentFile(infile) as r:
+                r.check_index()
+        except ValueError:
+            create = True
+
+    if create:
+        logger.info("Creating index for %s" % infile)
+        pysam.index(infile)
+    return True
+
+
 def index_gtf(input_gtf, sort_gtf=False, retry=0):
     u"""
     Created by Zhang yiming
@@ -763,7 +794,11 @@ def read_transcripts(gtf_file, chromosome, start, end, strand):
 def read_reads_depth(bam_list, splice_region, alias=None, threshold=0):
     u"""
     read reads coverage info from all bams
-    :param bam_list: list of path to BAM files
+    :param bam_list: dict file,
+            key is alias of BAM (default is BAM file name,
+                                            if is STAR output,
+                                            remove unnecessary characters),
+            value is path to BAM file
     :param splice_region: SpliceRegion
     :param alias: dict {BAM path: BAM alias}
     :param threshold: filter low abundance junctions
@@ -774,7 +809,7 @@ def read_reads_depth(bam_list, splice_region, alias=None, threshold=0):
 
     logger.info("Reading BAM")
     res = {}
-    for bam in bam_list:
+    for alias, bam in bam_list.items():
         tmp = ReadDepth.determine_depth(
             bam_file_path=bam,
             chrm=splice_region.chromosome,
@@ -788,12 +823,7 @@ def read_reads_depth(bam_list, splice_region, alias=None, threshold=0):
             new_high=splice_region.end
         )
 
-        # reduce unnecessary characters
-        label = re.sub(r"[_.]SJ.out.tab", "", os.path.basename(bam))
-        if alias and bam in alias.keys():
-            label = alias[bam]
-
-        res[label] = tmp
+        res[alias] = tmp
     return res
 
 
