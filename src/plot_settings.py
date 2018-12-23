@@ -5,7 +5,8 @@ import ast
 import configparser
 import sys
 
-from new_src.drawing import RGB
+from src.drawing import RGB
+from src.logger import logger
 
 
 def default_hive_settings():
@@ -329,8 +330,6 @@ def parse_struct_plot_settings(config_parser):
 
 def parse_sashimi_settings(config_parser):
 
-    print('Parsing sashimi plot settings...')
-
     settings = default_sashimi_settings()
 
     FLOAT_PARAMS = {
@@ -386,18 +385,17 @@ def parse_settings(settings_file):
     struct_plot_settings is a dictionary containing the settings for the structure plot
     """
     try:
-        print(settings_file)
         config = configparser.ConfigParser()
-        print(('Reading settings from {0}...'.format(settings_file)))
+        logger.info('Reading settings from {0}...'.format(settings_file))
         config.read(settings_file)
 
-        hive_plot_settings = parse_hive_plot_settings(config)
-        struct_plot_settings = parse_struct_plot_settings(config)
+        # hive_plot_settings = parse_hive_plot_settings(config)
+        # struct_plot_settings = parse_struct_plot_settings(config)
 
-        sashimi_plot_settings = parse_sashimi_settings(config) 
+        return parse_sashimi_settings(config)
 
-        print('Done reading settings.')
-        return hive_plot_settings, struct_plot_settings, sashimi_plot_settings
+        # print('Done reading settings.')
+        # return hive_plot_settings, struct_plot_settings, sashimi_plot_settings
     except IOError:
-        print('{0} is not a valid file path')
+        logger.error('{0} is not a valid file path')
         sys.exit(1)

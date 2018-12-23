@@ -7,13 +7,13 @@ Inspired by SplicePlot -> mRNAObjects
 """
 import os
 import re
-from collections import namedtuple
 
 import numpy
 import pysam
 
+from tqdm import tqdm
 
-transcript = namedtuple("Transcript", ["transcript", "gene", "start", "end", "exons"])
+from src.logger import logger
 
 
 class GenomicLoci(object):
@@ -27,10 +27,11 @@ class GenomicLoci(object):
         "chromosome",
         "start",
         "end",
-        "strand"
+        "strand",
+        "gtf_line"
     ]
 
-    def __init__(self, chromosome, start, end, strand):
+    def __init__(self, chromosome, start, end, strand, gtf_line=None):
         u"""
         init this class
         :param chromosome: str
@@ -42,6 +43,7 @@ class GenomicLoci(object):
         self.chromosome = chromosome
         self.start = int(start)
         self.end = int(end)
+        self.gtf_line = gtf_line
 
         if self.end < self.start:
             raise ValueError("End site should bigger than start site, not %d -> %d" % (self.start, self.end))
@@ -54,6 +56,11 @@ class GenomicLoci(object):
     def __gt__(self, other):
         u"""
         whether this loci is downstream of other
+
+        Note:
+            make sure the wider range is upstream of narrower
+
+            due to the sort of gtf file, therefore the transcript will be ahead of exons
         :param other:
         :return:
         """
@@ -63,11 +70,16 @@ class GenomicLoci(object):
         if self.start != other.start:
             return self.start > other.start
 
-        return self.end > other.end
+        return self.end < other.end
 
     def __lt__(self, other):
         u"""
         whether this loci is upstream of other
+
+        Note:
+            make sure the wider range is downstream of narrower
+
+            due to the sort of gtf file, therefore the transcript will be ahead of exons
         :param other:
         :return:
         """
@@ -77,7 +89,7 @@ class GenomicLoci(object):
         if self.start != other.start:
             return self.start < other.start
 
-        return self.end < other.end
+        return self.end > other.end
 
     def __eq__(self, other):
         u"""
@@ -86,8 +98,8 @@ class GenomicLoci(object):
         :return:
         """
         return self.chromosome == other.chromosome and \
-               self.start == other.start and \
-               self.end == other.end
+            self.start == other.start and \
+            self.end == other.end
 
     def __hash__(self):
         u"""
@@ -110,148 +122,43 @@ class GenomicLoci(object):
         :return: Boolean
         """
         return self.chromosome == other.chromosome and \
-                self.start <= other.end and \
-                self.end >= other.start
+            self.start <= other.end and \
+            self.end >= other.start
 
-'''
-class Exon(GenomicLoci):
+
+class Transcript(GenomicLoci):
     u"""
-    Migrated from SplicePlot Exons class
+    Created by Zhang yiming at 2018.12.21
+
+    A class inherit from GenomicLoci, to collect transcript information
     """
 
     __slots__ = [
         "transcript",
-        "gene"
+        "gene",
+        "exons",
     ]
 
-    def __init__(self, chromosome, start, end, strand, transcript, gene):
+    def __init__(self, chromosome, start, end, strand, transcript_id, gene_id, exons):
         u"""
         init this class
         :param chromosome: str
         :param start: int
         :param end: int
         :param strand: str
-        :param transcript: transcript id, that exon belong to
-        :param gene: gene id that exon belong to
+        :param gene_id: str
+        :param exons: list of pysam.GTFProxy
         """
-        super().__init__(chromosome, start, end, strand)
 
-        self.transcript = transcript
-        self.gene = gene
-
-    def __add__(self, other):
-        u"""
-        merge two Exon into one dict
-        :param other: another exon with same transcript with this one
-        :return:
-        """
-        tmp = None
-        if self.transcript == other.transcript:
-            tmp = self.to_dict()
-            tmp["exons"].append(other)
-        return tmp
-
-    def __str__(self):
-        u"""
-        convert this to str
-        :return: str
-        """
-        return "{chrom}:{start}-{end}:{strand}\t{transcript}\t{gene}".format(
-            **{
-                "chrom": self.chromosome,
-                "start": self.start,
-                "end": self.end,
-                "strand": self.strand,
-                "transcript": self.transcript,
-                "gene": self.gene
-            }
+        super().__init__(
+            chromosome=chromosome,
+            start=start,
+            end=end,
+            strand=strand
         )
-
-    @staticmethod
-    def __extract_info_from_annotation__(gtf_line):
-        u"""
-        extract chromosome, start, end, strand, transcript id and gene id from gtf line
-        :param gtf_line:
-        :return:
-        """
-        data = {}
-        for i in gtf_line.split(";"):
-            i = i.strip()
-            if not i:
-                continue
-
-            tmp = re.split(r"[= ]", i)
-
-            tmp_info = tmp[1].strip() if ":" not in tmp[1] else tmp[1].split(":")[1].strip()
-            data[tmp[0]] = tmp_info.replace("\"", "")
-
-        return data
-
-    @classmethod
-    def create_from_gtf(cls, line):
-        u"""
-        [original description]
-
-        create_from_gtf creates an Exon object from a single line of a gtf file
-
-        line is a single line of text (a string) from a gtf file
-
-        [now]
-        never thought to create a class that way
-
-        :param line: gtf line
-        :return:
-        """
-
-        info = line.strip('\n').split("\t")
-        data = cls.__extract_info_from_annotation__(info[8])
-
-        return cls(
-            chromosome=info[0],
-            start=int(info[3]),
-            end=int(info[4]),
-            strand=info[6],
-            transcript=data["transcript_id"] if "transcript_id" in data.keys() else "",
-            gene=data["gene_id"] if "gene_id" in data.keys() else ""
-        )
-
-    def determine_proportion_covered(self, read_depth):
-        u"""
-
-        [now]
-        still do not understand what this do
-
-        :param read_depth:
-        :return:
-        """
-        assert isinstance(read_depth, ReadDepth), "read_depth should be ReadDepth class, not %s" % type(read_depth)
-
-        if read_depth.chromosome != self.chromosome or \
-                self.start < read_depth.start or \
-                self.end > read_depth.end:
-            return 0
-
-        # determine the top and bottom indices
-        bottom_index = self.start - read_depth.start
-        top_index = bottom_index + self.length
-
-        bases_covered = 0
-        for item in range(bottom_index, top_index + 1):
-            if read_depth.wiggle[item] > 0:
-                bases_covered += 1.0
-
-        return bases_covered / (top_index + 1 - bottom_index)
-
-    def determine_average_coverage(self, read_depth):
-        return self.determine_proportion_covered(read_depth) / (self.end - self.start + 1.0)
-
-    def to_dict(self):
-        u"""
-        convert Exon class to dict
-        :return: dict {transcript: id, gene: id, exons: [Exon, Exon]}
-        """
-        return transcript(transcript=self.transcript, gene=self.gene, exons=[self])
-'''
+        self.transcript = transcript_id
+        self.gene = gene_id
+        self.exons = exons
 
 
 class SpliceRegion(object):
@@ -287,7 +194,6 @@ class SpliceRegion(object):
         """
 
         self.chromosome = chromosome
-        # self.strand = strand
         self.start = start
         self.end = end
         self.strand = strand
@@ -341,13 +247,16 @@ class SpliceRegion(object):
         """
         if gtf_line.feature == "transcript":
             if gtf_line.transcript_id not in self.__transcripts__.keys():
-                self.__transcripts__[gtf_line.transcript_id] = transcript(
-                    transcript=gtf_line.transcript_id,
-                    gene=gtf_line.gene_id,
+                self.__transcripts__[gtf_line.transcript_id] = Transcript(
+                    chromosome=gtf_line.contig,
                     start=gtf_line.start if gtf_line.start > self.start else self.start,
                     end=gtf_line.end if gtf_line.end < self.end else self.end,
+                    strand=gtf_line.strand,
+                    transcript_id=gtf_line.transcript_id,
+                    gene_id=gtf_line.gene_id,
                     exons=[]
                 )
+
         elif gtf_line.feature == "exon":
             if gtf_line.start >= self.end or gtf_line.end <= self.start:
                 return
@@ -462,7 +371,7 @@ class ReadDepth(GenomicLoci):
         super().__init__(chromosome, start, end, "+")
 
         if wiggle is not None:
-            assert chromosome is None or self.length + 1 == len(wiggle), 'Wiggle, lower bound, and upper bound do not correspond'
+            assert chromosome is None or self.length + 1 == len(wiggle), "Wiggle length don't correspond to input range"
 
         self.wiggle = wiggle
         self.junctions_dict = junctions_dict
@@ -480,12 +389,16 @@ class ReadDepth(GenomicLoci):
         """
             determine_depth determines the coverage at each base between start_coord and end_coord, inclusive.
 
-            bam_file_path is the path to the bam file used to determine the depth and junctions on chrm between start_coord and end_coord
+            bam_file_path is the path to the bam file used to \
+            determine the depth and junctions on chromosome between start_coord and end_coord
 
-            return values:
-                depth_vector, which is a Numpy array which contains the coverage at each base position between start_coord and end_coord
-                spanned_junctions, which is a dictionary containing the junctions supported by reads. The keys in spanned_junctions are the
-                    names of the junctions, with the format chromosome:lowerBasePosition-higherBasePosition
+        return values:
+            depth_vector,
+            which is a Numpy array which contains the coverage at each base position between start_coord and end_coord
+
+            spanned_junctions, which is a dictionary containing the junctions supported by reads.
+            The keys in spanned_junctions are the
+                names of the junctions, with the format chromosome:lowerBasePosition-higherBasePosition
         """
         try:
             with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
@@ -574,7 +487,8 @@ class ReadDepth(GenomicLoci):
             new_low is the new lower genomic coordinate boundary for the ReadDepth object
             new_high is the new upper genomic coordinate boundary for the ReadDepth object
 
-            This method also changes self.wiggle and self.junctions_dict so that they only contain data between new_low and new_high
+            This method also changes self.wiggle and self.
+            junctions_dict so that they only contain data between new_low and new_high
 
             return value:
                 Nothing. Method changes the ReadDepth object
@@ -624,7 +538,7 @@ class ReadDepth(GenomicLoci):
             return self
 
         assert self.chromosome == other.chromosome, 'Cannot add depths from different chromosomes'
-        assert self.start == other.start and self.end == other.end, 'Cannot add depths with different start and end points'
+        assert self.start == other.start and self.end == other.end, 'Cannot add depths with different start and end'
         new_wiggle = self.wiggle + other.wiggle
 
         new_junctions_dict = {}
@@ -659,12 +573,12 @@ class ReadDepth(GenomicLoci):
     def divide_by_constant(self, constant):
 
         """
-            divide_by_constant divides self.wiggle and self.junctions_dict by a constant value
+        divide_by_constant divides self.wiggle and self.junctions_dict by a constant value
 
-            constant is a number
+        constant is a number
 
-            return value:
-                A new ReadDepth object containing the divided values. Method leaves the original ReadDepth object unchanged
+        return value:
+            A new ReadDepth object containing the divided values. Method leaves the original ReadDepth object unchanged
         """
         new_wiggle = self.wiggle / constant
 
@@ -707,6 +621,107 @@ class ReadDepth(GenomicLoci):
         )
 
 
+def _is_gtf_(infile):
+    u"""
+    check if input file is gtf
+    :param infile: path to input file
+    :return:
+    """
+    with open(infile) as r:
+        for line in r:
+            if line.startswith("#"):
+                continue
+
+            lines = re.split(r"\s+", line)
+
+            if len(lines) < 8:
+                return False
+
+            return bool(
+                re.search(
+                    r"([\w-]+ \"[\w.\s\-%,:]+\";? ?)+",
+                    " ".join(lines[8:])
+                )
+            )
+
+
+def index_gtf(input_gtf, sort_gtf=False, retry=0):
+    u"""
+    Created by Zhang yiming
+
+    Extract only exon tags and keep it clean
+
+    :param input_gtf: path to input gtf file
+    :param sort_gtf: Boolean value, whether to sort gtf file first
+    :param retry: only try to sort gtf once
+    :return path to compressed and indexed bgzipped gtf file
+    """
+    if not _is_gtf_(input_gtf):
+        raise ValueError("gtf file required, %s seems not a valid gtf file" % input_gtf)
+
+    index = False
+    output_gtf = input_gtf + ".gz"
+    if not os.path.exists(output_gtf) or not os.path.exists(output_gtf + ".tbi"):
+        index = True
+
+    elif os.path.getctime(output_gtf) < os.path.getctime(output_gtf) or \
+            os.path.getctime(output_gtf) < os.path.getctime(output_gtf):
+        index = True
+
+    # 2018.12.21 used to handle gtf not sorted error
+    if sort_gtf and retry > 1:
+        raise OSError("Create index for %s failed, and trying to sort it failed too" % input_gtf)
+    elif sort_gtf:
+        data = []
+
+        logger.info("Sorting %s" % input_gtf)
+
+        old_input_gtf = input_gtf
+        input_gtf = re.sub("\.gtf$", "", input_gtf) + ".sorted.gtf"
+
+        output_gtf = input_gtf + ".gz"
+
+        if os.path.exists(input_gtf) and os.path.exists(output_gtf):
+            return output_gtf
+
+        with open(input_gtf, "w+") as w:
+            with open(old_input_gtf) as r:
+                for line in tqdm(r):
+                    if line.startswith("#"):
+                        w.write(line)
+                        continue
+
+                    lines = line.split()
+
+                    data.append(
+                        GenomicLoci(
+                            chromosome=lines[0],
+                            start=lines[3],
+                            end=lines[4],
+                            strand=lines[6],
+                            gtf_line=line
+                        )
+                    )
+
+            for i in sorted(data):
+                w.write(i.gtf_line)
+
+    if index:
+        try:
+            pysam.tabix_index(
+                input_gtf,
+                preset="gff",
+                force=True,
+                keep_original=True
+            )
+        except OSError as err:
+            logger.info(err)
+            logger.info("Guess gtf needs to be sorted")
+            return index_gtf(input_gtf=input_gtf, sort_gtf=True, retry=retry + 1)
+
+    return output_gtf
+
+
 def read_transcripts(gtf_file, chromosome, start, end, strand):
     u"""
     Read transcripts from tabix indexed gtf files
@@ -717,9 +732,10 @@ def read_transcripts(gtf_file, chromosome, start, end, strand):
     :param chromosome: chromosome
     :param start: start site
     :param end: end site
+    :param strand: strand of input region
     :return: SpliceRegion
     """
-
+    logger.info("Reading gtf")
     if not os.path.exists(gtf_file):
         raise FileNotFoundError("%s not found" % gtf_file)
 
@@ -756,6 +772,7 @@ def read_reads_depth(bam_list, splice_region, alias=None, threshold=0):
 
     assert isinstance(splice_region, SpliceRegion), "splice_region should be SplcieRegion, not %s" % type(splice_region)
 
+    logger.info("Reading BAM")
     res = {}
     for bam in bam_list:
         tmp = ReadDepth.determine_depth(
@@ -767,8 +784,8 @@ def read_reads_depth(bam_list, splice_region, alias=None, threshold=0):
         )
 
         tmp.shrink(
-            new_low=splice_region.min_start,
-            new_high=splice_region.max_end
+            new_low=splice_region.start,
+            new_high=splice_region.end
         )
 
         # reduce unnecessary characters
@@ -780,5 +797,5 @@ def read_reads_depth(bam_list, splice_region, alias=None, threshold=0):
     return res
 
 
-
-
+if __name__ == '__main__':
+    pass

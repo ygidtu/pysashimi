@@ -12,21 +12,18 @@ Migrated from SplicePlot sashimi_plot_utils
 7. Junctions count的过滤筛选; DONE
 8. add title, remove title from setting files; DONE
 9. add parameter to decide whether use shared y axis
-
-
-TODO 7. fix distance calculation berween transcript id and transcript
-TODO 现在使用了gtf文件的提取，改为自己的逻辑，使转录本展示更加准确
+10. fix transcripts display issues
 """
 from collections import namedtuple
 import matplotlib
-# matplotlib.use('svg')
+matplotlib.use('svg')
 from matplotlib import pylab
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 import math
 import matplotlib.pyplot as plt
 
-from new_src.transcripts import SpliceRegion
+from src.reading_input import SpliceRegion, logger
 
 
 def __get_limited_index__(num, length):
@@ -319,16 +316,14 @@ def plot_density(
 
     if shared_y is True, compute best ymax value for all samples: take maximum y across all.
     """
-    max_used_yval = None
-    if shared_y:
-        used_yvals = [x.max for x in read_depths_dict.values()]
+    used_yvals = [x.max for x in read_depths_dict.values()]
 
-        # Round up
-        max_used_yval = math.ceil(max(used_yvals))
+    # Round up
+    max_used_yval = math.ceil(max(used_yvals))
 
-        # @2018.12.20 if max_used_yval is odd, plus one, for better look
-        if max_used_yval % 2 == 1:
-            max_used_yval += 1
+    # @2018.12.20 if max_used_yval is odd, plus one, for better look
+    if max_used_yval % 2 == 1:
+        max_used_yval += 1
 
     u"""
     @2018.12.19
@@ -485,7 +480,7 @@ def plot_density(
         reverse_minus=reverse_minus,
         font_size=font_size,
         show_gene=show_gene,
-        label_x_axis=graphcoords[tx_start] - 300
+        # label_x_axis=graphcoords[tx_start] - 300
     )
     pylab.subplots_adjust(hspace=.1, wspace=.7)
 
@@ -538,7 +533,7 @@ def plot_transcripts(
         reverse_minus,
         font_size,
         show_gene=False,
-        label_x_axis=-300
+        # label_x_axis=-300
 ):
     """
     [original description]
@@ -559,6 +554,12 @@ def plot_transcripts(
     exonwidth = .3
     narrows = 50
 
+    # @ 2018.12.21
+    # 11258 -> 0.025
+    # 21258 -> 0.06
+    # this distance is calculated by simple line regression
+    distance = 0.005 * math.ceil(len(graphcoords) / 2000)
+
     # @2018.12.19
     # @2018.12.21
     # the API of SpliceRegion has changed, the transcripts here should be sorted
@@ -567,10 +568,26 @@ def plot_transcripts(
 
         # @2018.12.20 add transcript id, based on fixed coordinates
         if show_gene:
-            pylab.text(label_x_axis, yloc + 0.1, transcript.gene, fontsize=font_size - 1)
-            pylab.text(label_x_axis, yloc - 0.2, transcript.transcript, fontsize=font_size - 1)
+            pylab.text(
+                x=min(graphcoords) - distance * len(graphcoords),
+                y=yloc + 0.1,
+                s=transcript.gene,
+                fontsize=font_size
+            )
+
+            pylab.text(
+                x=min(graphcoords) - distance * len(graphcoords),
+                y=yloc - 0.2,
+                s=transcript.transcript,
+                fontsize=font_size
+            )
         else:
-            pylab.text(label_x_axis, yloc - 0.1, transcript.transcript, fontsize=font_size)
+            pylab.text(
+                x=min(graphcoords) - distance * len(graphcoords),
+                y=yloc - 0.1,
+                s=transcript.transcript,
+                fontsize=font_size
+            )
 
         strand = "+"
         # @2018.12.19
@@ -596,12 +613,25 @@ def plot_transcripts(
         # @2018.12.21
         # change the intron range
         # Draw intron.
-        pylab.plot([graphcoords[transcript.start], graphcoords[transcript.end]], [yloc, yloc], color='k', lw=0.5)
+        intron_sites = [graphcoords[transcript.start - tx_start], graphcoords[transcript.end - tx_start]]
+        pylab.plot(
+            intron_sites,
+            [yloc, yloc],
+            color='k',
+            lw=0.5
+        )
 
+        # @2018.12.23 fix intron arrows issues
         # Draw intron arrows.
-        spread = .2 * (transcript.end - transcript.start) / narrows
+        max_ = graphcoords[transcript.end - tx_start]
+
+        if max_ < narrows * 3:
+            narrows = max_ // 10
+
+        spread = .2 * max_ / narrows
+
         for i in range(narrows):
-            loc = float(i) * (transcript.end - transcript.start) / narrows
+            loc = float(i) * max_ / narrows + graphcoords[transcript.start - tx_start]
             if strand == '+' or reverse_minus:
                 x = [loc - spread, loc, loc - spread]
             else:
@@ -634,7 +664,6 @@ def cubic_bezier(pts, t):
 def draw_sashimi_plot(
         output_file_path,
         settings,
-        event,
         average_depths_dict,
         splice_region,
         # ordered_genotypes_list
@@ -676,11 +705,11 @@ def draw_sashimi_plot(
         # ordered_genotypes_list                # provide the allele information or label for subtitle in SplicePlot
     )
 
-    print("save to %s" % output_file_path)
-    plt.savefig(
-        output_file_path,
-        transparent=True,
-        bbox_inches='tight'
-    )
+    logger.info("save to %s" % output_file_path)
+    # plt.savefig(
+    #     output_file_path,
+    #     transparent=True,
+    #     bbox_inches='tight'
+    # )
 
-    # plt.show()
+    plt.show()

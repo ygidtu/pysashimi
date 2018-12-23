@@ -1,214 +1,279 @@
 #!/usr/bin/env python3
-# -*- coding:utf-8 -*-
+#-*-coding:utf-8 -*-
 u"""
-Trying to make a suit of pure python scripts to make sashimi plots
+Created by ygidtu@gmail.com at 2018.12.16
+
+Tests
 """
-import re
-import argparse
+from tqdm import tqdm
+import multiprocessing as mp
+import os
 import sys
-import logging
-from annotation.Annotation import Annotation
-from annotation.Transcripts import Transcripts
-from coverage.Coverage import Coverage
-from src.Sashimi import Sashimi
-from itertools import zip_longest
+import argparse as ap
+import pickle
+# import matplotlib.pyplot as plt
+# from matplotlib.path import Path
+# from matplotlib.patches import PathPatch
+# from pylab import linspace
+
+from src.sashimi_plot_utils import draw_sashimi_plot
+from src.reading_input import read_reads_depth, read_transcripts, index_gtf, logger
+from src.plot_settings import parse_settings
 
 
+__dir__ = os.path.dirname(__file__)
 
-class Main(object):
+
+'''
+def test_path(show_axis, chrom, strand, font_size, nxticks=4):
+    pts = [
+        (0, 0),
+        (0, 1),
+        (5, 1),
+        (5, 0)
+    ]
+
+    a = Path(pts, [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4])
+    p = PathPatch(a, ec="red", lw=1, fc='none')
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.add_patch(p)
+    ax.set_xlim(-2, 7)
+    ax.set_ylim(-1, 5)
+    ax.text(2.5, 1.1, "10")
+
+    # 去除一半，右侧和上侧的坐标轴
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+
+    # if show_axis:
+    #     ax.xaxis.set_ticks_position('bottom')
+    #     ax.xlabel('Genomic coordinate (%s), "%s" strand'%(chrom,
+    #                                                    strand),
+    #            fontsize=font_size)
+    #     max_graphcoords = max(graphcoords) - 1
+    #     ax.xticks(
+    #         linspace(0, max_graphcoords, nxticks),
+    #            [graphToGene[int(x)] for x in \
+    #             linspace(0, max_graphcoords, nxticks)],
+    #            fontsize=font_size
+    #     )
+    # else:
+    #     ax.spines['bottom'].set_color('none')
+    #     ax.xticks([])
+    #
+    # ax.xlim(0, max(graphcoords))
+
+    plt.show()
+'''
+
+
+def get_sites_from_splice_id(string):
     u"""
-    Main program
+    get splice range from splice id
+    :param string: splice id
+    :return: chromosome, start, end, strand
     """
+    chromosome, sites, strand = string.split(":")
+    sites = sites.split("-")
+    return chromosome, int(sites[0]), int(sites[-1]), strand
 
-    def __init__(self):
-        u"""
-        init this class without any parameter
-        """
-        self.logger = self.__set_logging__()
 
-        self.parser = argparse.ArgumentParser(description="pysashimi")
-        self.__set_parser__()
-        self.main()
-        pass
+def command_line_args():
+    u"""
+    generate command line parameters
+    :return:
+    """
+    parser = ap.ArgumentParser(description="Sashimi plot")
 
-    def main(self):
+    parser.add_argument(
+        "-b",
+        "--bam",
+        type=str,
+        # required=True,
+        help="Path to bam files"
+    )
+    parser.add_argument(
+        "-g",
+        "--gtf",
+        type=str,
+        help="Path to gtf file"
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        required=True,
+        help="Path to output file"
+    )
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        default=os.path.join(__dir__, "new_src/settings.ini"),
+        # required=True,
+        help="Path to setting file"
+    )
+    parser.add_argument(
+        "-e",
+        "--event",
+        type=str,
+        required=True,
+        help="splice event id"
+    )
 
-        if len(sys.argv) <= 1:
-            self.parser.print_help()
-            exit(0)
-
+    if len(sys.argv) <= 1:
+        parser.print_help()
+        exit()
+    else:
         try:
-            args = self.parser.parse_args(sys.argv[1:])
-
-            tran = Transcripts()
-            for i in range(5):
-                tran.add_transcript("1", "+")
-                tran.add_exon("1", i ** 2 * 10, (i ** 2 + 1) * 10)
-
-            if args.version:
-                print("2018.10.28")
-                exit(0)
-
-            ref = Annotation(args.reference) if args.reference is not None else None
-
-            if args.which == "index":
-                if ref is not None:
-                    ref.generate_index()
-            elif args.which == "plot":
-
-                chromosome, start, end = re.search(
-                    r"(?P<chrom>[\w\.]+):(?P<start>\d+)-(?P<end>\d+)",
-                    args.coordinate
-                ).groups()
-
-                if args.name is None:
-                    names = [None]
-                else:
-                    names = args.name.split(",")
-
-                coverages = []
-                for infile, name in zip_longest(args.infile, names):
-                    tmp = Coverage(
-                        infile=infile,
-                        chromosome=chromosome,
-                        start=start,
-                        end=end,
-                        junctions=args.junctions,
-                        name=name
-                    )
-                    coverages.append(tmp)
-
-                Sashimi(
-                    start=start,
-                    end=end,
-                    transcripts=ref.query(chromosome, start, end) if ref is not None else None,
-                    coverages=coverages,
-                    sites=args.sites
-                ).save(args.output)
-
-        except argparse.ArgumentError as err:
-            self.logger.error(err)
+            args = parser.parse_args(sys.argv[1:])
+            print(vars(args))
+            return args
+        except ap.ArgumentError as err:
+            print(err)
+            parser.print_usage()
             exit(err)
 
-        pass
 
-    @staticmethod
-    def __set_logging__(log_file=None):
-        u"""
-        set logging style and level
-        :return:
-        """
-        formatter = logging.Formatter('[%(asctime)s] - %(levelname)s - %(message)s')
+def test_sashimi(args):
+    u"""
+    Created by Zhang yiming at 2018.12.19
+    This function is used to test the function of sashimi plotting
+    :param bam: list of input BAM files
+    :param gtf: path to gtf file
+    :param output: path to output file
+    :param event: event id, chr:100-200-100-200:+ etc
+    :param config: path to config file, default using settings.ini file under this suite of scripts
+    :return:
+    """
+    # bam, gtf, output, event, config = args
+    bam, gtf, output, event, config = [
+            "/Volumes/WD/tests/splice_plot/L02_102_chr1.bam",
+            "/Volumes/WD/tests/splice_plot/Homo_sapiens.GRCh38.93.sorted.gtf",
+            "/Volumes/WD/tests/splice_plot/test.pdf",
+            "1:8062-29320:-",
+            os.path.join(__dir__, "src/settings.ini")
+    ]
 
-        # create logger with 'spam_application'
-        logger = logging.getLogger('pysashimi')
-        logger.setLevel(logging.DEBUG)
+    output = os.path.abspath(output)
+    out_dir = os.path.dirname(output)
 
-        # create console handler
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
-        ch.setFormatter(formatter)
-        logger.addHandler(ch)
+    try:
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+    except IOError as err:
+        print("Create output directory failed, please check %s" % out_dir)
 
-        # create file handler which logs even debug messages
-        if log_file:
-            fh = logging.FileHandler(log_file)
-            fh.setLevel(logging.DEBUG)
-            fh.setFormatter(formatter)
-            logger.addHandler(fh)
-        return logger
+    bam_list = []
+    for i in bam.split(","):
+        if not os.path.exists(i):
+            raise ValueError("%s not found" % i)
 
-    def __set_parser__(self):
-        self.parser.set_defaults(which="main")
-        self.parser.add_argument("-v", "--version", action="store_true", default=False)
+        bam_list.append(os.path.abspath(i))
 
-        sub_parser = self.parser.add_subparsers(help="Sub-commands")
+    logger.info("check")
+    chromosome, start, end, strand = get_sites_from_splice_id(event)
 
-        generate_index = sub_parser.add_parser("index", help="Generate index for gtf|gff3 file")
-        generate_index.set_defaults(which="index")
+    logger.info("splie")
+    splice_region = read_transcripts(
+        gtf_file=index_gtf(input_gtf=gtf),
+        chromosome=chromosome,
+        start=start,
+        end=end,
+        strand=strand
+    )
 
-        generate_index.add_argument(
-            "reference", type=str
-        )
+    reads_depth = read_reads_depth(
+        bam_list=bam_list,
+        splice_region=splice_region
+        # strand=strand
+    )
 
-        # plot subcommand
-        plot = sub_parser.add_parser("plot", help="Plot sashimi plot")
-        plot.set_defaults(which="plot")
+    """
+    output_file_path,
+    settings,
+    var_pos,
+    average_depths_dict,
+    mRNAs_object,
+    """
+    sashimi_plot_settings = parse_settings(config)
 
-        plot.add_argument(
-            "-r",
-            "--reference",
-            help="Path to gtf|gff3 file",
-            type=str,
-            # required=True
-        )
-
-        plot.add_argument(
-            "-c", "--coordinate",
-            type=str,
-            help="Genomic coordinates, eg: -c 1:100-200",
-            required=True
-        )
-
-        plot.add_argument(
-            "-n", "--name",
-            type=str,
-            default=None,
-            help="The ylabel in final plot ,eg:input1,input2 [default: Names of input BAM/SAM or bigWig files]"
-        )
-
-        plot.add_argument(
-            "-i", "--infile",
-            type=str,
-            help="Path to input BAM/SAM/BigWig files, multiple files: -i first -i second",
-            required=True,
-            action="append"
-        )
-
-        plot.add_argument(
-            "--sites",
-            type=str,
-            default=None,
-            help="add annotation lines at specified position, eg: 100,200"
-        )
-
-        plot.add_argument(
-            "--dpi",
-            type=int,
-            default=300,
-            help="Set dpi for output picture [default: %(default)s]"
-        )
-
-        plot.add_argument(
-            "-s",
-            "--strand",
-            choices=["NONE", "SENSE", "ANTISENSE", "MATE1_SENSE", "MATE2_SENSE"],
-            default="NONE",
-            help="Strand specificity [default: %(default)s]"
-        )
-
-        plot.add_argument(
-            "-j", "--junctions",
-            type=str,
-            help="Path to bgziped bed files, with tabix index",
-            default=None
-        )
-    
-        plot.add_argument(
-            "-t", "--threshold",
-            type=int,
-            default=0,
-            help="Threshold to filter the junctions"
-        )
-
-        plot.add_argument(
-            "-o", "--output",
-            type=str,
-            help="Path to output figure",
-            required=False
-        )
+    draw_sashimi_plot(
+        output_file_path=output,
+        settings=sashimi_plot_settings,
+        average_depths_dict=reads_depth,
+        splice_region=splice_region
+    )
 
 
-if __name__ == "__main__":
-    Main()
+def test_in_batch(infile, output, gtf, bam, config, n_job):
+    u"""
+    test plot in batch
+    :return:
+    """
+    args = []
+    with open(infile) as r:
+        for line in r:
+            if line.startswith("#"):
+                continue
+            lines = line.split()
+
+            tmp = [
+                bam,
+                gtf,
+                os.path.join(output, lines[3] + ".pdf"),
+                lines[3],
+                config,
+            ]
+
+            # if os.path.exists(tmp[2]):
+            #     continue
+
+            args.append(tmp)
+
+    with mp.Pool(processes=n_job) as pool:
+        list(tqdm(pool.imap(test_sashimi, args), total=len(args)))
+
+
+if __name__ == '__main__':
+    # main()
+
+    # with open(os.path.join(__dir__, "test_files/test.p"), "rb") as r:
+    #     data = pickle.load(r)
+    #
+    # print(data)
+
+    # args = command_line_args()
+
+    # ,/Volumes/WD/tests/splice_plot/L02_99_chr1.bam
+    logger.info("start")
+    test_sashimi([
+            "/Volumes/WD/tests/splice_plot/L02_102_chr1.bam",
+            "/Volumes/WD/tests/splice_plot/Homo_sapiens.GRCh38.93.sorted.gtf",
+            "/Volumes/WD/tests/splice_plot/test.pdf",
+            "1:8062-29320:-",
+            os.path.join(__dir__, "src/settings.ini")
+    ])
+
+    # test_sashimi(
+    #     [
+    #         args.bam,
+    #         args.gtf,
+    #         args.output,
+    #         args.event,
+    #         args.config,
+    #     ]
+    # )
+
+    # test_in_batch(
+    #     infile=args.event,
+    #     config=args.config,
+    #     gtf=args.gtf,
+    #     bam=args.bam,
+    #     output=args.output,
+    #     n_job=12
+    # )
+
 
