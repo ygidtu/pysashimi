@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
-#-*-coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 u"""
 Created by ygidtu@gmail.com at 2018.12.16
 
 Main function to plot sashimi plot
 """
-import re
-import click
-import multiprocessing as mp
 import os
-import sys
-import argparse as ap
+import re
 
-from src.sashimi_plot_utils import draw_sashimi_plot
-from src.reading_input import read_reads_depth, read_transcripts, index_gtf, is_bam
+import click
+
 from src.plot_settings import parse_settings
-
+from src.reading_input import read_reads_depth, read_transcripts, index_gtf, is_bam
+from src.sashimi_plot_utils import draw_sashimi_plot
 
 __dir__ = os.path.dirname(__file__)
 VERSION = "1.0.0"
@@ -96,7 +93,7 @@ def main(bam, gtf, output, event, config):
         print(err)
         print("Create output directory failed, please check %s" % out_dir)
 
-    clean_bam_filename = lambda x: re.sub("[_\.]Aligned.sortedByCoord.out.bam", "", os.path.basename(x))
+    clean_bam_filename = lambda x: re.sub("[_.]Aligned.sortedByCoord.out.bam", "", os.path.basename(x))
 
     if is_bam(bam):
         bam_list = {
@@ -111,7 +108,7 @@ def main(bam, gtf, output, event, config):
                 if len(lines) > 1:
                     bam_list[lines[1]] = lines[0]
                 else:
-                    bam_list[clean_bam_filename[lines[0]]] = os.path.abspath(lines[0])
+                    bam_list[clean_bam_filename(lines[0])] = os.path.abspath(lines[0])
 
     chromosome, start, end, strand = get_sites_from_splice_id(event)
 
@@ -142,5 +139,3 @@ def main(bam, gtf, output, event, config):
 if __name__ == '__main__':
     main()
     pass
-
-
