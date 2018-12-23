@@ -15,8 +15,11 @@ Migrated from SplicePlot sashimi_plot_utils
 10. fix transcripts display issues
 """
 from collections import namedtuple
+
 import matplotlib
+
 matplotlib.use('svg')
+
 from matplotlib import pylab
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path

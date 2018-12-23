@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 u"""
-Created by Zhang yiming at 2018.12.19
+Created by ygidtu at 2018.12.19
 
 Inspired by SplicePlot -> mRNAObjects
 """
@@ -18,7 +18,7 @@ from src.logger import logger
 
 class GenomicLoci(object):
     u"""
-    Created by Zhang yiming at 2018.12.19
+    Created by ygidtu at 2018.12.19
 
     A base class to handle the position relationships
     """
@@ -128,7 +128,7 @@ class GenomicLoci(object):
 
 class Transcript(GenomicLoci):
     u"""
-    Created by Zhang yiming at 2018.12.21
+    Created by ygidtu at 2018.12.21
 
     A class inherit from GenomicLoci, to collect transcript information
     """
@@ -272,7 +272,7 @@ class SpliceRegion(object):
 
 class Junction(object):
     u"""
-    Created by Zhang yiming at 2018.12.19
+    Created by ygidtu at 2018.12.19
 
     This is used to collect information of single junction
     And provide relative position comparision
@@ -678,7 +678,7 @@ def is_bam(infile):
 
 def index_gtf(input_gtf, sort_gtf=False, retry=0):
     u"""
-    Created by Zhang yiming
+    Created by ygidtu
 
     Extract only exon tags and keep it clean
 
