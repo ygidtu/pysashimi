@@ -101,6 +101,19 @@ class GenomicLoci(object):
             self.start == other.start and \
             self.end == other.end
 
+    def __add__(self, other):
+        u"""
+        merge two sites into one
+        :param other:
+        :return:
+        """
+        return GenomicLoci(
+            chromosome=self.chromosome,
+            start=min(self.start, other.start),
+            end=max(self.end, other.end),
+            strand=self.strand
+        )
+
     def __hash__(self):
         u"""
         generate hash
@@ -124,6 +137,12 @@ class GenomicLoci(object):
         return self.chromosome == other.chromosome and \
             self.start <= other.end and \
             self.end >= other.start
+
+    def create_list_of_loci_from_list(self):
+        u"""
+
+        :return:
+        """
 
 
 class Transcript(GenomicLoci):
@@ -245,29 +264,59 @@ class SpliceRegion(object):
         :param gtf_line
         :return:
         """
-        if gtf_line.feature == "transcript":
-            if gtf_line.transcript_id not in self.__transcripts__.keys():
-                self.__transcripts__[gtf_line.transcript_id] = Transcript(
-                    chromosome=gtf_line.contig,
-                    start=gtf_line.start if gtf_line.start > self.start else self.start,
-                    end=gtf_line.end if gtf_line.end < self.end else self.end,
-                    strand=gtf_line.strand,
-                    transcript_id=gtf_line.transcript_id,
-                    gene_id=gtf_line.gene_id,
-                    exons=[]
-                )
+        if isinstance(gtf_line, Transcript):
+            self.__transcripts__[gtf_line.transcript_id] = gtf_line
 
-        elif gtf_line.feature == "exon":
-            if gtf_line.start >= self.end or gtf_line.end <= self.start:
-                return
+            for i in gtf_line.exons:
+                self.__exon_starts__.append(i.start)
+                self.__exon_ends__.append(i.end)
+        else:
 
-            if gtf_line.transcript_id not in self.__transcripts__.keys():
-                raise ValueError("gtf file not sorted")
+            if gtf_line.feature == "transcript":
+                if gtf_line.transcript_id not in self.__transcripts__.keys():
+                    self.__transcripts__[gtf_line.transcript_id] = Transcript(
+                        chromosome=gtf_line.contig,
+                        start=gtf_line.start if gtf_line.start > self.start else self.start,
+                        end=gtf_line.end if gtf_line.end < self.end else self.end,
+                        strand=gtf_line.strand,
+                        transcript_id=gtf_line.transcript_id,
+                        gene_id=gtf_line.gene_id,
+                        exons=[]
+                    )
 
-            self.__transcripts__[gtf_line.transcript_id].exons.append(gtf_line)
+            elif gtf_line.feature == "exon":
+                if gtf_line.start >= self.end or gtf_line.end <= self.start:
+                    return
 
-            self.__exon_starts__.append(gtf_line.start if gtf_line.start > self.start else self.start)
-            self.__exon_ends__.append(gtf_line.end if gtf_line.end < self.end else self.end)
+                if gtf_line.transcript_id not in self.__transcripts__.keys():
+                    raise ValueError("gtf file not sorted")
+
+                self.__transcripts__[gtf_line.transcript_id].exons.append(gtf_line)
+
+                self.__exon_starts__.append(gtf_line.start if gtf_line.start > self.start else self.start)
+                self.__exon_ends__.append(gtf_line.end if gtf_line.end < self.end else self.end)
+
+    def get_region(self, genomic):
+        u"""
+        get smaller splice region
+        :return:
+        """
+        if self.start == genomic.start and \
+                self.end == genomic.end and \
+                self.chromosome == genomic.chromosome:
+            return self
+
+        tmp = SpliceRegion(
+            chromosome=self.chromosome,
+            start=genomic.start,
+            end=genomic.end,
+            strand=genomic.strand
+        )
+
+        for i in self.transcripts:
+            if i.is_overlap(genomic):
+                tmp.add_gtf(i)
+        return tmp
 
 
 class Junction(object):
@@ -350,6 +399,18 @@ class Junction(object):
         :return:
         """
         return self.length == other.length
+
+    def is_overlap(self, other):
+        u"""
+        whether any overlap with another Junction or GenomicLoci
+        :param other:
+        :return:
+        """
+
+        if self.chromosome != other.chromosome:
+            return False
+
+        return self.start < other.end and self.end > other.start
 
 
 class ReadDepth(GenomicLoci):
@@ -618,6 +679,31 @@ class ReadDepth(GenomicLoci):
             self.end,
             self.wiggle,
             new_junctions_dict
+        )
+
+    def get_read_depth(self, genomic):
+        u"""
+        Created by ygidtu at 2018.12.25
+        Extract part of data from this class
+        :param genomic: a genomic class
+        :return:
+        """
+        if genomic.start == self.start and genomic.end == self.end:
+            return self
+
+        wiggle = self.wiggle[genomic.start - self.start: genomic.end - self.end + 1]
+
+        junctions_dict = {}
+        for k, v in self.junctions_dict.items():
+            if k.is_overlap(genomic):
+                junctions_dict[k] = v
+
+        return ReadDepth(
+            chromosome=self.chromosome,
+            start=genomic.start,
+            end=genomic.end,
+            wiggle=wiggle,
+            junctions_dict=junctions_dict
         )
 
 

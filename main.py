@@ -10,6 +10,9 @@ import re
 
 import click
 
+from tqdm import tqdm
+
+from src.reading_input import GenomicLoci
 from src.plot_settings import parse_settings
 from src.reading_input import read_reads_depth, read_transcripts, index_gtf, is_bam
 from src.sashimi_plot_utils import draw_sashimi_plot
@@ -26,14 +29,105 @@ def get_sites_from_splice_id(string):
     :param string: splice id
     :return: chromosome, start, end, strand
     """
-    chromosome, sites, strand = string.split(":")
+    if re.search(r"[\w\.]:(\d+-?){2,}:[+-]", string):
+        chromosome, sites, strand = string.split(":")
+    elif re.search(r"[\w\.]:(\d+-?){2,}[+-]", string):
+        chromosome, sites = string.split(":")
+        sites, strand = sites[:-1], sites[-1]
+    else:
+        chromosome, sites = string.split(":")
+        strand = "."
+
     sites = sites.split("-")
-    return chromosome, int(sites[0]), int(sites[-1]), strand
+
+    return GenomicLoci(
+        chromosome=chromosome,
+        start=int(sites[0]),
+        end=int(sites[-1]),
+        strand=strand
+    )
+
+
+def __assign_events__(events):
+    u"""
+    merge separate events into a huge range
+    assign events back to this range
+    :param events:
+    :return: {merged: [events, events, events]}
+    """
+    res = {}
+    tmp = [events[0]]
+    current = events[0]
+    for i in events[1:]:
+        if current.is_overlap(i):
+            current += i
+            tmp.append(i)
+        else:
+            current = i
+            res[current] = tmp
+            tmp = [i]
+
+    if tmp:
+        res[current] = [tmp]
+
+    return res
+
+
+def plot_batch(event, gtf, bam_list, output, sashimi_plot_settings):
+    u"""
+    Created by ygidtu at 2018.12.25
+    plot multiple events at same time
+    :return:
+    """
+
+    coords = {}
+    for e in event:
+        tmp = get_sites_from_splice_id(e)
+        tmp_key = "%s#%s" % (tmp.chromosome, tmp.strand)
+
+        tmp_list = coords[tmp_key] if tmp_key in coords.keys() else []
+        tmp_list.append(tmp)
+        coords[tmp_key] = tmp_list
+
+    for k, v in tqdm(coords.items()):
+        tqdm.write(k)
+
+        v = __assign_events__(v)
+
+        for merged, separate in v.items():
+            splice_region = read_transcripts(
+                gtf_file=index_gtf(input_gtf=gtf),
+                chromosome=k.chromosome,
+                start=k.start,
+                end=k.end,
+                strand=k.strand
+            )
+
+            reads_depth = read_reads_depth(
+                bam_list=bam_list,
+                splice_region=splice_region
+                # strand=strand
+            )
+
+            for sep in separate:
+                draw_sashimi_plot(
+                    output_file_path=os.path.join(output, str(sep) + ".pdf"),
+                    settings=sashimi_plot_settings,
+                    average_depths_dict=reads_depth.get_read_depth(sep),
+                    splice_region=splice_region.get_region(sep)
+                )
 
 
 @click.command(
     "Plot sashimi plot",
     context_settings=CONTEXT_SETTINGS,
+)
+@click.option(
+    "-e"
+    "--event",
+    type=click.STRING,
+    required=True,
+    help="Event range eg: chr1:100-200:+"
 )
 @click.option(
     "-b",
@@ -66,8 +160,16 @@ def get_sites_from_splice_id(string):
     help="Path to config file, contains graph settings of sashimi plot",
     show_default=True
 )
+@click.option(
+    "-t",
+    "--threshold",
+    default=0,
+    type=click.IntRange(min=0, clamp=True),
+    help="Threshold to filter low abundance junctions",
+    show_default=True
+)
 @click.version_option(VERSION, message="Current version %(version)s")
-def main(bam, gtf, output, event, config):
+def main(bam, gtf, output, event, config, threshold):
     u"""
     Created by Zhang yiming at 2018.12.19
 
@@ -80,6 +182,7 @@ def main(bam, gtf, output, event, config):
     :param output: path to output file
     :param event: event id, chr:100-200-100-200:+ etc
     :param config: path to config file, default using settings.ini file under this suite of scripts
+    :param threshold:
     :return:
     """
 
@@ -110,14 +213,14 @@ def main(bam, gtf, output, event, config):
                 else:
                     bam_list[clean_bam_filename(lines[0])] = os.path.abspath(lines[0])
 
-    chromosome, start, end, strand = get_sites_from_splice_id(event)
+    genomic = get_sites_from_splice_id(event)
 
     splice_region = read_transcripts(
         gtf_file=index_gtf(input_gtf=gtf),
-        chromosome=chromosome,
-        start=start,
-        end=end,
-        strand=strand
+        chromosome=genomic.chromosome,
+        start=genomic.start,
+        end=genomic.end,
+        strand=genomic.strand
     )
 
     reads_depth = read_reads_depth(
