@@ -18,7 +18,7 @@ from collections import namedtuple
 
 import matplotlib
 
-matplotlib.use('svg')
+matplotlib.use('Agg')
 
 from matplotlib import pylab
 from matplotlib.patches import PathPatch
@@ -26,7 +26,7 @@ from matplotlib.path import Path
 import math
 import matplotlib.pyplot as plt
 
-from src.reading_input import SpliceRegion, logger
+from src.reading_input import SpliceRegion
 
 
 def __get_limited_index__(num, length):
@@ -52,6 +52,60 @@ def __get_limited_index__(num, length):
 
 
 ax_label = namedtuple("NamedAx", ["Ax", "Label"])   # @2018.12.20 using this to handle the ylabel of different ax
+
+
+def cubic_bezier(pts, t):
+    """
+    Get points in a cubic bezier.
+    """
+    p0, p1, p2, p3 = pts
+    p0 = pylab.array(p0)
+    p1 = pylab.array(p1)
+    p2 = pylab.array(p2)
+    p3 = pylab.array(p3)
+    return p0 * (1 - t)**3 + 3 * t * p1 * (1 - t) ** 2 + \
+        3 * t**2 * (1 - t) * p2 + t**3 * p3
+
+
+def get_scaling(
+        tx_start,
+        tx_end,
+        strand,
+        exon_starts,
+        exon_ends,
+        intron_scale,
+        exon_scale,
+        reverse_minus
+):
+    """
+    Compute the scaling factor across various genetic regions.
+    """
+    exoncoords = pylab.zeros((tx_end - tx_start + 1))
+    for i in range(len(exon_starts)):
+        exoncoords[exon_starts[i] - tx_start: exon_ends[i] - tx_start] = 1
+
+    graphToGene = {}
+    graphcoords = pylab.zeros((tx_end - tx_start + 1), dtype='f')
+
+    x = 0
+    if strand == '+' or not reverse_minus:
+        for i in range(tx_end - tx_start + 1):
+            graphcoords[i] = x
+            graphToGene[int(x)] = i + tx_start
+            if exoncoords[i] == 1:
+                x += 1. / exon_scale
+            else:
+                x += 1. / intron_scale
+    else:
+        for i in range(tx_end - tx_start + 1):
+            graphcoords[-(i + 1)] = x
+            graphToGene[int(x)] = tx_end - i + 1
+            if exoncoords[-(i + 1)] == 1:
+                x += 1. / exon_scale
+            else:
+                x += 1. / intron_scale
+
+    return graphcoords, graphToGene
 
 
 def plot_density_single(
@@ -240,6 +294,137 @@ def plot_density_single(
     return axvar
 
 
+def plot_transcripts(
+        tx_start,
+        transcripts,
+        graphcoords,
+        reverse_minus,
+        font_size,
+        show_gene=False,
+):
+    """
+    [original description]
+    draw the gene structure.
+
+    [now]
+    due to i changed the mrna class, therefore, this function need be modified
+
+    :param tx_start: the very start of this plot
+    :param tx_end: the very end of this plot
+    :param graphcoords: numpy array, convert the coord of genome to the coord in this plot
+    :param reverse_minus:
+    :param font_size: the font size of transcript label
+    :param show_gene: Boolean value to decide whether to show gene id in this plot
+    :param label_x_axis: the position of transcript ids in x axis
+    """
+    yloc = 0
+    exonwidth = .3
+
+    """
+    @2018.12.26
+    Max narrows is 50
+    But this number will decrease according to the length of transcript
+    """
+    narrows = 50
+
+    """
+    @2018.12.26
+    Maybe I'm too stupid for this, using 30% of total length of x axis as the gap between text with axis
+    """
+    distance = 0.3 * (max(graphcoords) - min(graphcoords))
+
+    # @2018.12.19
+    # @2018.12.21
+    # the API of SpliceRegion has changed, the transcripts here should be sorted
+
+    for transcript in transcripts:
+        narrows = math.floor(narrows * (transcript.length / len(graphcoords)))
+
+        # @2018.12.20 add transcript id, based on fixed coordinates
+        if show_gene:
+            pylab.text(
+                x=-1 * distance,
+                y=yloc + 0.1,
+                s=transcript.gene,
+                fontsize=font_size
+            )
+
+            pylab.text(
+                x=-1 * distance,
+                y=yloc - 0.2,
+                s=transcript.transcript,
+                fontsize=font_size
+            )
+        else:
+            pylab.text(
+                x=-1 * distance,
+                y=yloc - 0.1,
+                s=transcript.transcript,
+                fontsize=font_size
+            )
+
+        strand = "+"
+        # @2018.12.19
+        # s and e is the start and end site of single exon
+        for exon in transcript.exons:
+            s, e, strand = exon.start, exon.end, exon.strand
+            s = s - tx_start
+            e = e - tx_start
+            x = [
+                graphcoords[s],
+                graphcoords[e],
+                graphcoords[e],
+                graphcoords[s]
+            ]
+            y = [
+                yloc - exonwidth / 2,
+                yloc - exonwidth / 2,
+                yloc + exonwidth / 2,
+                yloc + exonwidth / 2
+            ]
+            pylab.fill(x, y, 'k', lw=.5, zorder=20)
+
+        # @2018.12.21
+        # change the intron range
+        # Draw intron.
+        intron_sites = [
+            graphcoords[transcript.start - tx_start],
+            graphcoords[transcript.end - tx_start]
+        ]
+        pylab.plot(
+            intron_sites,
+            [yloc, yloc],
+            color='k',
+            lw=0.5
+        )
+
+        # @2018.12.23 fix intron arrows issues
+        # Draw intron arrows.
+        max_ = graphcoords[transcript.end - tx_start]
+        min_ = graphcoords[transcript.start - tx_start]
+        length = max_ - min_
+        narrows = math.ceil(length / max(graphcoords) * 50)
+
+        spread = .2 * length / narrows
+
+        for i in range(narrows):
+            loc = float(i) * length / narrows + graphcoords[transcript.start - tx_start]
+            if strand == '+' or reverse_minus:
+                x = [loc - spread, loc, loc - spread]
+            else:
+                x = [loc + spread, loc, loc + spread]
+            y = [yloc - exonwidth / 5, yloc, yloc + exonwidth / 5]
+            pylab.plot(x, y, lw=.5, color='k')
+
+        yloc += 1
+
+    pylab.xlim(0, max(graphcoords))
+    pylab.ylim(-.5, len(transcripts) + .5)
+    pylab.box(on=False)
+    pylab.xticks([])
+    pylab.yticks([])
+
+
 # Plot density for a series of bam files.
 def plot_density(
         settings,
@@ -332,8 +517,11 @@ def plot_density(
     @2018.12.19
     
     This part of code, used to plot different allele specific, but I this to plot multiple BAM files
+    
+    @2018.12.25
+    Add a sorted for list of bam_info, sort this list by bam_info's title (normally, the sample tissues or cell lines)
     """
-    for i, group_genotype in enumerate(read_depths_dict.keys()):
+    for i, group_genotype in enumerate(sorted(read_depths_dict.keys(), key=lambda x: x.title)):
         average_read_depth = read_depths_dict[group_genotype]
 
         if colors is not None:
@@ -346,7 +534,7 @@ def plot_density(
             showXaxis = True 
 
         ax1 = plt.subplot2grid(
-            (nfiles + 2, 1),
+            (nfiles + len(transcripts) + 1, 1),
             (i, 0),
             colspan=1
         )
@@ -385,6 +573,22 @@ def plot_density(
 
     # Round up yticks
     for sample_num, curr_ax in enumerate(plotted_axes):
+
+        """
+        @2018.12.26 
+        add indicator lines
+        """
+        if splice_region.sites:
+            print(splice_region.sites)
+            for i in splice_region.sites:
+                curr_ax.Ax.vlines(
+                    x=graphcoords[i - tx_start],
+                    ymin=0,
+                    ymax=max_used_yval,
+                    linestyles="dashed",
+                    lw=0.5
+                )
+
         if showYaxis:
 
             # @2018.12.20
@@ -426,7 +630,7 @@ def plot_density(
 
                 # @2018.12.20 using BAM label as ylabel
                 curr_ax.Ax.set_ylabel(
-                    curr_ax.Label,
+                    curr_ax.Label.alias,
                     fontsize=font_size,
                     va="center",
                     labelpad=(len(curr_ax.Label) // 5 + 1) * 10,            # the distance between ylabel with axis
@@ -438,25 +642,25 @@ def plot_density(
             curr_ax.Ax.spines["right"].set_color('none')
             curr_ax.Ax.set_yticks([])
 
-        '''
-         # @2018.12.20 remove extra text inside sashimi 
-        ##
-        ## Plot sample labels
-        ##
+        """
+        Plot sample labels
+        
+        @2018.12.20 remove extra text inside sashimi
+        @2018.12.25 Add this text back, normally plot title (cell line or tissue) and PSI if exists
+        @2018.12.26 use the max_used_yval as y coord
+        """
         sample_color = colors[sample_num]
 
-        # Make sample label y position be halfway between highest
-        # and next to highest ytick
-        if len(universal_yticks) >= 2:
-            halfway_ypos = (universal_yticks[-1] - universal_yticks[-2]) / 2.
-            label_ypos = universal_yticks[-2] + halfway_ypos
-        else:
-            label_ypos = universal_yticks[-1]
+        curr_label = curr_ax.Label
 
-        curr_label = labels_list[sample_num]
+        if curr_label.label is not None:
+            curr_label = "%s %s" % (curr_label.title, curr_label.label)
+        else:
+            curr_label = curr_label.title
+
         t = curr_ax.Ax.text(
             max(graphcoords),
-            label_ypos,
+            max_used_yval,
             curr_label,
             fontsize=font_size,
             va='bottom',
@@ -466,14 +670,17 @@ def plot_density(
 
         # @218.12.19 set transparent background
         t.set_bbox(dict(alpha=0))
-        '''
 
     # Draw gene structure
-    ax1 = pylab.subplot2grid(
-        (nfiles + 2, 1),
+    """
+    @2018.12.26
+    add more subplots, based on the number of transcripts
+    """
+    pylab.subplot2grid(
+        (nfiles + len(transcripts) + 1, 1),
         (nfiles, 0),
         colspan=1,
-        rowspan=2
+        rowspan=len(transcripts) if len(transcripts) > 0 else 1
     )
 
     plot_transcripts(
@@ -486,182 +693,6 @@ def plot_density(
         # label_x_axis=graphcoords[tx_start] - 300
     )
     pylab.subplots_adjust(hspace=.1, wspace=.7)
-
-
-def get_scaling(
-        tx_start, 
-        tx_end, 
-        strand,
-        exon_starts, 
-        exon_ends,
-        intron_scale, 
-        exon_scale, 
-        reverse_minus
-):
-    """
-    Compute the scaling factor across various genetic regions.
-    """
-    exoncoords = pylab.zeros((tx_end - tx_start + 1))
-    for i in range(len(exon_starts)):
-        exoncoords[exon_starts[i] - tx_start: exon_ends[i] - tx_start] = 1
-
-    graphToGene = {}
-    graphcoords = pylab.zeros((tx_end - tx_start + 1), dtype='f')
-
-    x = 0
-    if strand == '+' or not reverse_minus:
-        for i in range(tx_end - tx_start + 1):
-            graphcoords[i] = x
-            graphToGene[int(x)] = i + tx_start
-            if exoncoords[i] == 1:
-                x += 1. / exon_scale
-            else:
-                x += 1. / intron_scale
-    else:
-        for i in range(tx_end - tx_start + 1):
-            graphcoords[-(i + 1)] = x
-            graphToGene[int(x)] = tx_end - i + 1
-            if exoncoords[-(i + 1)] == 1:
-                x += 1. / exon_scale
-            else:
-                x += 1. / intron_scale
-
-    return graphcoords, graphToGene
-
-
-def plot_transcripts(
-        tx_start,
-        transcripts,
-        graphcoords,
-        reverse_minus,
-        font_size,
-        show_gene=False,
-        # label_x_axis=-300
-):
-    """
-    [original description]
-    draw the gene structure.
-
-    [now]
-    due to i changed the mrna class, therefore, this function need be modified
-
-    :param tx_start: the very start of this plot
-    :param tx_end: the very end of this plot
-    :param graphcoords: numpy array, convert the coord of genome to the coord in this plot
-    :param reverse_minus:
-    :param font_size: the font size of transcript label
-    :param show_gene: Boolean value to decide whether to show gene id in this plot
-    :param label_x_axis: the position of transcript ids in x axis
-    """
-    yloc = 0
-    exonwidth = .3
-    narrows = 50
-
-    # @ 2018.12.21
-    # 11258 -> 0.025
-    # 21258 -> 0.06
-    # this distance is calculated by simple line regression
-    distance = 0.005 * math.ceil(len(graphcoords) / 2000)
-
-    # @2018.12.19
-    # @2018.12.21
-    # the API of SpliceRegion has changed, the transcripts here should be sorted
-
-    for transcript in transcripts:
-
-        # @2018.12.20 add transcript id, based on fixed coordinates
-        if show_gene:
-            pylab.text(
-                x=min(graphcoords) - distance * len(graphcoords),
-                y=yloc + 0.1,
-                s=transcript.gene,
-                fontsize=font_size
-            )
-
-            pylab.text(
-                x=min(graphcoords) - distance * len(graphcoords),
-                y=yloc - 0.2,
-                s=transcript.transcript,
-                fontsize=font_size
-            )
-        else:
-            pylab.text(
-                x=min(graphcoords) - distance * len(graphcoords),
-                y=yloc - 0.1,
-                s=transcript.transcript,
-                fontsize=font_size
-            )
-
-        strand = "+"
-        # @2018.12.19
-        # s and e is the start and end site of single exon
-        for exon in transcript.exons:
-            s, e, strand = exon.start, exon.end, exon.strand
-            s = s - tx_start
-            e = e - tx_start
-            x = [
-                graphcoords[s],
-                graphcoords[e],
-                graphcoords[e],
-                graphcoords[s]
-            ]
-            y = [
-                yloc - exonwidth / 2,
-                yloc - exonwidth / 2,
-                yloc + exonwidth / 2,
-                yloc + exonwidth / 2
-            ]
-            pylab.fill(x, y, 'k', lw=.5, zorder=20)
-
-        # @2018.12.21
-        # change the intron range
-        # Draw intron.
-        intron_sites = [graphcoords[transcript.start - tx_start], graphcoords[transcript.end - tx_start]]
-        pylab.plot(
-            intron_sites,
-            [yloc, yloc],
-            color='k',
-            lw=0.5
-        )
-
-        # @2018.12.23 fix intron arrows issues
-        # Draw intron arrows.
-        max_ = graphcoords[transcript.end - tx_start]
-
-        if max_ < narrows * 3:
-            narrows = max_ // 10
-
-        spread = .2 * max_ / narrows
-
-        for i in range(narrows):
-            loc = float(i) * max_ / narrows + graphcoords[transcript.start - tx_start]
-            if strand == '+' or reverse_minus:
-                x = [loc - spread, loc, loc - spread]
-            else:
-                x = [loc + spread, loc, loc + spread]
-            y = [yloc - exonwidth / 5, yloc, yloc + exonwidth / 5]
-            pylab.plot(x, y, lw=.5, color='k')
-
-        yloc += 1
-
-    pylab.xlim(0, max(graphcoords))
-    pylab.ylim(-.5, len(transcripts) + .5)
-    pylab.box(on=False)
-    pylab.xticks([])
-    pylab.yticks([])
-
-
-def cubic_bezier(pts, t):
-    """
-    Get points in a cubic bezier.
-    """
-    p0, p1, p2, p3 = pts
-    p0 = pylab.array(p0)
-    p1 = pylab.array(p1)
-    p2 = pylab.array(p2)
-    p3 = pylab.array(p3)
-    return p0 * (1 - t)**3 + 3 * t * p1 * (1 - t) ** 2 + \
-        3 * t**2 * (1 - t) * p2 + t**3 * p3
 
 
 def draw_sashimi_plot(
@@ -697,9 +728,11 @@ def draw_sashimi_plot(
     assert isinstance(splice_region, SpliceRegion), "splice_region should be SpliceRegion, not %s" % type(splice_region)
 
     plt.figure(
-        figsize=[settings['width'], settings['height']]
+        figsize=[
+            settings['width'],
+            settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts))
+        ]
     )
-
     plot_density(
         settings,                               # plot settings, untouched
         read_depths_dict=average_depths_dict,   # reads coverage
@@ -708,11 +741,10 @@ def draw_sashimi_plot(
         # ordered_genotypes_list                # provide the allele information or label for subtitle in SplicePlot
     )
 
-    logger.info("save to %s" % output_file_path)
-    # plt.savefig(
-    #     output_file_path,
-    #     transparent=True,
-    #     bbox_inches='tight'
-    # )
+    # logger.info("save to %s" % output_file_path)
+    plt.savefig(
+        output_file_path,
+        transparent=True,
+        bbox_inches='tight'
+    )
 
-    plt.show()

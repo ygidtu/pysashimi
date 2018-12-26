@@ -10,9 +10,9 @@ import re
 
 import click
 
-from tqdm import tqdm
+from collections import namedtuple
 
-from src.reading_input import GenomicLoci
+from src.reading_input import SpliceRegion
 from src.plot_settings import parse_settings
 from src.reading_input import read_reads_depth, read_transcripts, index_gtf, is_bam
 from src.sashimi_plot_utils import draw_sashimi_plot
@@ -23,12 +23,23 @@ LABEL = "pySashimi"
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
-def get_sites_from_splice_id(string):
+bam_info = namedtuple("bam_info", ["alias", "title", "label", "path"])
+
+
+def get_sites_from_splice_id(string, sep="@", span=0, indicator_lines=None):
     u"""
     get splice range from splice id
     :param string: splice id
+    :param sep: the separator between different junctions
+    :param span: the range to span the splice region, int -> bp; float -> percentage
+    :param indicator_lines: bool
     :return: chromosome, start, end, strand
     """
+    u"""
+     get splice range from splice id
+     :param string: splice id
+     :return: chromosome, start, end, strand
+     """
     if re.search(r"[\w\.]:(\d+-?){2,}:[+-]", string):
         chromosome, sites, strand = string.split(":")
     elif re.search(r"[\w\.]:(\d+-?){2,}[+-]", string):
@@ -38,84 +49,17 @@ def get_sites_from_splice_id(string):
         chromosome, sites = string.split(":")
         strand = "."
 
+
     sites = sites.split("-")
 
-    return GenomicLoci(
+    return SpliceRegion(
         chromosome=chromosome,
-        start=int(sites[0]),
-        end=int(sites[-1]),
-        strand=strand
+        start=sites[0],
+        end=sites[-1],
+        strand=strand,
+        events=string,
+        sites=[int(x) for x in indicator_lines.split(",")] if indicator_lines else None
     )
-
-
-def __assign_events__(events):
-    u"""
-    merge separate events into a huge range
-    assign events back to this range
-    :param events:
-    :return: {merged: [events, events, events]}
-    """
-    res = {}
-    tmp = [events[0]]
-    current = events[0]
-    for i in events[1:]:
-        if current.is_overlap(i):
-            current += i
-            tmp.append(i)
-        else:
-            current = i
-            res[current] = tmp
-            tmp = [i]
-
-    if tmp:
-        res[current] = [tmp]
-
-    return res
-
-
-def plot_batch(event, gtf, bam_list, output, sashimi_plot_settings):
-    u"""
-    Created by ygidtu at 2018.12.25
-    plot multiple events at same time
-    :return:
-    """
-
-    coords = {}
-    for e in event:
-        tmp = get_sites_from_splice_id(e)
-        tmp_key = "%s#%s" % (tmp.chromosome, tmp.strand)
-
-        tmp_list = coords[tmp_key] if tmp_key in coords.keys() else []
-        tmp_list.append(tmp)
-        coords[tmp_key] = tmp_list
-
-    for k, v in tqdm(coords.items()):
-        tqdm.write(k)
-
-        v = __assign_events__(v)
-
-        for merged, separate in v.items():
-            splice_region = read_transcripts(
-                gtf_file=index_gtf(input_gtf=gtf),
-                chromosome=k.chromosome,
-                start=k.start,
-                end=k.end,
-                strand=k.strand
-            )
-
-            reads_depth = read_reads_depth(
-                bam_list=bam_list,
-                splice_region=splice_region
-                # strand=strand
-            )
-
-            for sep in separate:
-                draw_sashimi_plot(
-                    output_file_path=os.path.join(output, str(sep) + ".pdf"),
-                    settings=sashimi_plot_settings,
-                    average_depths_dict=reads_depth.get_read_depth(sep),
-                    splice_region=splice_region.get_region(sep)
-                )
 
 
 @click.command(
@@ -168,8 +112,22 @@ def plot_batch(event, gtf, bam_list, output, sashimi_plot_settings):
     help="Threshold to filter low abundance junctions",
     show_default=True
 )
+@click.option(
+    "--indicator-lines",
+    default=None,
+    type=click.STRING,
+    help="Where to plot additional indicator lines, comma separated int"
+)
 @click.version_option(VERSION, message="Current version %(version)s")
-def main(bam, gtf, output, event, config, threshold):
+def main(
+        bam,
+        gtf,
+        output,
+        event,
+        config,
+        threshold,
+        indicator_lines
+):
     u"""
     Created by Zhang yiming at 2018.12.19
 
@@ -183,6 +141,7 @@ def main(bam, gtf, output, event, config, threshold):
     :param event: event id, chr:100-200-100-200:+ etc
     :param config: path to config file, default using settings.ini file under this suite of scripts
     :param threshold:
+    :param indicator_lines:
     :return:
     """
 
@@ -199,37 +158,51 @@ def main(bam, gtf, output, event, config, threshold):
     clean_bam_filename = lambda x: re.sub("[_.]Aligned.sortedByCoord.out.bam", "", os.path.basename(x))
 
     if is_bam(bam):
-        bam_list = {
-            clean_bam_filename(bam): os.path.abspath(bam)
-        }
+        bam_list = [
+            bam_info(
+                path=bam,
+                alias=clean_bam_filename(bam),
+                title=None,
+                label=None
+            )
+        ]
+
     else:
-        bam_list = {}
+        bam_list = []
         with open(bam) as r:
             for line in r:
                 lines = line.split()
 
                 if len(lines) > 1:
-                    bam_list[lines[1]] = lines[0]
+                    tmp = bam_info(
+                        path=lines[0],
+                        alias=lines[1],
+                        title=None,
+                        label=None
+                    )
                 else:
-                    bam_list[clean_bam_filename(lines[0])] = os.path.abspath(lines[0])
+                    bam_info(
+                        path=bam,
+                        alias=clean_bam_filename(bam),
+                        title=None,
+                        label=None
+                    )
+                bam_list.append(tmp)
 
-    genomic = get_sites_from_splice_id(event)
+    sashimi_plot_settings = parse_settings(config)
+
+    splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
 
     splice_region = read_transcripts(
         gtf_file=index_gtf(input_gtf=gtf),
-        chromosome=genomic.chromosome,
-        start=genomic.start,
-        end=genomic.end,
-        strand=genomic.strand
+        region=splice_region
     )
 
     reads_depth = read_reads_depth(
         bam_list=bam_list,
-        splice_region=splice_region
-        # strand=strand
+        splice_region=splice_region,
+        threshold=threshold
     )
-
-    sashimi_plot_settings = parse_settings(config)
 
     draw_sashimi_plot(
         output_file_path=output,

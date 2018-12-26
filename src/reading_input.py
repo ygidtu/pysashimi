@@ -7,10 +7,10 @@ Inspired by SplicePlot -> mRNAObjects
 """
 import os
 import re
+from copy import deepcopy
 
 import numpy
 import pysam
-
 from tqdm import tqdm
 
 from src.logger import logger
@@ -52,6 +52,20 @@ class GenomicLoci(object):
             raise ValueError("strand should be + or -, not %s" % strand)
 
         self.strand = strand
+
+    def __str__(self):
+        u"""
+        convert this to string
+        :return:
+        """
+        return "{chromosome}:{start}-{end}:{strand}".format(
+            **{
+                "chromosome": self.chromosome,
+                "start": self.start,
+                "end": self.end,
+                "strand": self.strand
+            }
+        )
 
     def __gt__(self, other):
         u"""
@@ -138,12 +152,6 @@ class GenomicLoci(object):
             self.start <= other.end and \
             self.end >= other.start
 
-    def create_list_of_loci_from_list(self):
-        u"""
-
-        :return:
-        """
-
 
 class Transcript(GenomicLoci):
     u"""
@@ -180,7 +188,7 @@ class Transcript(GenomicLoci):
         self.exons = exons
 
 
-class SpliceRegion(object):
+class SpliceRegion(GenomicLoci):
     u"""
     [original description]
 
@@ -202,16 +210,24 @@ class SpliceRegion(object):
     this class is used to collect all the information about the exons and transcripts inside this region
     """
 
-    def __init__(self, chromosome, start, strand, end):
+    def __init__(self, chromosome, start, strand, end, sites=None, events=None):
         u"""
         init this class
         :param chromosome:  str, chromosome of these
         :param strand: str
         :param start: the very first site of list of exons
         :param end: the very last site of list of exons
-
+        :param sites: list of int, all of the splice sites
+        :param events: the source splice events id
         """
-
+        super().__init__(
+            chromosome=chromosome,
+            start=start,
+            end=end,
+            strand=strand,
+        )
+        self.sites = sites
+        self.events = events
         self.chromosome = chromosome
         self.start = start
         self.end = end
@@ -256,7 +272,11 @@ class SpliceRegion(object):
 
         :return: [[{transcript: id, gene: id, exon: []}, {}, {}], [{}]]
         """
-        return sorted(self.__transcripts__.values(), key=lambda x: (x.start, x.end, len(x.exons), x.exons[0]))
+        return sorted(
+            self.__transcripts__.values(),
+            key=lambda x: (x.start, x.end, len(x.exons)),
+            reverse=True
+        )
 
     def add_gtf(self, gtf_line):
         u"""
@@ -265,7 +285,15 @@ class SpliceRegion(object):
         :return:
         """
         if isinstance(gtf_line, Transcript):
-            self.__transcripts__[gtf_line.transcript_id] = gtf_line
+            gtf_line = deepcopy(gtf_line)
+
+            if gtf_line.start < self.start:
+                gtf_line.start = self.start
+
+            if gtf_line.end > self.end:
+                gtf_line.end = self.end
+
+            self.__transcripts__[gtf_line.transcript] = gtf_line
 
             for i in gtf_line.exons:
                 self.__exon_starts__.append(i.start)
@@ -291,7 +319,14 @@ class SpliceRegion(object):
                 if gtf_line.transcript_id not in self.__transcripts__.keys():
                     raise ValueError("gtf file not sorted")
 
-                self.__transcripts__[gtf_line.transcript_id].exons.append(gtf_line)
+                self.__transcripts__[gtf_line.transcript_id].exons.append(
+                    GenomicLoci(
+                        chromosome=gtf_line.contig,
+                        start=gtf_line.start,
+                        end=gtf_line.end,
+                        strand=gtf_line.strand
+                    )
+                )
 
                 self.__exon_starts__.append(gtf_line.start if gtf_line.start > self.start else self.start)
                 self.__exon_ends__.append(gtf_line.end if gtf_line.end < self.end else self.end)
@@ -301,16 +336,14 @@ class SpliceRegion(object):
         get smaller splice region
         :return:
         """
-        if self.start == genomic.start and \
-                self.end == genomic.end and \
-                self.chromosome == genomic.chromosome:
-            return self
 
         tmp = SpliceRegion(
             chromosome=self.chromosome,
             start=genomic.start,
             end=genomic.end,
-            strand=genomic.strand
+            strand=genomic.strand,
+            events=genomic.events,
+            sites=genomic.sites
         )
 
         for i in self.transcripts:
@@ -523,7 +556,7 @@ class ReadDepth(GenomicLoci):
                 filtered_junctions
             )
         except IOError:
-            print('There is no .bam file at {0}'.format(bam_file_path))
+            logger.error('There is no .bam file at {0}'.format(bam_file_path))
             raise Exception
 
     @classmethod
@@ -691,7 +724,8 @@ class ReadDepth(GenomicLoci):
         if genomic.start == self.start and genomic.end == self.end:
             return self
 
-        wiggle = self.wiggle[genomic.start - self.start: genomic.end - self.end + 1]
+        targets = [x for x in range(genomic.start - self.start, genomic.end - self.start + 1)]
+        wiggle = self.wiggle.take(targets)
 
         junctions_dict = {}
         for k, v in self.junctions_dict.items():
@@ -746,7 +780,7 @@ def is_bam(infile):
     create = False
     if not os.path.exists(infile + ".bai"):
         create = True
-    elif os.path.getctime(infile + ".bai") < os.path.getctime(i):
+    elif os.path.getctime(infile + ".bai") < os.path.getctime(infile):
         os.remove(infile + ".bai")
         create = True
     else:
@@ -839,35 +873,31 @@ def index_gtf(input_gtf, sort_gtf=False, retry=0):
     return output_gtf
 
 
-def read_transcripts(gtf_file, chromosome, start, end, strand):
+def read_transcripts(gtf_file, region):
     u"""
     Read transcripts from tabix indexed gtf files
 
     The original function check if the junctions corresponding to any exists exons, I disable this here
 
     :param gtf_file: path to bgzip gtf files (with tabix index), only ordered exons in this gtf file
-    :param chromosome: chromosome
-    :param start: start site
-    :param end: end site
-    :param strand: strand of input region
+    :param region: splice region
     :return: SpliceRegion
     """
-    logger.info("Reading gtf")
     if not os.path.exists(gtf_file):
         raise FileNotFoundError("%s not found" % gtf_file)
 
     splice_region = SpliceRegion(
-        chromosome=chromosome,
-        start=start,
-        end=end,
-        strand=strand
+        chromosome=region.chromosome,
+        start=region.start,
+        end=region.end,
+        strand=region.strand
     )
 
     with pysam.Tabixfile(gtf_file, 'r') as gtf_tabix:
         relevant_exons_iterator = gtf_tabix.fetch(
-            chromosome,
-            start - 1,
-            end + 1,
+            region.chromosome,
+            region.start - 1,
+            region.end + 1,
             parser=pysam.asGTF()
         )
 
@@ -877,27 +907,21 @@ def read_transcripts(gtf_file, chromosome, start, end, strand):
     return splice_region
 
 
-def read_reads_depth(bam_list, splice_region, alias=None, threshold=0):
+def read_reads_depth(bam_list, splice_region, threshold=0):
     u"""
     read reads coverage info from all bams
-    :param bam_list: dict file,
-            key is alias of BAM (default is BAM file name,
-                                            if is STAR output,
-                                            remove unnecessary characters),
-            value is path to BAM file
+    :param bam_list: namedtuple (alias, title, path, label)
     :param splice_region: SpliceRegion
-    :param alias: dict {BAM path: BAM alias}
     :param threshold: filter low abundance junctions
     :return: dict {alias, ReadDepth}
     """
 
     assert isinstance(splice_region, SpliceRegion), "splice_region should be SplcieRegion, not %s" % type(splice_region)
 
-    logger.info("Reading BAM")
     res = {}
-    for alias, bam in bam_list.items():
+    for bam in bam_list:
         tmp = ReadDepth.determine_depth(
-            bam_file_path=bam,
+            bam_file_path=bam.path,
             chrm=splice_region.chromosome,
             start_coord=splice_region.start,
             end_coord=splice_region.end,
@@ -909,7 +933,7 @@ def read_reads_depth(bam_list, splice_region, alias=None, threshold=0):
             new_high=splice_region.end
         )
 
-        res[alias] = tmp
+        res[bam] = tmp
     return res
 
 
