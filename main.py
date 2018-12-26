@@ -181,7 +181,7 @@ def main(
                         label=None
                     )
                 else:
-                    bam_info(
+                    tmp = bam_info(
                         path=bam,
                         alias=clean_bam_filename(bam),
                         title=None,
