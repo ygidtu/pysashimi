@@ -234,9 +234,6 @@ class SpliceRegion(GenomicLoci):
         self.strand = strand
         self.__transcripts__ = {}  # {transcript_id: namedtuple(gtf proxy of transcript, [gtf proxy of exons])}
 
-        self.__exon_starts__ = []
-        self.__exon_ends__ = []
-
     def __str__(self):
         return '{0}:{1}-{2},{3}'.format(
             self.chromosome,
@@ -248,18 +245,27 @@ class SpliceRegion(GenomicLoci):
     @property
     def exon_starts(self):
         u"""
-        ordered exon starts
+        API for extract all exon starts
         :return:
         """
-        return sorted(self.__exon_starts__)
+        starts = []
+        for i in self.transcripts:
+            for j in i.exons:
+                starts.append(j.start)
+        return sorted(starts)
 
     @property
     def exon_ends(self):
         u"""
-        ordered exon ends
+        API for extract all exon ends
         :return:
         """
-        return sorted(self.__exon_ends__)
+        ends = []
+        for i in self.transcripts:
+            for j in i.exons:
+                ends.append(j.end)
+        return sorted(ends)
+
 
     @property
     def transcripts(self):
@@ -295,9 +301,6 @@ class SpliceRegion(GenomicLoci):
 
             self.__transcripts__[gtf_line.transcript] = gtf_line
 
-            for i in gtf_line.exons:
-                self.__exon_starts__.append(i.start)
-                self.__exon_ends__.append(i.end)
         else:
 
             if gtf_line.feature == "transcript":
@@ -319,17 +322,16 @@ class SpliceRegion(GenomicLoci):
                 if gtf_line.transcript_id not in self.__transcripts__.keys():
                     raise ValueError("gtf file not sorted")
 
-                self.__transcripts__[gtf_line.transcript_id].exons.append(
+                tmp_transcript = self.__transcripts__[gtf_line.transcript_id]
+
+                tmp_transcript.exons.append(
                     GenomicLoci(
                         chromosome=gtf_line.contig,
-                        start=gtf_line.start,
-                        end=gtf_line.end,
+                        start=gtf_line.start if gtf_line.start > tmp_transcript.start else tmp_transcript.start,
+                        end=gtf_line.end if gtf_line.end < tmp_transcript.end else tmp_transcript.end,
                         strand=gtf_line.strand
                     )
                 )
-
-                self.__exon_starts__.append(gtf_line.start if gtf_line.start > self.start else self.start)
-                self.__exon_ends__.append(gtf_line.end if gtf_line.end < self.end else self.end)
 
     def get_region(self, genomic):
         u"""

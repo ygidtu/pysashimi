@@ -51,7 +51,7 @@ def __get_limited_index__(num, length):
     return num
 
 
-ax_label = namedtuple("NamedAx", ["Ax", "Label"])   # @2018.12.20 using this to handle the ylabel of different ax
+ax_label = namedtuple("NamedAx", ["Ax", "Label"])  # @2018.12.20 using this to handle the ylabel of different ax
 
 
 def cubic_bezier(pts, t):
@@ -63,8 +63,8 @@ def cubic_bezier(pts, t):
     p1 = pylab.array(p1)
     p2 = pylab.array(p2)
     p3 = pylab.array(p3)
-    return p0 * (1 - t)**3 + 3 * t * p1 * (1 - t) ** 2 + \
-        3 * t**2 * (1 - t) * p2 + t**3 * p3
+    return p0 * (1 - t) ** 3 + 3 * t * p1 * (1 - t) ** 2 + \
+           3 * t ** 2 * (1 - t) * p2 + t ** 3 * p3
 
 
 def get_scaling(
@@ -123,7 +123,7 @@ def plot_density_single(
         nxticks=4,
         font_size=6,
         numbering_font_size=6,
-        junction_log_base=10
+        # junction_log_base=10
 
 ):
     u"""
@@ -143,10 +143,9 @@ def plot_density_single(
     :param nxticks:
     :param font_size:
     :param numbering_font_size:
-    :param junction_log_base:
     :return:
     """
-    
+
     # extract data from read_depth_object
     tx_start = read_depth_object.start
 
@@ -190,6 +189,9 @@ def plot_density_single(
 
     # sort the junctions by intron length for better plotting look
     jxns_sorted_list = sorted(jxns.keys())
+    max_junction_count = max(jxns.values())
+    min_junction_count = min(jxns.values())
+    junction_count_gap = max_junction_count - min_junction_count
 
     current_height = -3 * ymin / 4
     for plotted_count, jxn in enumerate(jxns_sorted_list):
@@ -232,7 +234,7 @@ def plot_density_single(
             t = pylab.text(
                 midpt[0],
                 midpt[1],
-                '{0}'.format(round(jxns[jxn],2)),
+                '{0}'.format(round(jxns[jxn], 2)),
                 fontsize=numbering_font_size,
                 ha='center',
                 va='center',
@@ -252,10 +254,19 @@ def plot_density_single(
             ]
         )
 
+        """
+        @2018.12.26
+        scale the junctions line width
+        """
+        if junction_count_gap > 0:
+            line_width = (jxns[jxn] - min_junction_count) / junction_count_gap
+        else:
+            line_width = 0
+
         p = PathPatch(
             a,
             ec=color,
-            lw=math.log(jxns[jxn] + 1) / math.log(junction_log_base),
+            lw=line_width + 0.2,
             fc='none'
         )
 
@@ -270,7 +281,7 @@ def plot_density_single(
 
         # @2018.12.19 unnecessary text in figure
         pylab.xlabel(
-            'Genomic coordinate (%s), "%s" strand'%(
+            'Genomic coordinate (%s), "%s" strand' % (
                 chromosome,
                 strand
             ),
@@ -458,7 +469,7 @@ def plot_density(
     colors = settings["colors"]
     number_junctions = settings["number_junctions"]
     resolution = settings["resolution"]
-    junction_log_base = settings["junction_log_base"]
+    # junction_log_base = settings["junction_log_base"]
     reverse_minus = settings["reverse_minus"]
     font_size = settings["font_size"]
     nyticks = settings["nyticks"]
@@ -468,7 +479,7 @@ def plot_density(
 
     # Always show y-axis for read densities for now
     showYaxis = True
-    
+
     # parse mRNA_object to get strand, exon_starts, exon_ends, tx_start, tx_end, chrom
     chromosome = splice_region.chromosome
     exon_starts = splice_region.exon_starts
@@ -495,7 +506,7 @@ def plot_density(
     if title:
         # Use custom title if given
         pylab.title(title, fontsize=10)
-        
+
     plotted_axes = []
 
     """
@@ -515,9 +526,9 @@ def plot_density(
 
     u"""
     @2018.12.19
-    
+
     This part of code, used to plot different allele specific, but I this to plot multiple BAM files
-    
+
     @2018.12.25
     Add a sorted for list of bam_info, sort this list by bam_info's title (normally, the sample tissues or cell lines)
     """
@@ -525,20 +536,20 @@ def plot_density(
         average_read_depth = read_depths_dict[group_genotype]
 
         if colors is not None:
-            color = colors[i]
+            color = colors[i % len(colors)]
         else:
             color = None
         if i < nfiles - 1:
-            showXaxis = False 
+            showXaxis = False
         else:
-            showXaxis = True 
+            showXaxis = True
 
         ax1 = plt.subplot2grid(
-            (nfiles + len(transcripts) + 1, 1),
+            (nfiles + len(transcripts) // 2 + 1, 1),
             (i, 0),
             colspan=1
         )
-        
+
         # Read sample label
         plotted_ax = plot_density_single(
             read_depth_object=average_read_depth,
@@ -556,7 +567,7 @@ def plot_density(
             nxticks=nxticks,
             font_size=font_size,
             numbering_font_size=numbering_font_size,
-            junction_log_base=junction_log_base
+            # junction_log_base=junction_log_base
         )
 
         # @2018.12.16 change ax to [ax, label]
@@ -579,7 +590,6 @@ def plot_density(
         add indicator lines
         """
         if splice_region.sites:
-            print(splice_region.sites)
             for i in splice_region.sites:
                 curr_ax.Ax.vlines(
                     x=graphcoords[i - tx_start],
@@ -627,13 +637,12 @@ def plot_density(
             curr_ax.Ax.spines["right"].set_color('none')
 
             if show_ylabel:
-
                 # @2018.12.20 using BAM label as ylabel
                 curr_ax.Ax.set_ylabel(
                     curr_ax.Label.alias,
                     fontsize=font_size,
                     va="center",
-                    labelpad=(len(curr_ax.Label) // 5 + 1) * 10,            # the distance between ylabel with axis
+                    labelpad=(len(curr_ax.Label) // 5 + 1) * 10,  # the distance between ylabel with axis
                     rotation="horizontal"
                 )
 
@@ -644,7 +653,7 @@ def plot_density(
 
         """
         Plot sample labels
-        
+
         @2018.12.20 remove extra text inside sashimi
         @2018.12.25 Add this text back, normally plot title (cell line or tissue) and PSI if exists
         @2018.12.26 use the max_used_yval as y coord
@@ -677,7 +686,7 @@ def plot_density(
     add more subplots, based on the number of transcripts
     """
     pylab.subplot2grid(
-        (nfiles + len(transcripts) + 1, 1),
+        (nfiles + len(transcripts) // 2 + 1, 1),
         (nfiles, 0),
         colspan=1,
         rowspan=len(transcripts) if len(transcripts) > 0 else 1
@@ -702,7 +711,6 @@ def draw_sashimi_plot(
         splice_region,
         # ordered_genotypes_list
 ):
-
     """
         draw_sashimi_plot draws the complete sashimi plot
 
@@ -730,14 +738,14 @@ def draw_sashimi_plot(
     plt.figure(
         figsize=[
             settings['width'],
-            settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts))
+            settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 2)
         ]
     )
     plot_density(
-        settings,                               # plot settings, untouched
-        read_depths_dict=average_depths_dict,   # reads coverage
-        splice_region=splice_region,            # Exon and transcript information
-        show_gene=True,                         # decide whether display gene id in this plot
+        settings,  # plot settings, untouched
+        read_depths_dict=average_depths_dict,  # reads coverage
+        splice_region=splice_region,  # Exon and transcript information
+        show_gene=True,  # decide whether display gene id in this plot
         # ordered_genotypes_list                # provide the allele information or label for subtitle in SplicePlot
     )
 
