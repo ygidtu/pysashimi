@@ -837,27 +837,33 @@ def index_gtf(input_gtf, sort_gtf=False, retry=0):
         if os.path.exists(input_gtf) and os.path.exists(output_gtf):
             return output_gtf
 
-        with open(input_gtf, "w+") as w:
-            with open(old_input_gtf) as r:
-                for line in tqdm(r):
-                    if line.startswith("#"):
-                        w.write(line)
-                        continue
+        try:
+            w = open(input_gtf, "w+")
+        except IOError as err:
+            w = open("/tmp/sorted.gtf")
 
-                    lines = line.split()
+        with open(old_input_gtf) as r:
+            for line in tqdm(r):
+                if line.startswith("#"):
+                    w.write(line)
+                    continue
 
-                    data.append(
-                        GenomicLoci(
-                            chromosome=lines[0],
-                            start=lines[3],
-                            end=lines[4],
-                            strand=lines[6],
-                            gtf_line=line
-                        )
+                lines = line.split()
+
+                data.append(
+                    GenomicLoci(
+                        chromosome=lines[0],
+                        start=lines[3],
+                        end=lines[4],
+                        strand=lines[6],
+                        gtf_line=line
                     )
+                )
 
-            for i in sorted(data):
-                w.write(i.gtf_line)
+        for i in sorted(data):
+            w.write(i.gtf_line)
+
+        w.close()
 
     if index:
         try:
@@ -875,7 +881,7 @@ def index_gtf(input_gtf, sort_gtf=False, retry=0):
     return output_gtf
 
 
-def read_transcripts(gtf_file, region):
+def read_transcripts(gtf_file, region, retry=0):
     u"""
     Read transcripts from tabix indexed gtf files
 
@@ -883,6 +889,7 @@ def read_transcripts(gtf_file, region):
 
     :param gtf_file: path to bgzip gtf files (with tabix index), only ordered exons in this gtf file
     :param region: splice region
+    :param retry: if the gtf chromosome and input chromosome does not match. eg: chr9:1-100:+ <-> 9:1-100:+
     :return: SpliceRegion
     """
     if not os.path.exists(gtf_file):
@@ -895,17 +902,30 @@ def read_transcripts(gtf_file, region):
         strand=region.strand
     )
 
-    with pysam.Tabixfile(gtf_file, 'r') as gtf_tabix:
-        relevant_exons_iterator = gtf_tabix.fetch(
-            region.chromosome,
-            region.start - 1,
-            region.end + 1,
-            parser=pysam.asGTF()
-        )
+    try:
+        with pysam.Tabixfile(gtf_file, 'r') as gtf_tabix:
 
-        # min_exon_start, max_exon_end, exons_list = float("inf"), float("-inf"),  []
-        for line in relevant_exons_iterator:
-            splice_region.add_gtf(line)
+            relevant_exons_iterator = gtf_tabix.fetch(
+                region.chromosome,
+                region.start - 1,
+                region.end + 1,
+                parser=pysam.asGTF()
+            )
+
+            # min_exon_start, max_exon_end, exons_list = float("inf"), float("-inf"),  []
+            for line in relevant_exons_iterator:
+                splice_region.add_gtf(line)
+    except ValueError as err:
+        logger.warn(err)
+
+        # handle the mismatch of chromosomes here
+        if retry < 2:
+            if not region.chromosome.startswith("chr"):
+                region.chromosome = "chr" + region.chromosome
+            else:
+                region.chromosome = region.chromosome.replace("chr", "")
+
+            return read_transcripts(gtf_file=gtf_file, region=region, retry=retry + 1)
     return splice_region
 
 
