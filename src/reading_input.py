@@ -279,6 +279,19 @@ class SpliceRegion(GenomicLoci):
                 ends.append(j.end)
         return sorted(ends)
 
+    @property
+    def exons(self):
+        u"""
+        API for extract all exons
+        :return:
+        """
+        res = set()
+
+        for i in self.transcripts:
+            for j in i.exons:
+                res.add(j)
+
+        return sorted(res)
 
     @property
     def transcripts(self):
@@ -415,7 +428,6 @@ class Junction(object):
         start, end = string[1].split("-")
 
         return cls(chromosome=chromosome, start=start, end=end)
-
 
     def __hash__(self):
         u"""
@@ -616,7 +628,7 @@ class ReadDepth(GenomicLoci):
             raise Exception
 
     @classmethod
-    def create_depth(cls, data, splice_region):
+    def create_depth(cls, data, splice_region, depth=100):
         u"""
         Create ReadDepth base on junction dict
         :param data: {junction in string: int}
@@ -627,11 +639,20 @@ class ReadDepth(GenomicLoci):
         for key, value in data.items():
             junctions_dict[Junction.create_junction(key)] = value
 
+        depth_vector = numpy.zeros(
+            splice_region.end - splice_region.start + 1,
+            dtype='f'
+        )
+
+        for i in splice_region.exons:
+            for j in range(i.start - splice_region.start, i.end - splice_region.start + 1):
+                depth_vector[j] = depth
+
         return cls(
             chromosome=splice_region.chromosome,
             start=splice_region.start,
             end=splice_region.end,
-            wiggle=None,
+            wiggle=depth_vector,
             junctions_dict=junctions_dict
         )
 
@@ -1082,7 +1103,6 @@ def read_reads_depth_from_count_table(
 
     for key, value in data.items():
         data[key] = ReadDepth.create_depth(value, splice_region)
-
 
 
 if __name__ == '__main__':

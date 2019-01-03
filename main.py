@@ -15,11 +15,11 @@ from tqdm import tqdm
 
 from src.plot_settings import parse_settings
 from src.reading_input import SpliceRegion
-from src.reading_input import read_reads_depth_from_bam, read_transcripts, index_gtf, is_bam
+from src.reading_input import read_reads_depth_from_bam, read_reads_depth_from_count_table, read_transcripts, index_gtf, is_bam
 from src.sashimi_plot_utils import draw_sashimi_plot
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
-VERSION = "1.0.0"
+VERSION = "1.2.0"
 LABEL = "pySashimi"
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -206,8 +206,8 @@ def read_info_from_xlsx(xlsx):
 @click.option(
     "--shared-y",
     default=False,
-    if_flag=True,
-    type=False,
+    is_flag=True,
+    type=click.BOOL,
     help="Whether different sashimi plots shared same y axis"
 )
 @click.pass_context
@@ -273,7 +273,7 @@ def main(
     """
 )
 @click.pass_context
-def single(
+def normal(
         ctx,
         bam,
         event,
@@ -373,12 +373,6 @@ def single(
     help="Path to the meta info [xlsx]"
 )
 @click.option(
-    "-g",
-    "--gtf",
-    type=click.Path(exists=True),
-    help="Path to gtf file, both transcript and exon tags are necessary"
-)
-@click.option(
     "-s",
     "--span",
     default="100",
@@ -391,14 +385,14 @@ def single(
     show_default=True
 )
 @click.pass_context
-def batch(
+def pipeline(
         ctx,
         input,
         span,
 ):
     u"""
 
-    This function is used to plot sashimi in batch
+    This function is used to plot sashimi based on specific meta info
 
     required a specific format of input file
 
@@ -469,6 +463,88 @@ def batch(
                     splice_region=splice_region.get_region(sep),
                     shared_y=shared_y
                 )
+
+
+@main.command()
+@click.option(
+    "-e"
+    "--event",
+    type=click.STRING,
+    required=True,
+    help="Event range eg: chr1:100-200:+"
+)
+@click.option(
+    "-i",
+    "--input",
+    type=click.Path(exists=True),
+    required=True,
+    help="Path to junctions count table"
+)
+@click.option(
+    "--required",
+    type=click.Path(exists=True),
+    help="""
+    Path to tab separated list file\b
+    1. the column use to plot sashimi, identical with count table column names
+    2. optional, the alias of 1st column
+    """
+)
+@click.pass_context
+def no_bam(
+        ctx,
+        event,
+        input,
+        required
+):
+    u"""
+    This function is used to plot sashimi without BAM file
+    \f
+    :param ctx:
+    :param event:
+    :param input:
+    :param required:
+    :return:
+    """
+    output = ctx.obj["output"]
+    config = ctx.obj["config"]
+    gtf = ctx.obj["gtf"]
+    indicator_lines = ctx.obj["indicator_lines"]
+    threshold = ctx.obj["threshold"]
+    shared_y = ctx.obj["shared_y"]
+
+    clean_bam_filename = lambda x: re.sub("[_.]SJ.out.tab", "", os.path.basename(x))
+    required_cols = {}
+    if required:
+        with open(required) as r:
+            for line in r:
+                lines = line.strip().split("\t")
+
+                if not lines:
+                    continue
+                
+                if len(lines) > 1:
+                    required_cols[lines[0]] = lines[1]
+                else:
+                    required_cols[lines[0]] = clean_bam_filename(lines[0])
+
+    sashimi_plot_settings = parse_settings(config)
+
+    splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
+
+    reads_depth = read_reads_depth_from_count_table(
+        count_table=input,
+        splice_region=splice_region,
+        required=required_cols,
+        threshold=threshold
+    )
+
+    draw_sashimi_plot(
+        output_file_path=output,
+        settings=sashimi_plot_settings,
+        average_depths_dict=reads_depth,
+        splice_region=splice_region,
+        shared_y=shared_y
+    )
 
 
 if __name__ == '__main__':
