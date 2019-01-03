@@ -714,6 +714,7 @@ def draw_sashimi_plot(
         settings,
         average_depths_dict,
         splice_region,
+        shared_y
         # ordered_genotypes_list
 ):
 
@@ -753,6 +754,7 @@ def draw_sashimi_plot(
         splice_region=splice_region,            # Exon and transcript information
         show_gene=True,                         # decide whether display gene id in this plot
         # ordered_genotypes_list                # provide the allele information or label for subtitle in SplicePlot
+        shared_y=shared_y
     )
 
     # logger.info("save to %s" % output_file_path)
