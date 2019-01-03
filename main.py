@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from src.plot_settings import parse_settings
 from src.reading_input import SpliceRegion
-from src.reading_input import read_reads_depth, read_transcripts, index_gtf, is_bam
+from src.reading_input import read_reads_depth_from_bam, read_transcripts, index_gtf, is_bam
 from src.sashimi_plot_utils import draw_sashimi_plot
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
@@ -203,6 +203,13 @@ def read_info_from_xlsx(xlsx):
     type=click.STRING,
     help="Where to plot additional indicator lines, comma separated int"
 )
+@click.option(
+    "--shared-y",
+    default=False,
+    if_flag=True,
+    type=False,
+    help="Whether different sashimi plots shared same y axis"
+)
 @click.pass_context
 @click.version_option(VERSION, message="Current version %(version)s")
 def main(
@@ -211,7 +218,8 @@ def main(
         output,
         config,
         threshold,
-        indicator_lines
+        indicator_lines,
+        shared_y
 ):
     u"""
     Welcome
@@ -229,6 +237,7 @@ def main(
     :param config: path to config file, default using settings.ini file under this suite of scripts
     :param threshold:
     :param indicator_lines:
+    :param shared_y:
     :return:
     """
     ctx.obj['output'] = output
@@ -236,6 +245,7 @@ def main(
     ctx.obj['gtf'] = gtf
     ctx.obj['threshold'] = threshold
     ctx.obj['indicator_lines'] = indicator_lines
+    ctx.obj["shared_y"] = shared_y
 
     pass
 
@@ -283,6 +293,7 @@ def single(
     gtf = ctx.obj["gtf"]
     indicator_lines = ctx.obj["indicator_lines"]
     threshold = ctx.obj["threshold"]
+    shared_y = ctx.obj["shared_y"]
 
     out_dir = os.path.dirname(output)
 
@@ -336,7 +347,7 @@ def single(
         region=splice_region
     )
 
-    reads_depth = read_reads_depth(
+    reads_depth = read_reads_depth_from_bam(
         bam_list=bam_list,
         splice_region=splice_region,
         threshold=threshold
@@ -346,7 +357,8 @@ def single(
         output_file_path=output,
         settings=sashimi_plot_settings,
         average_depths_dict=reads_depth,
-        splice_region=splice_region
+        splice_region=splice_region,
+        shared_y=shared_y
     )
 
 
@@ -405,6 +417,7 @@ def batch(
     gtf = ctx.obj["gtf"]
     indicator_lines = ctx.obj["indicator_lines"]
     threshold = ctx.obj["threshold"]
+    shared_y = ctx.obj["shared_y"]
 
     try:
         if not os.path.exists(output):
@@ -430,7 +443,7 @@ def batch(
                 region=merged
             )
 
-            reads_depth = read_reads_depth(
+            reads_depth = read_reads_depth_from_bam(
                 bam_list=bam_list,
                 splice_region=splice_region,
                 threshold=threshold
@@ -453,7 +466,8 @@ def batch(
                     output_file_path=os.path.join(output, sep.events + ".pdf"),
                     settings=sashimi_plot_settings,
                     average_depths_dict=tmp_reads_depth_dict,
-                    splice_region=splice_region.get_region(sep)
+                    splice_region=splice_region.get_region(sep),
+                    shared_y=shared_y
                 )
 
 

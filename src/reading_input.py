@@ -152,6 +152,19 @@ class GenomicLoci(object):
             self.start <= other.end and \
             self.end >= other.start
 
+    @classmethod
+    def create_loci(cls, string):
+        u"""
+        Create loci from String
+        :param string: chr1:1-100:+
+        :return:
+        """
+        chromosome, sites, strand = string.split(":")
+
+        start, end = sites.split("-")
+
+        return cls(chromosome, start, end, strand)
+
 
 class Transcript(GenomicLoci):
     u"""
@@ -389,6 +402,21 @@ class Junction(object):
         """
         return self.end - self.start
 
+    @classmethod
+    def create_junction(cls, string):
+        u"""
+        create Junction from chr1:1-100:+
+        :param string: str, chr1:1-100:+ format or chr1:1-100 also work
+        :return:
+        """
+        string = string.split(":")
+
+        chromosome = string[0]
+        start, end = string[1].split("-")
+
+        return cls(chromosome=chromosome, start=start, end=end)
+
+
     def __hash__(self):
         u"""
         generate hash
@@ -446,6 +474,32 @@ class Junction(object):
             return False
 
         return self.start < other.end and self.end > other.start
+
+    def is_upstream(self, other):
+        u"""
+        whether this junction is upstream of other
+        :param other:
+        :return:
+        """
+        assert isinstance(other, Junction), "Input should be Junction class"
+
+        if self.chromosome != other.chromosome:
+            return self.chromosome < other.chromosome
+
+        return self.end < self.start
+
+    def is_downstream(self, other):
+        u"""
+        whether this junction is downstream of other
+        :param other:
+        :return:
+        """
+        assert isinstance(other, Junction), "Input should be Junction class"
+
+        if self.chromosome != other.chromosome:
+            return self.chromosome > other.chromosome
+
+        return self.start > other.end
 
 
 class ReadDepth(GenomicLoci):
@@ -562,6 +616,26 @@ class ReadDepth(GenomicLoci):
             raise Exception
 
     @classmethod
+    def create_depth(cls, data, splice_region):
+        u"""
+        Create ReadDepth base on junction dict
+        :param data: {junction in string: int}
+        :param splice_region:
+        :return:
+        """
+        junctions_dict = {}
+        for key, value in data.items():
+            junctions_dict[Junction.create_junction(key)] = value
+
+        return cls(
+            chromosome=splice_region.chromosome,
+            start=splice_region.start,
+            end=splice_region.end,
+            wiggle=None,
+            junctions_dict=junctions_dict
+        )
+
+    @classmethod
     def create_blank(cls):
 
         """
@@ -611,7 +685,8 @@ class ReadDepth(GenomicLoci):
         bottom_index = new_low - self.start
         top_index = bottom_index + (new_high - new_low)
 
-        self.wiggle = self.wiggle[bottom_index:top_index + 1]
+        if self.wiggle:
+            self.wiggle = self.wiggle[bottom_index:top_index + 1]
 
         # change the lower and upper bound (last step)
         self.start = new_low
@@ -929,7 +1004,7 @@ def read_transcripts(gtf_file, region, retry=0):
     return splice_region
 
 
-def read_reads_depth(bam_list, splice_region, threshold=0):
+def read_reads_depth_from_bam(bam_list, splice_region, threshold=0):
     u"""
     read reads coverage info from all bams
     :param bam_list: namedtuple (alias, title, path, label)
@@ -957,6 +1032,57 @@ def read_reads_depth(bam_list, splice_region, threshold=0):
 
         res[bam] = tmp
     return res
+
+
+def read_reads_depth_from_count_table(
+        count_table,
+        splice_region,
+        required,
+        threshold=0
+):
+    u"""
+    Read junction counts from count_table
+    :param count_table:
+    :param splice_region:
+    :param required:
+    :param threshold:
+    :return: {label: ReadDepth}
+    """
+
+    data = {}
+    header = {}
+    with open(count_table) as r:
+        for line in r:
+            lines = line.split()
+            if not header:
+                for i, j in enumerate(lines):
+                    header[i] = j
+            else:
+
+                for i, j in enumerate(lines):
+                    if i == 0:
+                        tmp = GenomicLoci.create_loci(lines[0])
+
+                        if not splice_region.is_overlap(tmp):
+                            break
+                    else:
+                        key = header[i]
+                        if required:
+                            if header[i] in required.keys():
+                                key = required[header[i]]
+                            else:
+                                continue
+
+                        tmp_junctions = data[key] if key in data.keys() else {}
+
+                        if j != "NA" and int(j) >= threshold:
+                            tmp_junctions[lines[0]] = int(j)
+
+                        data[key] = j
+
+    for key, value in data.items():
+        data[key] = ReadDepth.create_depth(value, splice_region)
+
 
 
 if __name__ == '__main__':

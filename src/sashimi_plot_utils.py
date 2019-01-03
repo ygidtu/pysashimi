@@ -353,7 +353,7 @@ def plot_transcripts(
     # the API of SpliceRegion has changed, the transcripts here should be sorted
 
     for transcript in transcripts:
-        narrows = math.floor(narrows * (transcript.length / len(graphcoords)))
+        # narrows = math.floor(narrows * (transcript.length / len(graphcoords)))
 
         # @2018.12.20 add transcript id, based on fixed coordinates
         if show_gene:
