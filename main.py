@@ -15,7 +15,8 @@ from tqdm import tqdm
 
 from src.plot_settings import parse_settings
 from src.reading_input import SpliceRegion
-from src.reading_input import read_reads_depth_from_bam, read_reads_depth_from_count_table, read_transcripts, index_gtf, is_bam
+from src.reading_input import read_reads_depth_from_bam, read_reads_depth_from_count_table, read_transcripts, \
+    index_gtf, is_bam
 from src.sashimi_plot_utils import draw_sashimi_plot
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +28,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 bam_info = namedtuple("bam_info", ["alias", "title", "label", "path"])
 
 
-def get_sites_from_splice_id(string, sep="@", span=0, indicator_lines=None):
+def get_sites_from_splice_id(string, span=0, indicator_lines=None):
     u"""
     get splice range from splice id
     :param string: splice id
@@ -105,6 +106,10 @@ def get_merged_event(events, span, indicator_lines):
         coords[tmp_key] = tmp_list
 
     return coords
+
+
+clean_bam_filename = lambda x: re.sub("([_.]?Aligned.sortedByCoord.out)?.bam", "", os.path.basename(x))
+clean_table_filename = lambda x: re.sub("[_.]?SJ.out.tab", "", os.path.basename(x))
 
 
 def read_info_from_xlsx(xlsx):
@@ -254,7 +259,7 @@ def main(
     context_settings=CONTEXT_SETTINGS,
 )
 @click.option(
-    "-e"
+    "-e",
     "--event",
     type=click.STRING,
     required=True,
@@ -295,7 +300,7 @@ def normal(
     threshold = ctx.obj["threshold"]
     shared_y = ctx.obj["shared_y"]
 
-    out_dir = os.path.dirname(output)
+    out_dir = os.path.dirname(os.path.abspath(output))
 
     try:
         if not os.path.exists(out_dir):
@@ -303,8 +308,6 @@ def normal(
     except IOError as err:
         print(err)
         print("Create output directory failed, please check %s" % out_dir)
-
-    clean_bam_filename = lambda x: re.sub("[_.]Aligned.sortedByCoord.out.bam", "", os.path.basename(x))
 
     if is_bam(bam):
         bam_list = [
@@ -467,7 +470,7 @@ def pipeline(
 
 @main.command()
 @click.option(
-    "-e"
+    "-e",
     "--event",
     type=click.STRING,
     required=True,
@@ -512,7 +515,6 @@ def no_bam(
     threshold = ctx.obj["threshold"]
     shared_y = ctx.obj["shared_y"]
 
-    clean_bam_filename = lambda x: re.sub("[_.]SJ.out.tab", "", os.path.basename(x))
     required_cols = {}
     if required:
         with open(required) as r:
@@ -521,15 +523,20 @@ def no_bam(
 
                 if not lines:
                     continue
-                
+
                 if len(lines) > 1:
                     required_cols[lines[0]] = lines[1]
                 else:
-                    required_cols[lines[0]] = clean_bam_filename(lines[0])
+                    required_cols[lines[0]] = clean_table_filename(lines[0])
 
     sashimi_plot_settings = parse_settings(config)
 
     splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
+
+    splice_region = read_transcripts(
+        gtf_file=index_gtf(input_gtf=gtf),
+        region=splice_region
+    )
 
     reads_depth = read_reads_depth_from_count_table(
         count_table=input,
@@ -550,3 +557,5 @@ def no_bam(
 if __name__ == '__main__':
     main(obj={})
     pass
+
+

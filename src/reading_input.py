@@ -242,8 +242,8 @@ class SpliceRegion(GenomicLoci):
         self.sites = sites
         self.events = events
         self.chromosome = chromosome
-        self.start = start
-        self.end = end
+        self.start = int(start)
+        self.end = int(end)
         self.strand = strand
         self.__transcripts__ = {}  # {transcript_id: namedtuple(gtf proxy of transcript, [gtf proxy of exons])}
 
@@ -706,8 +706,7 @@ class ReadDepth(GenomicLoci):
         bottom_index = new_low - self.start
         top_index = bottom_index + (new_high - new_low)
 
-        if self.wiggle:
-            self.wiggle = self.wiggle[bottom_index:top_index + 1]
+        self.wiggle = self.wiggle[bottom_index:top_index + 1]
 
         # change the lower and upper bound (last step)
         self.start = new_low
@@ -997,7 +996,6 @@ def read_transcripts(gtf_file, region, retry=0):
         end=region.end,
         strand=region.strand
     )
-
     try:
         with pysam.Tabixfile(gtf_file, 'r') as gtf_tabix:
 

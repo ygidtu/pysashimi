@@ -26,6 +26,7 @@ from matplotlib.path import Path
 import math
 import matplotlib.pyplot as plt
 
+from src.logger import logger
 from src.reading_input import SpliceRegion
 
 
@@ -647,7 +648,7 @@ def plot_density(
                     curr_ax.Label.alias,
                     fontsize=font_size,
                     va="center",
-                    labelpad=(len(curr_ax.Label) // 5 + 1) * 10,            # the distance between ylabel with axis
+                    labelpad=len(curr_ax.Label.alias) * 2.5,            # the distance between ylabel with axis
                     rotation="horizontal"
                 )
 
@@ -757,7 +758,7 @@ def draw_sashimi_plot(
         shared_y=shared_y
     )
 
-    # logger.info("save to %s" % output_file_path)
+    logger.info("save to %s" % output_file_path)
     plt.savefig(
         output_file_path,
         transparent=True,
