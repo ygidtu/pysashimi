@@ -14,7 +14,7 @@ Migrated from SplicePlot sashimi_plot_utils
 9. add parameter to decide whether use shared y axis
 10. fix transcripts display issues
 """
-from collections import namedtuple
+
 
 import matplotlib
 
@@ -27,7 +27,8 @@ import math
 import matplotlib.pyplot as plt
 
 from src.logger import logger
-from src.reading_input import SpliceRegion
+from src.data_types import SpliceRegion, bam_info, ax_label
+
 
 
 def __get_limited_index__(num, length):
@@ -52,7 +53,7 @@ def __get_limited_index__(num, length):
     return num
 
 
-ax_label = namedtuple("NamedAx", ["Ax", "Label"])   # @2018.12.20 using this to handle the ylabel of different ax
+
 
 
 def cubic_bezier(pts, t):
@@ -125,6 +126,7 @@ def plot_density_single(
         font_size=6,
         numbering_font_size=6,
         # junction_log_base=10
+        no_bam=False
 
 ):
     u"""
@@ -144,6 +146,7 @@ def plot_density_single(
     :param nxticks:
     :param font_size:
     :param numbering_font_size:
+    :param no_bam:
     :return:
     """
     
@@ -171,14 +174,30 @@ def plot_density_single(
     prevx = graphcoords[0]
     tmpval = []
 
+    u"""
+    @2019.01.04
+    
+    If there is no bam file, use half of y axis as the upper bound of exon 
+    
+    And draw a white point to maintain the height of the y axis
+    
+    """
     for i in range(len(graphcoords)):
         tmpval.append(wiggle[i])
 
         if abs(graphcoords[i] - prevx) > resolution:
-            compressed_wiggle.append(sum(tmpval) / len(tmpval))
+            tmp = sum(tmpval) / len(tmpval)
+
+            if no_bam:
+                tmp /= 2
+
+            compressed_wiggle.append(tmp)
             compressed_x.append(prevx)
             prevx = graphcoords[i]
             tmpval = []
+
+    if no_bam:
+        plt.plot(0, max(compressed_wiggle) * 2, color="white")
 
     pylab.fill_between(
         compressed_x,
@@ -225,6 +244,15 @@ def plot_density_single(
 
             leftdens = wiggle[__get_limited_index__(leftss - tx_start - 1, len(wiggle))]
             rightdens = wiggle[__get_limited_index__(rightss - tx_start, len(wiggle))]
+
+            """
+            @2019.01.04
+            
+            If there is no bam, lower half of y axis as the height of junctions
+            """
+            if no_bam:
+                leftdens /= 2
+                rightdens /= 2
 
             pts = [
                 (ss1, leftdens),
@@ -448,7 +476,8 @@ def plot_density(
         splice_region,
         show_gene=False,
         title=None,
-        shared_y=False
+        shared_y=False,
+        no_bam=False
 ):
     u"""
     Several modifications were taken
@@ -464,6 +493,7 @@ def plot_density(
                     used by plot_transcripts()
     :param title: the title of this plot
     :param shared_y: whether different sashimi share same y axis
+    :param no_bam:
     :return:
     """
 
@@ -483,7 +513,7 @@ def plot_density(
     numbering_font_size = settings["numbering_font_size"]
 
     # Always show y-axis for read densities for now
-    showYaxis = True
+    showYaxis = not no_bam
     
     # parse mRNA_object to get strand, exon_starts, exon_ends, tx_start, tx_end, chrom
     chromosome = splice_region.chromosome
@@ -572,7 +602,7 @@ def plot_density(
             nxticks=nxticks,
             font_size=font_size,
             numbering_font_size=numbering_font_size,
-            # junction_log_base=junction_log_base
+            no_bam=no_bam
         )
 
         # @2018.12.16 change ax to [ax, label]
@@ -580,7 +610,7 @@ def plot_density(
 
     # Reset axes based on this.
     # Set fake ymin bound to allow lower junctions to be visible
-    fake_ymin = -0.5 * max_used_yval
+    fake_ymin = - 0.5 * max_used_yval
     universal_yticks = pylab.linspace(
         0,
         max_used_yval,
@@ -604,22 +634,39 @@ def plot_density(
                     lw=0.5
                 )
 
-        if showYaxis:
+        if show_ylabel:
+            """
+            @2018.12.20 using BAM label as ylabel
+             
+            @2019.01.04 
+            1. check the variable type
+            2. change the standards of distance between ylabel and y-axis
+            """
+            assert isinstance(curr_ax, ax_label)
+            assert isinstance(curr_ax.Label, bam_info)
 
-            # @2018.12.20
-            # if shared_y is False, then calculate the best ylimit per axis
-            if not shared_y:
-                used_yvals = [curr_ax.Ax.get_ylim()[1] for curr_ax in plotted_axes]
+            curr_ax.Ax.set_ylabel(
+                curr_ax.Label.alias,
+                fontsize=font_size,
+                va="center",
+                labelpad=len(curr_ax.Label.alias) * 2.5,  # the distance between ylabel with axis
+                rotation="horizontal"
+            )
 
-                # Round up
-                max_used_yval = math.ceil(max(used_yvals))
+        # @2018.12.20
+        # if shared_y is False, then calculate the best ylimit per axis
+        if not shared_y:
+            used_yvals = [curr_ax.Ax.get_ylim()[1] for curr_ax in plotted_axes]
 
-                # @2018.12.20 if max_used_yval is odd, plus one, for better look
-                if max_used_yval % 2 == 1:
-                    max_used_yval += 1
+            # Round up
+            max_used_yval = math.ceil(max(used_yvals))
 
-            curr_ax.Ax.set_ybound(lower=fake_ymin, upper=1.2 * max_used_yval)
+            # @2018.12.20 if max_used_yval is odd, plus one, for better look
+            if max_used_yval % 2 == 1:
+                max_used_yval += 1
 
+        curr_ax.Ax.set_ybound(lower=fake_ymin, upper=1.2 * max_used_yval)
+        if not no_bam:
             curr_yticklabels = []
             for label in universal_yticks:
                 if label <= 0:
@@ -636,26 +683,19 @@ def plot_density(
                 fontsize=font_size
             )
 
-            curr_ax.Ax.spines["left"].set_bounds(0, max_used_yval)
             curr_ax.Ax.set_yticks(universal_yticks)
             curr_ax.Ax.yaxis.set_ticks_position('left')
-            curr_ax.Ax.spines["right"].set_color('none')
-
-            if show_ylabel:
-
-                # @2018.12.20 using BAM label as ylabel
-                curr_ax.Ax.set_ylabel(
-                    curr_ax.Label.alias,
-                    fontsize=font_size,
-                    va="center",
-                    labelpad=len(curr_ax.Label.alias) * 2.5,            # the distance between ylabel with axis
-                    rotation="horizontal"
-                )
-
         else:
-            curr_ax.Ax.spines["left"].set_color('none')
-            curr_ax.Ax.spines["right"].set_color('none')
+            u"""
+            @2019.01.04
+            
+            If there is no bam file, draw a blank y-axis 
+            """
             curr_ax.Ax.set_yticks([])
+            curr_ax.Ax.yaxis.set_ticks_position("none")
+
+        curr_ax.Ax.spines["left"].set_bounds(0, max_used_yval)
+        curr_ax.Ax.spines["right"].set_color('none')
 
         """
         Plot sample labels
@@ -715,7 +755,8 @@ def draw_sashimi_plot(
         settings,
         average_depths_dict,
         splice_region,
-        shared_y
+        shared_y,
+        no_bam=False
         # ordered_genotypes_list
 ):
 
@@ -743,19 +784,30 @@ def draw_sashimi_plot(
 
     assert isinstance(splice_region, SpliceRegion), "splice_region should be SpliceRegion, not %s" % type(splice_region)
 
+    u"""
+    @2019.01.04
+    If there is no bam, reduce the height of figure
+    """
+    if no_bam:
+        height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts)) // 2
+    else:
+        height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 2)
+
     plt.figure(
         figsize=[
             settings['width'],
-            settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 2)
+            height
         ]
     )
+
     plot_density(
         settings,                               # plot settings, untouched
         read_depths_dict=average_depths_dict,   # reads coverage
         splice_region=splice_region,            # Exon and transcript information
         show_gene=True,                         # decide whether display gene id in this plot
         # ordered_genotypes_list                # provide the allele information or label for subtitle in SplicePlot
-        shared_y=shared_y
+        shared_y=shared_y,
+        no_bam=no_bam
     )
 
     logger.info("save to %s" % output_file_path)

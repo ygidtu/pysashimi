@@ -7,25 +7,24 @@ Main function to plot sashimi plot
 """
 import os
 import re
-from collections import namedtuple
 
 import click
 from openpyxl import load_workbook
 from tqdm import tqdm
 
+from src.data_types import SpliceRegion, clean_bam_filename, clean_table_filename
 from src.plot_settings import parse_settings
-from src.reading_input import SpliceRegion
-from src.reading_input import read_reads_depth_from_bam, read_reads_depth_from_count_table, read_transcripts, \
-    index_gtf, is_bam
-from src.sashimi_plot_utils import draw_sashimi_plot
+from src.reading_input import index_gtf
+from src.reading_input import is_bam
+from src.reading_input import read_reads_depth_from_bam
+from src.reading_input import read_reads_depth_from_count_table
+from src.reading_input import read_transcripts
+from src.sashimi_plot_utils import draw_sashimi_plot, bam_info
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 VERSION = "1.2.0"
 LABEL = "pySashimi"
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
-
-
-bam_info = namedtuple("bam_info", ["alias", "title", "label", "path"])
 
 
 def get_sites_from_splice_id(string, span=0, indicator_lines=None):
@@ -106,10 +105,6 @@ def get_merged_event(events, span, indicator_lines):
         coords[tmp_key] = tmp_list
 
     return coords
-
-
-clean_bam_filename = lambda x: re.sub("([_.]?Aligned.sortedByCoord.out)?.bam", "", os.path.basename(x))
-clean_table_filename = lambda x: re.sub("[_.]?SJ.out.tab", "", os.path.basename(x))
 
 
 def read_info_from_xlsx(xlsx):
@@ -550,7 +545,8 @@ def no_bam(
         settings=sashimi_plot_settings,
         average_depths_dict=reads_depth,
         splice_region=splice_region,
-        shared_y=shared_y
+        shared_y=shared_y,
+        no_bam=True
     )
 
 
