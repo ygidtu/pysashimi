@@ -703,8 +703,9 @@ def plot_density(
         @2018.12.20 remove extra text inside sashimi
         @2018.12.25 Add this text back, normally plot title (cell line or tissue) and PSI if exists
         @2018.12.26 use the max_used_yval as y coord
+        @2019.01.06 fix bug about sample_num out of colors bound
         """
-        sample_color = colors[sample_num]
+        sample_color = colors[sample_num % len(colors)]
 
         curr_label = curr_ax.Label
 

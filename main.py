@@ -151,6 +151,9 @@ def read_info_from_xlsx(xlsx):
         else:
             continue
 
+        if not is_bam(i[0]):
+            raise ValueError("%s seem not ba a valid BAM file" % i[0])
+
         tmp = bam_info(
             alias=i[0].value if i[0].value is not None else "",
             title=i[1].value if i[1].value is not None else "",
@@ -167,6 +170,25 @@ def read_info_from_xlsx(xlsx):
 
 
 @click.group(
+    context_settings=CONTEXT_SETTINGS,
+)
+@click.version_option(VERSION, message="Current version %(version)s")
+def main():
+    u"""
+    Welcome
+
+    \b
+    This function is used to test the function of sashimi plotting
+
+    \f
+    Created by ygidtu@gmail.com at 2018.12.19
+    :return:
+    """
+
+    pass
+
+
+@main.command(
     context_settings=CONTEXT_SETTINGS,
 )
 @click.option(
@@ -210,49 +232,6 @@ def read_info_from_xlsx(xlsx):
     type=click.BOOL,
     help="Whether different sashimi plots shared same y axis"
 )
-@click.pass_context
-@click.version_option(VERSION, message="Current version %(version)s")
-def main(
-        ctx,
-        gtf,
-        output,
-        config,
-        threshold,
-        indicator_lines,
-        shared_y
-):
-    u"""
-    Welcome
-
-    \b
-    This function is used to test the function of sashimi plotting
-
-    \f
-    Created by ygidtu@gmail.com at 2018.12.19
-    :param ctx: passed content
-    :param bam: list of input BAM files
-    :param gtf: path to gtf file
-    :param output: path to output file
-    :param event: event id, chr:100-200-100-200:+ etc
-    :param config: path to config file, default using settings.ini file under this suite of scripts
-    :param threshold:
-    :param indicator_lines:
-    :param shared_y:
-    :return:
-    """
-    ctx.obj['output'] = output
-    ctx.obj['config'] = config
-    ctx.obj['gtf'] = gtf
-    ctx.obj['threshold'] = threshold
-    ctx.obj['indicator_lines'] = indicator_lines
-    ctx.obj["shared_y"] = shared_y
-
-    pass
-
-
-@main.command(
-    context_settings=CONTEXT_SETTINGS,
-)
 @click.option(
     "-e",
     "--event",
@@ -272,12 +251,15 @@ def main(
     - second column is BAM file alias(optional)
     """
 )
-@click.pass_context
 def normal(
-        ctx,
         bam,
         event,
-
+        gtf,
+        output,
+        config,
+        threshold,
+        indicator_lines,
+        shared_y
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -286,14 +268,16 @@ def normal(
     :param ctx: passed parameters from main
     :param bam: list of input BAM files
     :param event: event id, chr:100-200-100-200:+ etc
+    :param bam: list of input BAM files
+    :param gtf: path to gtf file
+    :param output: path to output file
+    :param event: event id, chr:100-200-100-200:+ etc
+    :param config: path to config file, default using settings.ini file under this suite of scripts
+    :param threshold:
+    :param indicator_lines:
+    :param shared_y:
     :return:
     """
-    output = ctx.obj["output"]
-    config = ctx.obj["config"]
-    gtf = ctx.obj["gtf"]
-    indicator_lines = ctx.obj["indicator_lines"]
-    threshold = ctx.obj["threshold"]
-    shared_y = ctx.obj["shared_y"]
 
     out_dir = os.path.dirname(os.path.abspath(output))
 
@@ -328,6 +312,9 @@ def normal(
                         label=None
                     )
                 else:
+                    if not is_bam(bam):
+                        raise ValueError("%s seem not ba a valid BAM file" % bam)
+
                     tmp = bam_info(
                         path=bam,
                         alias=clean_bam_filename(bam),
@@ -382,11 +369,56 @@ def normal(
     """,
     show_default=True
 )
-@click.pass_context
+@click.option(
+    "-g",
+    "--gtf",
+    type=click.Path(exists=True),
+    help="Path to gtf file, both transcript and exon tags are necessary"
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(),
+    help="Path to output graph file",
+    show_default=True
+)
+@click.option(
+    "--config",
+    default=os.path.join(__dir__, "settings.ini"),
+    type=click.Path(),
+    help="Path to config file, contains graph settings of sashimi plot",
+    show_default=True
+)
+@click.option(
+    "-t",
+    "--threshold",
+    default=0,
+    type=click.IntRange(min=0, clamp=True),
+    help="Threshold to filter low abundance junctions",
+    show_default=True
+)
+@click.option(
+    "--indicator-lines",
+    default=None,
+    type=click.STRING,
+    help="Where to plot additional indicator lines, comma separated int"
+)
+@click.option(
+    "--shared-y",
+    default=False,
+    is_flag=True,
+    type=click.BOOL,
+    help="Whether different sashimi plots shared same y axis"
+)
 def pipeline(
-        ctx,
         input,
         span,
+        gtf,
+        output,
+        config,
+        threshold,
+        indicator_lines,
+        shared_y
 ):
     u"""
 
@@ -399,17 +431,18 @@ def pipeline(
 
     \f
     Created by ygidtu@gmail.com at 2018.12.19
-    :param ctx: passed parameters from main
     :param input: input file in specific format
     :param span: str, but must be int or float
+    :param bam: list of input BAM files
+    :param gtf: path to gtf file
+    :param output: path to output file
+    :param event: event id, chr:100-200-100-200:+ etc
+    :param config: path to config file, default using settings.ini file under this suite of scripts
+    :param threshold:
+    :param indicator_lines:
+    :param shared_y:
     :return:
     """
-    output = ctx.obj["output"]
-    config = ctx.obj["config"]
-    gtf = ctx.obj["gtf"]
-    indicator_lines = ctx.obj["indicator_lines"]
-    threshold = ctx.obj["threshold"]
-    shared_y = ctx.obj["shared_y"]
 
     try:
         if not os.path.exists(output):
@@ -487,29 +520,74 @@ def pipeline(
     2. optional, the alias of 1st column
     """
 )
-@click.pass_context
+@click.option(
+    "-g",
+    "--gtf",
+    type=click.Path(exists=True),
+    help="Path to gtf file, both transcript and exon tags are necessary"
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(),
+    help="Path to output graph file",
+    show_default=True
+)
+@click.option(
+    "--config",
+    default=os.path.join(__dir__, "settings.ini"),
+    type=click.Path(),
+    help="Path to config file, contains graph settings of sashimi plot",
+    show_default=True
+)
+@click.option(
+    "-t",
+    "--threshold",
+    default=0,
+    type=click.IntRange(min=0, clamp=True),
+    help="Threshold to filter low abundance junctions",
+    show_default=True
+)
+@click.option(
+    "--indicator-lines",
+    default=None,
+    type=click.STRING,
+    help="Where to plot additional indicator lines, comma separated int"
+)
+@click.option(
+    "--shared-y",
+    default=False,
+    is_flag=True,
+    type=click.BOOL,
+    help="Whether different sashimi plots shared same y axis"
+)
 def no_bam(
-        ctx,
         event,
         input,
-        required
+        required,
+        gtf,
+        output,
+        config,
+        threshold,
+        indicator_lines,
+        shared_y
 ):
     u"""
     This function is used to plot sashimi without BAM file
     \f
-    :param ctx:
     :param event:
     :param input:
     :param required:
+    :param bam: list of input BAM files
+    :param gtf: path to gtf file
+    :param output: path to output file
+    :param event: event id, chr:100-200-100-200:+ etc
+    :param config: path to config file, default using settings.ini file under this suite of scripts
+    :param threshold:
+    :param indicator_lines:
+    :param shared_y:
     :return:
     """
-    output = ctx.obj["output"]
-    config = ctx.obj["config"]
-    gtf = ctx.obj["gtf"]
-    indicator_lines = ctx.obj["indicator_lines"]
-    threshold = ctx.obj["threshold"]
-    shared_y = ctx.obj["shared_y"]
-
     required_cols = {}
     if required:
         with open(required) as r:
@@ -551,7 +629,10 @@ def no_bam(
 
 
 if __name__ == '__main__':
-    main(obj={})
+    main.add_command(normal)
+    main.add_command(no_bam)
+    main.add_command(pipeline)
+    main()
     pass
 
 

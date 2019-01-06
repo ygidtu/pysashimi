@@ -5,7 +5,9 @@ FROM python:3.7.0
 MAINTAINER ygidtu ygidtu@gmail.com
 
 # copy file to image
-COPY sashimi /
+COPY . /opt/sashimi
+
+WORKDIR /opt/sashimi
 
 
 RUN pip install pip -U

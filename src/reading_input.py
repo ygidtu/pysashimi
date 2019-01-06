@@ -191,8 +191,10 @@ def read_transcripts(gtf_file, region, retry=0):
         # handle the mismatch of chromosomes here
         if retry < 2:
             if not region.chromosome.startswith("chr"):
+                logger.info("Guess need 'chr'")
                 region.chromosome = "chr" + region.chromosome
             else:
+                logger.info("Guess 'chr' is redundant")
                 region.chromosome = region.chromosome.replace("chr", "")
 
             return read_transcripts(gtf_file=gtf_file, region=region, retry=retry + 1)

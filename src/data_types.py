@@ -634,6 +634,10 @@ class ReadDepth(GenomicLoci):
         except IOError:
             logger.error('There is no .bam file at {0}'.format(bam_file_path))
             raise Exception
+        except ValueError as err:
+            logger.error(bam_file_path)
+            logger.error(err)
+            exit(err)
 
     @classmethod
     def create_depth(cls, data, splice_region, depth=10):
@@ -845,3 +849,7 @@ class ReadDepth(GenomicLoci):
             wiggle=wiggle,
             junctions_dict=junctions_dict
         )
+
+
+if __name__ == '__main__':
+    pass
