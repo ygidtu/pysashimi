@@ -324,14 +324,14 @@ def normal(
                     tmp = bam_info(
                         path=lines[0],
                         alias=lines[1],
-                        title=None,
+                        title="",
                         label=None
                     )
                 else:
                     tmp = bam_info(
                         path=bam,
                         alias=clean_bam_filename(bam),
-                        title=None,
+                        title="",
                         label=None
                     )
                 bam_list.append(tmp)

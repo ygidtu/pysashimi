@@ -45,31 +45,28 @@ def is_bam(infile):
     :param infile: path to input file
     :return: Boolean
     """
+
     try:
-        with open(infile, "rb") as r:
-            pass
-    except UnicodeDecodeError:
-        return False
-
-    create = False
-    if not os.path.exists(infile + ".bai"):
-        create = True
-    elif os.path.getctime(infile + ".bai") < os.path.getctime(infile):
-        os.remove(infile + ".bai")
-        create = True
-    else:
-        try:
-            with pysam.AlignmentFile(infile) as r:
-                r.check_index()
-        except ValueError:
+        create = False
+        if not os.path.exists(infile + ".bai"):
             create = True
-        except pysam.utils.SamtoolsError:
-            return False
+        elif os.path.getctime(infile + ".bai") < os.path.getctime(infile):
+            os.remove(infile + ".bai")
+            create = True
+        else:
+            try:
+                with pysam.AlignmentFile(infile) as r:
+                    r.check_index()
+            except ValueError:
+                create = True
 
-    if create:
-        logger.info("Creating index for %s" % infile)
-        pysam.index(infile)
-    return True
+        if create:
+            logger.info("Creating index for %s" % infile)
+            pysam.index(infile)
+        return True
+
+    except pysam.utils.SamtoolsError:
+        return False
 
 
 def index_gtf(input_gtf, sort_gtf=False, retry=0):
