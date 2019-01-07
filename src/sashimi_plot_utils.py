@@ -541,8 +541,6 @@ def plot_density(
     if title:
         # Use custom title if given
         pylab.title(title, fontsize=10)
-        
-    plotted_axes = []
 
     """
     @ 2018.12.21
@@ -559,6 +557,21 @@ def plot_density(
     if max_used_yval % 2 == 1:
         max_used_yval += 1
 
+    # Reset axes based on this.
+    # Set fake ymin bound to allow lower junctions to be visible
+    fake_ymin = - 0.5 * max_used_yval
+    universal_yticks = pylab.linspace(
+        0,
+        max_used_yval,
+        nyticks + 1
+    )
+
+    """
+    @2019.01.07
+    calculate the distance between ylabel and y axis
+    """
+    distance_between_label_axis = max([len(x.alias) for x in read_depths_dict.keys()]) * 2.5
+
     u"""
     @2018.12.19
     
@@ -567,13 +580,14 @@ def plot_density(
     @2018.12.25
     Add a sorted for list of bam_info, sort this list by bam_info's title (normally, the sample tissues or cell lines)
     """
-    for i, group_genotype in enumerate(sorted(read_depths_dict.keys(), key=lambda x: x.title)):
-        average_read_depth = read_depths_dict[group_genotype]
+    for i, sample_info in enumerate(sorted(read_depths_dict.keys(), key=lambda x: x.title)):
+        average_read_depth = read_depths_dict[sample_info]
 
         if colors is not None:
             color = colors[i % len(colors)]
         else:
             color = None
+
         if i < nfiles - 1:
             showXaxis = False 
         else:
@@ -584,9 +598,13 @@ def plot_density(
             (i, 0),
             colspan=1
         )
-        
+
+        """
+        Main body of sashimi
+        @2019.01.07 
+        """
         # Read sample label
-        plotted_ax = plot_density_single(
+        curr_ax = plot_density_single(
             read_depth_object=average_read_depth,
             # sample_label=sample_label,
             chromosome=chromosome,
@@ -606,60 +624,18 @@ def plot_density(
         )
 
         # @2018.12.16 change ax to [ax, label]
-        plotted_axes.append(ax_label(Ax=plotted_ax, Label=group_genotype))
-
-    # Reset axes based on this.
-    # Set fake ymin bound to allow lower junctions to be visible
-    fake_ymin = - 0.5 * max_used_yval
-    universal_yticks = pylab.linspace(
-        0,
-        max_used_yval,
-        nyticks + 1
-    )
-
-    # Round up yticks
-    for sample_num, curr_ax in enumerate(plotted_axes):
+        # plotted_axes.append(ax_label(Ax=plotted_ax, Label=group_genotype))
 
         """
-        @2018.12.26 
-        add indicator lines
+        Re-calculate the y boundary, if do not share same y axis
+        @2018.12.20
+        if shared_y is False, then calculate the best ylimit per axis
+        and flush the universal_yticks
         """
-        if splice_region.sites:
-            for i in splice_region.sites:
-                curr_ax.Ax.vlines(
-                    x=graphcoords[i - tx_start],
-                    ymin=0,
-                    ymax=max_used_yval,
-                    linestyles="dashed",
-                    lw=0.5
-                )
-
-        if show_ylabel:
-            """
-            @2018.12.20 using BAM label as ylabel
-             
-            @2019.01.04 
-            1. check the variable type
-            2. change the standards of distance between ylabel and y-axis
-            """
-            assert isinstance(curr_ax, ax_label)
-            assert isinstance(curr_ax.Label, bam_info)
-
-            curr_ax.Ax.set_ylabel(
-                curr_ax.Label.alias,
-                fontsize=font_size,
-                va="center",
-                labelpad=len(curr_ax.Label.alias) * 2.5,  # the distance between ylabel with axis
-                rotation="horizontal"
-            )
-
-        # @2018.12.20
-        # if shared_y is False, then calculate the best ylimit per axis
         if not shared_y:
-            used_yvals = [curr_ax.Ax.get_ylim()[1] for curr_ax in plotted_axes]
 
             # Round up
-            max_used_yval = math.ceil(max(used_yvals))
+            max_used_yval = math.ceil(curr_ax.get_ylim()[1])
 
             """
             @2018.12.20 if max_used_yval is odd, plus one, for better look
@@ -668,47 +644,74 @@ def plot_density(
             if max_used_yval % 2 == 1:
                 max_used_yval += 1
 
-            # Reset axes based on this.
-            # Set fake ymin bound to allow lower junctions to be visible
-            fake_ymin = - 0.5 * max_used_yval
             universal_yticks = pylab.linspace(
                 0,
                 max_used_yval,
                 nyticks + 1
             )
 
-        # print(fake_ymin, 1.2 * max_used_yval)
-        curr_ax.Ax.set_ybound(lower=fake_ymin, upper=1.2 * max_used_yval)
-        if not no_bam:
-            curr_yticklabels = []
-            for label in universal_yticks:
-                if label <= 0:
-                    # Exclude label for 0
-                    curr_yticklabels.append("")
-                else:
-                    if label % 1 != 0:
-                        curr_yticklabels.append("%.1f" % label)
-                    else:
-                        curr_yticklabels.append("%d" % label)
+        """
+        Indicator lines
+        @2018.12.26 
+        add indicator lines
+        """
+        if splice_region.sites:
+            for i in splice_region.sites:
+                curr_ax.vlines(
+                    x=graphcoords[i - tx_start],
+                    ymin=0,
+                    ymax=max_used_yval,
+                    linestyles="dashed",
+                    lw=0.5
+                )
 
-            curr_ax.Ax.set_yticklabels(
+        curr_ax.set_ybound(lower=fake_ymin, upper=1.2 * max_used_yval)
+        curr_ax.spines["left"].set_bounds(0, max_used_yval)
+        curr_ax.spines["right"].set_color('none')
+
+        curr_yticklabels = []
+        for label in universal_yticks:
+            if label <= 0:
+                # Exclude label for 0
+                curr_yticklabels.append("")
+            else:
+                if label % 1 != 0:
+                    curr_yticklabels.append("%.1f" % label)
+                else:
+                    curr_yticklabels.append("%d" % label)
+
+        if not no_bam:
+
+            curr_ax.set_yticklabels(
                 curr_yticklabels,
                 fontsize=font_size
             )
 
-            curr_ax.Ax.set_yticks(universal_yticks)
-            curr_ax.Ax.yaxis.set_ticks_position('left')
+            curr_ax.set_yticks(universal_yticks)
+            curr_ax.yaxis.set_ticks_position('left')
         else:
             u"""
             @2019.01.04
             
             If there is no bam file, draw a blank y-axis 
             """
-            curr_ax.Ax.set_yticks([])
-            curr_ax.Ax.yaxis.set_ticks_position("none")
+            curr_ax.set_yticks([])
+            curr_ax.yaxis.set_ticks_position("none")
 
-        curr_ax.Ax.spines["left"].set_bounds(0, max_used_yval)
-        curr_ax.Ax.spines["right"].set_color('none')
+        """
+        Plot y labels
+        @2018.12.20 using BAM label as ylabel
+
+        @2019.01.04 change the standards of distance between ylabel and y-axis
+        """
+        if show_ylabel:
+            curr_ax.set_ylabel(
+                sample_info.alias,
+                fontsize=font_size,
+                va="center",
+                labelpad=distance_between_label_axis,  # the distance between ylabel with axis
+                rotation="horizontal"
+            )
 
         """
         Plot sample labels
@@ -718,23 +721,20 @@ def plot_density(
         @2018.12.26 use the max_used_yval as y coord
         @2019.01.06 fix bug about sample_num out of colors bound
         """
-        sample_color = colors[sample_num % len(colors)]
 
-        curr_label = curr_ax.Label
-
-        if curr_label.label is not None:
-            curr_label = "%s %s" % (curr_label.title, curr_label.label)
+        if sample_info.label is not None:
+            curr_label = "%s %s" % (sample_info.title, sample_info.label)
         else:
-            curr_label = curr_label.title
+            curr_label = sample_info.title
 
-        t = curr_ax.Ax.text(
+        t = curr_ax.text(
             max(graphcoords),
             max_used_yval,
             curr_label,
             fontsize=font_size,
             va='bottom',
             ha='right',
-            color=sample_color
+            color=color
         )
 
         # @218.12.19 set transparent background
@@ -758,8 +758,7 @@ def plot_density(
         graphcoords=graphcoords,
         reverse_minus=reverse_minus,
         font_size=font_size,
-        show_gene=show_gene,
-        # label_x_axis=graphcoords[tx_start] - 300
+        show_gene=show_gene
     )
     pylab.subplots_adjust(hspace=.1, wspace=.7)
 
@@ -770,8 +769,8 @@ def draw_sashimi_plot(
         average_depths_dict,
         splice_region,
         shared_y,
-        no_bam=False
-        # ordered_genotypes_list
+        no_bam=False,
+        show_gene=True
 ):
 
     """
@@ -818,8 +817,7 @@ def draw_sashimi_plot(
         settings,                               # plot settings, untouched
         read_depths_dict=average_depths_dict,   # reads coverage
         splice_region=splice_region,            # Exon and transcript information
-        show_gene=True,                         # decide whether display gene id in this plot
-        # ordered_genotypes_list                # provide the allele information or label for subtitle in SplicePlot
+        show_gene=show_gene,                    # decide whether display gene id in this plot
         shared_y=shared_y,
         no_bam=no_bam
     )

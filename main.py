@@ -192,6 +192,25 @@ def main():
     context_settings=CONTEXT_SETTINGS,
 )
 @click.option(
+    "-e",
+    "--event",
+    type=click.STRING,
+    required=True,
+    help="Event range eg: chr1:100-200:+"
+)
+@click.option(
+    "-b",
+    "--bam",
+    type=click.Path(exists=True),
+    help="""
+    Path to input BAM file. \b
+
+    Or a tab separated text file, \b 
+    - first column is path to BAM file, \b
+    - second column is BAM file alias(optional)
+    """
+)
+@click.option(
     "-g",
     "--gtf",
     type=click.Path(exists=True),
@@ -233,23 +252,11 @@ def main():
     help="Whether different sashimi plots shared same y axis"
 )
 @click.option(
-    "-e",
-    "--event",
-    type=click.STRING,
-    required=True,
-    help="Event range eg: chr1:100-200:+"
-)
-@click.option(
-    "-b",
-    "--bam",
-    type=click.Path(exists=True),
-    help="""
-    Path to input BAM file. \b
-
-    Or a tab separated text file, \b 
-    - first column is path to BAM file, \b
-    - second column is BAM file alias(optional)
-    """
+    "--no-gene",
+    default=True,
+    is_flag=True,
+    type=click.BOOL,
+    help="Do not show gene id next to transcript id"
 )
 def normal(
         bam,
@@ -259,7 +266,8 @@ def normal(
         config,
         threshold,
         indicator_lines,
-        shared_y
+        shared_y,
+        no_gene
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -276,6 +284,7 @@ def normal(
     :param threshold:
     :param indicator_lines:
     :param shared_y:
+    :param no_gene:
     :return:
     """
 
@@ -323,6 +332,9 @@ def normal(
                     )
                 bam_list.append(tmp)
 
+                if len(bam_list) > 1:
+                    break
+
     sashimi_plot_settings = parse_settings(config)
 
     splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
@@ -344,7 +356,8 @@ def normal(
         average_depths_dict=reads_depth,
         splice_region=splice_region,
         shared_y=shared_y,
-        no_bam=False
+        no_bam=False,
+        show_gene=no_gene
     )
 
 
@@ -411,6 +424,13 @@ def normal(
     type=click.BOOL,
     help="Whether different sashimi plots shared same y axis"
 )
+@click.option(
+    "--no-gene",
+    default=True,
+    is_flag=True,
+    type=click.BOOL,
+    help="Do not show gene id next to transcript id"
+)
 def pipeline(
         input,
         span,
@@ -419,7 +439,8 @@ def pipeline(
         config,
         threshold,
         indicator_lines,
-        shared_y
+        shared_y,
+        no_gene
 ):
     u"""
 
@@ -442,6 +463,7 @@ def pipeline(
     :param threshold:
     :param indicator_lines:
     :param shared_y:
+    :param no_gene:
     :return:
     """
 
@@ -494,7 +516,8 @@ def pipeline(
                     average_depths_dict=tmp_reads_depth_dict,
                     splice_region=splice_region.get_region(sep),
                     shared_y=shared_y,
-                    no_bam=False
+                    no_bam=False,
+                    show_gene=no_gene
                 )
 
 
@@ -563,6 +586,13 @@ def pipeline(
     type=click.BOOL,
     help="Whether different sashimi plots shared same y axis"
 )
+@click.option(
+    "--no-gene",
+    default=True,
+    is_flag=True,
+    type=click.BOOL,
+    help="Do not show gene id next to transcript id"
+)
 def no_bam(
         event,
         input,
@@ -572,7 +602,8 @@ def no_bam(
         config,
         threshold,
         indicator_lines,
-        shared_y
+        shared_y,
+        no_gene
 ):
     u"""
     This function is used to plot sashimi without BAM file
@@ -588,6 +619,7 @@ def no_bam(
     :param threshold:
     :param indicator_lines:
     :param shared_y:
+    :param no_gene:
     :return:
     """
     required_cols = {}
@@ -626,7 +658,8 @@ def no_bam(
         average_depths_dict=reads_depth,
         splice_region=splice_region,
         shared_y=shared_y,
-        no_bam=True
+        no_bam=True,
+        show_gene=no_gene
     )
 
 

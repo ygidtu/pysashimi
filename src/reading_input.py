@@ -214,6 +214,7 @@ def read_reads_depth_from_bam(bam_list, splice_region, threshold=0):
 
     res = {}
     for bam in bam_list:
+        logger.info("Reading from %s" % bam.path)
         tmp = ReadDepth.determine_depth(
             bam_file_path=bam.path,
             chrm=splice_region.chromosome,
