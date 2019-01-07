@@ -661,10 +661,23 @@ def plot_density(
             # Round up
             max_used_yval = math.ceil(max(used_yvals))
 
-            # @2018.12.20 if max_used_yval is odd, plus one, for better look
+            """
+            @2018.12.20 if max_used_yval is odd, plus one, for better look
+            @2019.01.07 flush universal_yticks if not shared_y
+            """
             if max_used_yval % 2 == 1:
                 max_used_yval += 1
 
+            # Reset axes based on this.
+            # Set fake ymin bound to allow lower junctions to be visible
+            fake_ymin = - 0.5 * max_used_yval
+            universal_yticks = pylab.linspace(
+                0,
+                max_used_yval,
+                nyticks + 1
+            )
+
+        # print(fake_ymin, 1.2 * max_used_yval)
         curr_ax.Ax.set_ybound(lower=fake_ymin, upper=1.2 * max_used_yval)
         if not no_bam:
             curr_yticklabels = []

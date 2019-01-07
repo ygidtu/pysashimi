@@ -22,7 +22,7 @@ from src.reading_input import read_transcripts
 from src.sashimi_plot_utils import draw_sashimi_plot, bam_info
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 LABEL = "pySashimi"
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -343,7 +343,8 @@ def normal(
         settings=sashimi_plot_settings,
         average_depths_dict=reads_depth,
         splice_region=splice_region,
-        shared_y=shared_y
+        shared_y=shared_y,
+        no_bam=False
     )
 
 
@@ -492,7 +493,8 @@ def pipeline(
                     settings=sashimi_plot_settings,
                     average_depths_dict=tmp_reads_depth_dict,
                     splice_region=splice_region.get_region(sep),
-                    shared_y=shared_y
+                    shared_y=shared_y,
+                    no_bam=False
                 )
 
 
