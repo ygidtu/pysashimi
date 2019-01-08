@@ -254,7 +254,7 @@ def read_reads_depth_from_count_table(
     with open(count_table) as r:
         for line in r:
             lines = line.split()
-            # print(lines)
+
             if not header:
                 for i, j in enumerate(lines):
                     header[i] = clean_table_filename(j)

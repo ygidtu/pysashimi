@@ -12,15 +12,15 @@ import click
 from openpyxl import load_workbook
 from tqdm import tqdm
 
+from src.data_types import SpliceRegion, clean_bam_filename, clean_table_filename, bam_info
 from src.logger import logger
-from src.data_types import SpliceRegion, clean_bam_filename, clean_table_filename
 from src.plot_settings import parse_settings
 from src.reading_input import index_gtf
 from src.reading_input import is_bam
 from src.reading_input import read_reads_depth_from_bam
 from src.reading_input import read_reads_depth_from_count_table
 from src.reading_input import read_transcripts
-from src.sashimi_plot_utils import draw_sashimi_plot, bam_info
+from src.sashimi_plot_utils import draw_sashimi_plot
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 VERSION = "1.2.2"
@@ -289,7 +289,6 @@ def main():
 )
 @click.option(
     "--no-gene",
-    default=True,
     is_flag=True,
     type=click.BOOL,
     help="Do not show gene id next to transcript id"
@@ -332,7 +331,6 @@ def normal(
     :param color_factor: 1-based index, only work with bam list
     :return:
     """
-
     out_dir = os.path.dirname(os.path.abspath(output))
 
     try:
@@ -418,7 +416,7 @@ def normal(
         splice_region=splice_region,
         shared_y=shared_y,
         no_bam=False,
-        show_gene=no_gene
+        show_gene=not no_gene
     )
 
 
@@ -487,7 +485,6 @@ def normal(
 )
 @click.option(
     "--no-gene",
-    default=True,
     is_flag=True,
     type=click.BOOL,
     help="Do not show gene id next to transcript id"
@@ -592,7 +589,7 @@ def pipeline(
                     splice_region=splice_region.get_region(sep),
                     shared_y=shared_y,
                     no_bam=False,
-                    show_gene=no_gene
+                    show_gene=not no_gene
                 )
 
 
@@ -664,7 +661,6 @@ def pipeline(
 )
 @click.option(
     "--no-gene",
-    default=True,
     is_flag=True,
     type=click.BOOL,
     help="Do not show gene id next to transcript id"
@@ -752,7 +748,7 @@ def no_bam(
         splice_region=splice_region,
         shared_y=shared_y,
         no_bam=True,
-        show_gene=no_gene
+        show_gene=not no_gene
     )
 
 

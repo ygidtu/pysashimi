@@ -18,14 +18,15 @@ import matplotlib
 
 matplotlib.use('Agg')
 
+import math
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 from matplotlib import pylab
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
-import math
-import matplotlib.pyplot as plt
 
 from src.logger import logger
-from src.data_types import SpliceRegion, bam_info, ax_label
+from src.data_types import SpliceRegion
 
 
 def __get_limited_index__(num, length):
@@ -76,50 +77,49 @@ def get_scaling(
     """
     Compute the scaling factor across various genetic regions.
     """
-    exoncoords = pylab.zeros((tx_end - tx_start + 1))
+    exon_coords = pylab.zeros((tx_end - tx_start + 1))
     for i in range(len(exon_starts)):
-        exoncoords[exon_starts[i] - tx_start: exon_ends[i] - tx_start] = 1
+        exon_coords[exon_starts[i] - tx_start: exon_ends[i] - tx_start] = 1
 
-    graphToGene = {}
-    graphcoords = pylab.zeros((tx_end - tx_start + 1), dtype='f')
+    graph_to_gene = {}
+    graph_coords = pylab.zeros((tx_end - tx_start + 1), dtype='f')
 
     x = 0
     if strand == '+' or not reverse_minus:
         for i in range(tx_end - tx_start + 1):
-            graphcoords[i] = x
-            graphToGene[int(x)] = i + tx_start
-            if exoncoords[i] == 1:
+            graph_coords[i] = x
+            graph_to_gene[int(x)] = i + tx_start
+            if exon_coords[i] == 1:
                 x += 1. / exon_scale
             else:
                 x += 1. / intron_scale
     else:
         for i in range(tx_end - tx_start + 1):
-            graphcoords[-(i + 1)] = x
-            graphToGene[int(x)] = tx_end - i + 1
-            if exoncoords[-(i + 1)] == 1:
+            graph_coords[-(i + 1)] = x
+            graph_to_gene[int(x)] = tx_end - i + 1
+            if exon_coords[-(i + 1)] == 1:
                 x += 1. / exon_scale
             else:
                 x += 1. / intron_scale
 
-    return graphcoords, graphToGene
+    return graph_coords, graph_to_gene
 
 
 def plot_density_single(
         read_depth_object,
         chromosome,
         strand,
-        graphcoords,
-        graphToGene,
-        axvar,
+        graph_coords,
+        graph_to_gene,
+        ax_var,
         color='r',
-        ymax=None,
+        y_max=None,
         number_junctions=True,
-        resolution=.5,
-        showXaxis=True,
-        nxticks=4,
+        # resolution=.5,
+        show_x_axis=True,
+        nx_ticks=4,
         font_size=6,
         numbering_font_size=6,
-        # junction_log_base=10
         no_bam=False
 
 ):
@@ -127,17 +127,18 @@ def plot_density_single(
     @2018.12.19 remove unnecessary x label
     @2018.12.19 replace junc_comp_function with a new Junction class,
                 due to cmp function is removed in Python3
-
+    :param chromosome:
+    :param strand:
     :param read_depth_object:
-    :param graphcoords:
-    :param graphToGene:
-    :param axvar:
+    :param graph_coords:
+    :param graph_to_gene:
+    :param ax_var:
     :param color:
-    :param ymax:
+    :param y_max:
     :param number_junctions:
     :param resolution:
-    :param showXaxis:
-    :param nxticks:
+    :param show_x_axis:
+    :param nx_ticks:
     :param font_size:
     :param numbering_font_size:
     :param no_bam:
@@ -155,18 +156,17 @@ def plot_density_single(
 
     jxns = read_depth_object.junctions_dict
 
-    maxheight = max(wiggle)
-    if ymax is None:
-        ymax = 1.1 * maxheight
+    max_height = read_depth_object.max
+    if y_max is None:
+        y_max = 1.1 * max_height
     else:
-        ymax = ymax
-    ymin = -.5 * ymax
+        y_max = y_max
+    y_min = -.5 * y_max
 
     # Reduce memory footprint by using incremented graphcoords.
     compressed_x = []
     compressed_wiggle = []
-    prevx = graphcoords[0]
-    tmpval = []
+    # prev_x = graph_coords[0]
 
     u"""
     @2019.01.04
@@ -176,30 +176,21 @@ def plot_density_single(
     And draw a white point to maintain the height of the y axis
     
     """
-    for i in range(len(graphcoords)):
-        tmpval.append(wiggle[i])
-
-        if abs(graphcoords[i] - prevx) > resolution:
-            tmp = sum(tmpval) / len(tmpval)
-
-            if no_bam:
-                tmp /= 2
-
-            compressed_wiggle.append(tmp)
-            compressed_x.append(prevx)
-            prevx = graphcoords[i]
-            tmpval = []
+    for i in range(len(graph_coords)):
+        compressed_wiggle.append(wiggle[i])
+        compressed_x.append(graph_coords[i])
+        # prev_x = graph_coords[i]
 
     if no_bam:
         plt.plot(0, max(compressed_wiggle) * 2, color="white")
-
-    pylab.fill_between(
-        compressed_x,
-        compressed_wiggle,
-        y2=0,
-        color=color,
-        lw=0
-    )
+    else:
+        pylab.fill_between(
+            compressed_x,
+            compressed_wiggle,
+            y2=0,
+            color=color,
+            lw=0
+        )
 
     # sort the junctions by intron length for better plotting look
     jxns_sorted_list = sorted(jxns.keys())
@@ -211,7 +202,7 @@ def plot_density_single(
         min_junction_count = min(jxns.values())
     junction_count_gap = max_junction_count - min_junction_count
 
-    current_height = -3 * ymin / 4
+    current_height = -3 * y_min / 4
     for plotted_count, jxn in enumerate(jxns_sorted_list):
         # leftss, rightss = list(map(int, jxn.split(":")[1].split("-")))
 
@@ -220,8 +211,8 @@ def plot_density_single(
         # @2018.12.19
         # set junctions coordinate here
         # the junction out of boundaries, set the boundaries as coordinate
-        ss1 = graphcoords[__get_limited_index__(leftss - tx_start - 1, len(graphcoords))]
-        ss2 = graphcoords[__get_limited_index__(rightss - tx_start, len(graphcoords))]
+        ss1 = graph_coords[__get_limited_index__(leftss - tx_start - 1, len(graph_coords))]
+        ss2 = graph_coords[__get_limited_index__(rightss - tx_start, len(graph_coords))]
 
         # draw junction on bottom
         if plotted_count % 2 == 1:
@@ -236,8 +227,8 @@ def plot_density_single(
         # draw junction on top
         else:
 
-            leftdens = wiggle[__get_limited_index__(leftss - tx_start - 1, len(wiggle))]
-            rightdens = wiggle[__get_limited_index__(rightss - tx_start, len(wiggle))]
+            left_dens = wiggle[__get_limited_index__(leftss - tx_start - 1, len(wiggle))]
+            right_dens = wiggle[__get_limited_index__(rightss - tx_start, len(wiggle))]
 
             """
             @2019.01.04
@@ -245,14 +236,14 @@ def plot_density_single(
             If there is no bam, lower half of y axis as the height of junctions
             """
             if no_bam:
-                leftdens /= 2
-                rightdens /= 2
+                left_dens /= 2
+                right_dens /= 2
 
             pts = [
-                (ss1, leftdens),
-                (ss1, leftdens + current_height),
-                (ss2, rightdens + current_height),
-                (ss2, rightdens)
+                (ss1, left_dens),
+                (ss1, left_dens + current_height),
+                (ss2, right_dens + current_height),
+                (ss2, right_dens)
             ]
 
             midpt = cubic_bezier(pts, .5)
@@ -286,7 +277,7 @@ def plot_density_single(
         scale the junctions line width
         """
         if junction_count_gap > 0:
-            line_width = (jxns[jxn] - min_junction_count ) / junction_count_gap
+            line_width = (jxns[jxn] - min_junction_count) / junction_count_gap
         else:
             line_width = 0
 
@@ -297,45 +288,43 @@ def plot_density_single(
             fc='none'
         )
 
-        axvar.add_patch(p)
+        ax_var.add_patch(p)
 
     # Format plot
-    axvar.spines['right'].set_color('none')
-    axvar.spines['top'].set_color('none')
+    ax_var.spines['right'].set_color('none')
+    ax_var.spines['top'].set_color('none')
 
-    if showXaxis:
-        axvar.xaxis.set_ticks_position('bottom')
+    if show_x_axis:
+        ax_var.xaxis.set_ticks_position('bottom')
 
         # @2018.12.19 unnecessary text in figure
         pylab.xlabel(
-            'Genomic coordinate (%s), "%s" strand'%(
+            'Genomic coordinate (%s), "%s" strand' % (
                 chromosome,
                 strand
             ),
             fontsize=font_size
         )
 
-        max_graphcoords = max(graphcoords) - 1
+        max_graph_coords = max(graph_coords) - 1
 
         pylab.xticks(
-            pylab.linspace(0, max_graphcoords, nxticks),
-            [graphToGene[int(x)] for x in pylab.linspace(0, max_graphcoords, nxticks)],
+            pylab.linspace(0, max_graph_coords, nx_ticks),
+            [graph_to_gene[int(x)] for x in pylab.linspace(0, max_graph_coords, nx_ticks)],
             fontsize=font_size
         )
 
     else:
-        axvar.spines['bottom'].set_color('none')
+        ax_var.spines['bottom'].set_color('none')
         pylab.xticks([])
 
-    pylab.xlim(0, max(graphcoords))
-    # Return modified axis
-    return axvar
+    pylab.xlim(0, max(graph_coords))
 
 
 def plot_transcripts(
         tx_start,
         transcripts,
-        graphcoords,
+        graph_coords,
         reverse_minus,
         font_size,
         show_gene=False,
@@ -348,28 +337,20 @@ def plot_transcripts(
     due to i changed the mrna class, therefore, this function need be modified
 
     :param tx_start: the very start of this plot
-    :param tx_end: the very end of this plot
-    :param graphcoords: numpy array, convert the coord of genome to the coord in this plot
+    :param graph_coords: numpy array, convert the coord of genome to the coord in this plot
     :param reverse_minus:
+    :param transcripts: list of Transcript
     :param font_size: the font size of transcript label
     :param show_gene: Boolean value to decide whether to show gene id in this plot
-    :param label_x_axis: the position of transcript ids in x axis
     """
-    yloc = 0
-    exonwidth = .3
-
-    """
-    @2018.12.26
-    Max narrows is 50
-    But this number will decrease according to the length of transcript
-    """
-    narrows = 50
+    y_loc = 0
+    exon_width = .3
 
     """
     @2018.12.26
     Maybe I'm too stupid for this, using 30% of total length of x axis as the gap between text with axis
     """
-    distance = 0.3 * (max(graphcoords) - min(graphcoords))
+    distance = 0.3 * (max(graph_coords) - min(graph_coords))
 
     # @2018.12.19
     # @2018.12.21
@@ -382,21 +363,21 @@ def plot_transcripts(
         if show_gene:
             pylab.text(
                 x=-1 * distance,
-                y=yloc + 0.1,
+                y=y_loc + 0.15,
                 s=transcript.gene,
                 fontsize=font_size
             )
 
             pylab.text(
                 x=-1 * distance,
-                y=yloc - 0.2,
+                y=y_loc - 0.25,
                 s=transcript.transcript,
                 fontsize=font_size
             )
         else:
             pylab.text(
                 x=-1 * distance,
-                y=yloc - 0.1,
+                y=y_loc - 0.1,
                 s=transcript.transcript,
                 fontsize=font_size
             )
@@ -409,16 +390,16 @@ def plot_transcripts(
             s = s - tx_start
             e = e - tx_start
             x = [
-                graphcoords[s],
-                graphcoords[e],
-                graphcoords[e],
-                graphcoords[s]
+                graph_coords[s],
+                graph_coords[e],
+                graph_coords[e],
+                graph_coords[s]
             ]
             y = [
-                yloc - exonwidth / 2,
-                yloc - exonwidth / 2,
-                yloc + exonwidth / 2,
-                yloc + exonwidth / 2
+                y_loc - exon_width / 2,
+                y_loc - exon_width / 2,
+                y_loc + exon_width / 2,
+                y_loc + exon_width / 2
             ]
             pylab.fill(x, y, 'k', lw=.5, zorder=20)
 
@@ -426,37 +407,37 @@ def plot_transcripts(
         # change the intron range
         # Draw intron.
         intron_sites = [
-            graphcoords[transcript.start - tx_start],
-            graphcoords[transcript.end - tx_start]
+            graph_coords[transcript.start - tx_start],
+            graph_coords[transcript.end - tx_start]
         ]
         pylab.plot(
             intron_sites,
-            [yloc, yloc],
+            [y_loc, y_loc],
             color='k',
             lw=0.5
         )
 
         # @2018.12.23 fix intron arrows issues
         # Draw intron arrows.
-        max_ = graphcoords[transcript.end - tx_start]
-        min_ = graphcoords[transcript.start - tx_start]
+        max_ = graph_coords[transcript.end - tx_start]
+        min_ = graph_coords[transcript.start - tx_start]
         length = max_ - min_
-        narrows = math.ceil(length / max(graphcoords) * 50)
+        narrows = math.ceil(length / max(graph_coords) * 50)
 
         spread = .2 * length / narrows
 
         for i in range(narrows):
-            loc = float(i) * length / narrows + graphcoords[transcript.start - tx_start]
+            loc = float(i) * length / narrows + graph_coords[transcript.start - tx_start]
             if strand == '+' or reverse_minus:
                 x = [loc - spread, loc, loc - spread]
             else:
                 x = [loc + spread, loc, loc + spread]
-            y = [yloc - exonwidth / 5, yloc, yloc + exonwidth / 5]
+            y = [y_loc - exon_width / 5, y_loc, y_loc + exon_width / 5]
             pylab.plot(x, y, lw=.5, color='k')
 
-        yloc += 1
+        y_loc += 1
 
-    pylab.xlim(0, max(graphcoords))
+    pylab.xlim(0, max(graph_coords))
     pylab.ylim(-.5, len(transcripts) + .5)
     pylab.box(on=False)
     pylab.xticks([])
@@ -514,7 +495,7 @@ def plot_density(
     strand = splice_region.strand
 
     # Get the right scalings
-    graphcoords, graphToGene = get_scaling(
+    graph_coords, graph_to_gene = get_scaling(
         tx_start,
         tx_end,
         strand,
@@ -525,7 +506,9 @@ def plot_density(
         reverse_minus
     )
 
-    nfiles = len(list(read_depths_dict.keys()))
+    n_files = len(read_depths_dict) + (len(transcripts) // 3)
+
+    gs = gridspec.GridSpec(n_files, 1)
 
     if title:
         # Use custom title if given
@@ -537,21 +520,19 @@ def plot_density(
 
     if shared_y is True, compute best ymax value for all samples: take maximum y across all.
     """
-    used_yvals = [x.max for x in read_depths_dict.values()]
-
     # Round up
-    max_used_yval = math.ceil(max(used_yvals))
+    max_used_y_val = math.ceil(max([x.max for x in read_depths_dict.values()]))
 
-    # @2018.12.20 if max_used_yval is odd, plus one, for better look
-    if max_used_yval % 2 == 1:
-        max_used_yval += 1
+    # @2018.12.20 if max_used_y_val is odd, plus one, for better look
+    if max_used_y_val % 2 == 1:
+        max_used_y_val += 1
 
     # Reset axes based on this.
     # Set fake ymin bound to allow lower junctions to be visible
-    fake_ymin = - 0.5 * max_used_yval
-    universal_yticks = pylab.linspace(
+    fake_y_min = - 0.5 * max_used_y_val
+    universal_y_ticks = pylab.linspace(
         0,
-        max_used_yval,
+        max_used_y_val,
         nyticks + 1
     )
 
@@ -569,70 +550,62 @@ def plot_density(
     @2018.12.25
     Add a sorted for list of bam_info, sort this list by bam_info's title (normally, the sample tissues or cell lines)
     """
+
     for i, sample_info in enumerate(sorted(read_depths_dict.keys(), key=lambda x: x.title)):
         average_read_depth = read_depths_dict[sample_info]
 
-        if i < nfiles - 1:
-            showXaxis = False 
+        if i < n_files - 1:
+            show_x_axis = False
         else:
-            showXaxis = True 
+            show_x_axis = True
 
-        ax1 = plt.subplot2grid(
-            (nfiles + len(transcripts) // 2 + 1, 1),
-            (i, 0),
-            colspan=1
-        )
+        curr_ax = plt.subplot(gs[i, :])
+
+        """
+        Re-calculate the y boundary, if do not share same y axis
+        @2018.12.20
+        if shared_y is False, then calculate the best y_limit per axis
+        and flush the universal_y_ticks
+        """
+        if not shared_y:
+            # Round up
+            max_used_y_val = average_read_depth.max
+
+            """
+            @2018.12.20 if max_used_y_val is odd, plus one, for better look
+            @2019.01.07 flush universal_y_ticks if not shared_y
+            """
+            if max_used_y_val % 2 == 1:
+                max_used_y_val += 1
+
+            universal_y_ticks = pylab.linspace(
+                0,
+                max_used_y_val,
+                nyticks + 1
+            )
 
         """
         Main body of sashimi
         @2019.01.07 
         """
         # Read sample label
-        curr_ax = plot_density_single(
+        plot_density_single(
             read_depth_object=average_read_depth,
-            # sample_label=sample_label,
             chromosome=chromosome,
             strand=strand,
-            graphcoords=graphcoords,
-            graphToGene=graphToGene,
-            axvar=ax1,
-            color=bam_info.color,
-            ymax=max_used_yval,
+            graph_coords=graph_coords,
+            graph_to_gene=graph_to_gene,
+            ax_var=curr_ax,
+            color=sample_info.color,
+            y_max=max_used_y_val,
             number_junctions=number_junctions,
-            resolution=resolution,
-            showXaxis=showXaxis,
-            nxticks=nxticks,
+            # resolution=resolution,
+            show_x_axis=show_x_axis,
+            nx_ticks=nxticks,
             font_size=font_size,
             numbering_font_size=numbering_font_size,
             no_bam=no_bam
         )
-
-        # @2018.12.16 change ax to [ax, label]
-        # plotted_axes.append(ax_label(Ax=plotted_ax, Label=group_genotype))
-
-        """
-        Re-calculate the y boundary, if do not share same y axis
-        @2018.12.20
-        if shared_y is False, then calculate the best ylimit per axis
-        and flush the universal_yticks
-        """
-        if not shared_y:
-
-            # Round up
-            max_used_yval = math.ceil(curr_ax.get_ylim()[1])
-
-            """
-            @2018.12.20 if max_used_yval is odd, plus one, for better look
-            @2019.01.07 flush universal_yticks if not shared_y
-            """
-            if max_used_yval % 2 == 1:
-                max_used_yval += 1
-
-            universal_yticks = pylab.linspace(
-                0,
-                max_used_yval,
-                nyticks + 1
-            )
 
         """
         Indicator lines
@@ -640,38 +613,38 @@ def plot_density(
         add indicator lines
         """
         if splice_region.sites:
-            for i in splice_region.sites:
+            for site in splice_region.sites:
                 curr_ax.vlines(
-                    x=graphcoords[i - tx_start],
+                    x=graph_coords[site - tx_start],
                     ymin=0,
-                    ymax=max_used_yval,
+                    ymax=max_used_y_val,
                     linestyles="dashed",
                     lw=0.5
                 )
 
-        curr_ax.set_ybound(lower=fake_ymin, upper=1.2 * max_used_yval)
-        curr_ax.spines["left"].set_bounds(0, max_used_yval)
+        curr_ax.set_ybound(lower=fake_y_min, upper=1.2 * max_used_y_val)
+        curr_ax.spines["left"].set_bounds(0, max_used_y_val)
         curr_ax.spines["right"].set_color('none')
 
-        curr_yticklabels = []
-        for label in universal_yticks:
+        curr_y_tick_labels = []
+        for label in universal_y_ticks:
             if label <= 0:
                 # Exclude label for 0
-                curr_yticklabels.append("")
+                curr_y_tick_labels.append("")
             else:
                 if label % 1 != 0:
-                    curr_yticklabels.append("%.1f" % label)
+                    curr_y_tick_labels.append("%.1f" % label)
                 else:
-                    curr_yticklabels.append("%d" % label)
+                    curr_y_tick_labels.append("%d" % label)
 
         if not no_bam:
 
             curr_ax.set_yticklabels(
-                curr_yticklabels,
+                curr_y_tick_labels,
                 fontsize=font_size
             )
 
-            curr_ax.set_yticks(universal_yticks)
+            curr_ax.set_yticks(universal_y_ticks)
             curr_ax.yaxis.set_ticks_position('left')
         else:
             u"""
@@ -705,20 +678,19 @@ def plot_density(
         @2018.12.26 use the max_used_yval as y coord
         @2019.01.06 fix bug about sample_num out of colors bound
         """
-
         if sample_info.label is not None:
             curr_label = "%s %s" % (sample_info.title, sample_info.label)
         else:
             curr_label = sample_info.title
 
         t = curr_ax.text(
-            max(graphcoords),
-            max_used_yval,
+            max(graph_coords),
+            max_used_y_val,
             curr_label,
             fontsize=font_size,
             va='bottom',
             ha='right',
-            color=bam_info.color
+            color=sample_info.color
         )
 
         # @218.12.19 set transparent background
@@ -729,17 +701,12 @@ def plot_density(
     @2018.12.26
     add more subplots, based on the number of transcripts
     """
-    pylab.subplot2grid(
-        (nfiles + len(transcripts) // 2 + 1, 1),
-        (nfiles, 0),
-        colspan=1,
-        rowspan=len(transcripts) if len(transcripts) > 0 else 1
-    )
+    ax = plt.subplot(gs[n_files - len(read_depths_dict) - 1:, :])
 
     plot_transcripts(
         tx_start=tx_start,
         transcripts=transcripts,
-        graphcoords=graphcoords,
+        graph_coords=graph_coords,
         reverse_minus=reverse_minus,
         font_size=font_size,
         show_gene=show_gene
@@ -788,7 +755,7 @@ def draw_sashimi_plot(
     if no_bam:
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts)) // 2
     else:
-        height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 2)
+        height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 3)
 
     plt.figure(
         figsize=[
