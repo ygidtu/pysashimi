@@ -4,4 +4,3 @@ Click==7.0
 tqdm==4.28.1
 numpy==1.15.4
 matplotlib==3.0.1
-numba==0.40.0

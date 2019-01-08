@@ -10,18 +10,18 @@ Thanks to [ggsashimi](https://github.com/guigolab/ggsashimi), I learned how to e
 
 ## requirments
 ```
-seaborn==0.9.0
-scipy==1.1.0
-matplotlib==3.0.0
-numpy==1.15.2
 pysam==0.15.1
-pyBigWig==0.3.12
+openpyxl==2.5.9
+Click==7.0
+tqdm==4.28.1
+numpy==1.15.4
+matplotlib==3.0.1
 ```
 
 ---
 
-## TO
-- [ ] plot sashimi without bam file
+## Installation
+
 
 
 

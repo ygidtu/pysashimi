@@ -236,14 +236,16 @@ def read_reads_depth_from_count_table(
         count_table,
         splice_region,
         required,
+        colors,
         threshold=0
 ):
     u"""
     Read junction counts from count_table
-    :param count_table:
+    :param count_table: path to count table
     :param splice_region:
-    :param required:
-    :param threshold:
+    :param required: list of str, which columns are required to draw
+    :param threshold: threshold to filter out low abundance junctions
+    :param colors: {key: color}
     :return: {label: ReadDepth}
     """
 
@@ -281,7 +283,13 @@ def read_reads_depth_from_count_table(
 
     res = {}
     for key, value in data.items():
-        key = bam_info(path=None, alias=key, label=None, title="")
+        key = bam_info(
+            path=None,
+            alias=key,
+            label=None,
+            title="",
+            color=colors[key]
+        )
 
         res[key] = ReadDepth.create_depth(value, splice_region)
 

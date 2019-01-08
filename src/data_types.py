@@ -20,7 +20,7 @@ from src.logger import logger
 clean_bam_filename = lambda x: re.sub("([_.]?Aligned.sortedByCoord.out)?.bam", "", os.path.basename(x))
 clean_table_filename = lambda x: re.sub("[_.]?SJ.out.tab", "", os.path.basename(x))
 
-bam_info = namedtuple("bam_info", ["alias", "title", "label", "path"])
+bam_info = namedtuple("bam_info", ["alias", "title", "label", "path", "color"])
 ax_label = namedtuple("NamedAx", ["Ax", "Label"])   # @2018.12.20 using this to handle the ylabel of different ax
 
 

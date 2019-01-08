@@ -14,8 +14,6 @@ Migrated from SplicePlot sashimi_plot_utils
 9. add parameter to decide whether use shared y axis
 10. fix transcripts display issues
 """
-
-
 import matplotlib
 
 matplotlib.use('Agg')
@@ -28,7 +26,6 @@ import matplotlib.pyplot as plt
 
 from src.logger import logger
 from src.data_types import SpliceRegion, bam_info, ax_label
-
 
 
 def __get_limited_index__(num, length):
@@ -51,9 +48,6 @@ def __get_limited_index__(num, length):
         return length - 1
 
     return num
-
-
-
 
 
 def cubic_bezier(pts, t):
@@ -501,10 +495,8 @@ def plot_density(
 
     intron_scale = settings["intron_scale"]
     exon_scale = settings["exon_scale"]
-    colors = settings["colors"]
     number_junctions = settings["number_junctions"]
     resolution = settings["resolution"]
-    # junction_log_base = settings["junction_log_base"]
     reverse_minus = settings["reverse_minus"]
     font_size = settings["font_size"]
     nyticks = settings["nyticks"]
@@ -512,9 +504,6 @@ def plot_density(
     show_ylabel = settings["show_ylabel"]
     numbering_font_size = settings["numbering_font_size"]
 
-    # Always show y-axis for read densities for now
-    showYaxis = not no_bam
-    
     # parse mRNA_object to get strand, exon_starts, exon_ends, tx_start, tx_end, chrom
     chromosome = splice_region.chromosome
     exon_starts = splice_region.exon_starts
@@ -583,11 +572,6 @@ def plot_density(
     for i, sample_info in enumerate(sorted(read_depths_dict.keys(), key=lambda x: x.title)):
         average_read_depth = read_depths_dict[sample_info]
 
-        if colors is not None:
-            color = colors[i % len(colors)]
-        else:
-            color = None
-
         if i < nfiles - 1:
             showXaxis = False 
         else:
@@ -612,7 +596,7 @@ def plot_density(
             graphcoords=graphcoords,
             graphToGene=graphToGene,
             axvar=ax1,
-            color=color,
+            color=bam_info.color,
             ymax=max_used_yval,
             number_junctions=number_junctions,
             resolution=resolution,
@@ -734,7 +718,7 @@ def plot_density(
             fontsize=font_size,
             va='bottom',
             ha='right',
-            color=color
+            color=bam_info.color
         )
 
         # @218.12.19 set transparent background

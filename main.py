@@ -12,6 +12,7 @@ import click
 from openpyxl import load_workbook
 from tqdm import tqdm
 
+from src.logger import logger
 from src.data_types import SpliceRegion, clean_bam_filename, clean_table_filename
 from src.plot_settings import parse_settings
 from src.reading_input import index_gtf
@@ -22,7 +23,7 @@ from src.reading_input import read_transcripts
 from src.sashimi_plot_utils import draw_sashimi_plot, bam_info
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 LABEL = "pySashimi"
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -50,12 +51,30 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
         chromosome, sites = string.split(":")
         strand = "."
 
-    sites = sites.split("-")
+    try:
+        sites = sorted([int(x) for x in sites.split("-")])
+    except ValueError as err:
+        logger.error(err)
+        logger.error("Contains illegal characters in %s" % string)
+        exit(err)
+
+    start, end = sites[0], sites[-1]
+
+    try:
+        span = int(span)
+        start, end = sites[0] - span, sites[-1] + span
+    except ValueError:
+        try:
+            span = float(span) * (sites[-1] - sites[0])
+            start, end = sites[0] - span, sites[-1] + span
+        except ValueError as err:
+            logger.error("Invalid format of span, %s" % str(span))
+            exit(err)
 
     return SpliceRegion(
         chromosome=chromosome,
-        start=sites[0],
-        end=sites[-1],
+        start=start,
+        end=end,
         strand=strand,
         events=string,
         sites=[int(x) for x in indicator_lines.split(",")] if indicator_lines else None
@@ -107,10 +126,13 @@ def get_merged_event(events, span, indicator_lines):
     return coords
 
 
-def read_info_from_xlsx(xlsx):
+def read_info_from_xlsx(xlsx, color_factor, colors):
     u"""
     Created by ygidtu at 2018.12.25
     read info from input xlsx
+    :param xlsx: path to input xlsx file
+    :param color_factor: 1-based index, to assign colors to different BAM file
+    :param colors: list of colors
     :return:
         - data: {splice region: {header: value}}
         - bam_list: list of bam_info
@@ -134,6 +156,8 @@ def read_info_from_xlsx(xlsx):
 
             data[row[0].value.strip()] = tmp
 
+    tmp_color = {}
+    color_index = 0
     bam_list = []
     header = None
     for i in wb.worksheets[1].rows:
@@ -154,11 +178,23 @@ def read_info_from_xlsx(xlsx):
         if not is_bam(i[0]):
             raise ValueError("%s seem not ba a valid BAM file" % i[0])
 
+        try:
+            color_label = i[color_factor - 1].value
+        except IndexError as err:
+            logger.error(err)
+            logger.error("Wrong color factor")
+            exit(err)
+
+        if color_label not in tmp_color.keys():
+            tmp_color[color_label] = colors[color_index % len(colors)]
+            color_index += 1
+
         tmp = bam_info(
             alias=i[0].value if i[0].value is not None else "",
             title=i[1].value if i[1].value is not None else "",
             path=path,
-            label=None
+            label=None,
+            color=tmp_color[color_label]
         )
 
         bam_list.append(tmp)
@@ -258,6 +294,13 @@ def main():
     type=click.BOOL,
     help="Do not show gene id next to transcript id"
 )
+@click.option(
+    "--color-factor",
+    default=1,
+    type=click.IntRange(min=1),
+    help="Index of column with color levels (1-based)",
+    show_default=True
+)
 def normal(
         bam,
         event,
@@ -267,7 +310,8 @@ def normal(
         threshold,
         indicator_lines,
         shared_y,
-        no_gene
+        no_gene,
+        color_factor,
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -281,10 +325,11 @@ def normal(
     :param output: path to output file
     :param event: event id, chr:100-200-100-200:+ etc
     :param config: path to config file, default using settings.ini file under this suite of scripts
-    :param threshold:
-    :param indicator_lines:
-    :param shared_y:
-    :param no_gene:
+    :param threshold: filter out low abundance junctions
+    :param indicator_lines: draw vertical lines in sashimi to show the spliced sites
+    :param shared_y: make different plots use same y axis boundary
+    :param no_gene: do not show gene id
+    :param color_factor: 1-based index, only work with bam list
     :return:
     """
 
@@ -296,6 +341,11 @@ def normal(
     except IOError as err:
         print(err)
         print("Create output directory failed, please check %s" % out_dir)
+        exit(err)
+
+    sashimi_plot_settings = parse_settings(config)
+
+    colors = sashimi_plot_settings["colors"]
 
     if is_bam(bam):
         bam_list = [
@@ -303,22 +353,37 @@ def normal(
                 path=bam,
                 alias=clean_bam_filename(bam),
                 title=None,
-                label=None
+                label=None,
+                color=colors[0]
             )
         ]
 
     else:
+        tmp_color = {}
+        color_index = 0
         bam_list = []
         with open(bam) as r:
             for line in r:
-                lines = line.split()
+                lines = line.strip().split("\t")
+
+                try:
+                    color_label = lines[color_factor - 1]
+                except IndexError as err:
+                    logger.error(err)
+                    logger.error("Wrong color factor")
+                    exit(err)
+
+                if color_label not in tmp_color.keys():
+                    tmp_color[color_label] = colors[color_index % len(colors)]
+                    color_index += 1
 
                 if len(lines) > 1:
                     tmp = bam_info(
                         path=lines[0],
                         alias=lines[1],
                         title="",
-                        label=None
+                        label=None,
+                        color=tmp_color[color_label]
                     )
                 else:
                     if not is_bam(bam):
@@ -328,14 +393,10 @@ def normal(
                         path=bam,
                         alias=clean_bam_filename(bam),
                         title="",
-                        label=None
+                        label=None,
+                        color=tmp_color[color_label]
                     )
                 bam_list.append(tmp)
-
-                if len(bam_list) > 1:
-                    break
-
-    sashimi_plot_settings = parse_settings(config)
 
     splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
 
@@ -431,6 +492,13 @@ def normal(
     type=click.BOOL,
     help="Do not show gene id next to transcript id"
 )
+@click.option(
+    "--color-factor",
+    default=1,
+    type=click.IntRange(min=1),
+    help="Index of column with color levels (1-based)",
+    show_default=True
+)
 def pipeline(
         input,
         span,
@@ -440,7 +508,8 @@ def pipeline(
         threshold,
         indicator_lines,
         shared_y,
-        no_gene
+        no_gene,
+        color_factor
 ):
     u"""
 
@@ -460,10 +529,11 @@ def pipeline(
     :param output: path to output file
     :param event: event id, chr:100-200-100-200:+ etc
     :param config: path to config file, default using settings.ini file under this suite of scripts
-    :param threshold:
-    :param indicator_lines:
-    :param shared_y:
-    :param no_gene:
+    :param threshold: filter out low abundance junctions
+    :param indicator_lines: draw vertical lines in sashimi to show the spliced sites
+    :param shared_y: make different plots use same y axis boundary
+    :param no_gene: do not show gene id
+    :param color_factor: 1-based index, only work with bam list
     :return:
     """
 
@@ -473,10 +543,15 @@ def pipeline(
     except IOError as err:
         print(err)
         print("Create output directory failed, please check %s" % output)
-
-    data, bam_list = read_info_from_xlsx(input)
+        exit(err)
 
     sashimi_plot_settings = parse_settings(config)
+
+    data, bam_list = read_info_from_xlsx(
+        xlsx=input,
+        color_factor=color_factor,
+        colors=sashimi_plot_settings["colors"]
+    )
 
     coords = get_merged_event(data.keys(), span=span, indicator_lines=indicator_lines)
 
@@ -543,6 +618,7 @@ def pipeline(
     Path to tab separated list file\b
     1. the column use to plot sashimi, identical with count table column names
     2. optional, the alias of 1st column
+    3. additional columns
     """
 )
 @click.option(
@@ -593,6 +669,13 @@ def pipeline(
     type=click.BOOL,
     help="Do not show gene id next to transcript id"
 )
+@click.option(
+    "--color-factor",
+    default=1,
+    type=click.IntRange(min=1),
+    help="Index of column with color levels (1-based)",
+    show_default=True
+)
 def no_bam(
         event,
         input,
@@ -603,7 +686,8 @@ def no_bam(
         threshold,
         indicator_lines,
         shared_y,
-        no_gene
+        no_gene,
+        color_factor
 ):
     u"""
     This function is used to plot sashimi without BAM file
@@ -616,12 +700,18 @@ def no_bam(
     :param output: path to output file
     :param event: event id, chr:100-200-100-200:+ etc
     :param config: path to config file, default using settings.ini file under this suite of scripts
-    :param threshold:
-    :param indicator_lines:
-    :param shared_y:
-    :param no_gene:
+    :param threshold: filter out low abundance junctions
+    :param indicator_lines: draw vertical lines in sashimi to show the spliced sites
+    :param shared_y: make different plots use same y axis boundary
+    :param no_gene: do not show gene id
+    :param color_factor: 1-based index, only work with bam list
     :return:
     """
+    sashimi_plot_settings = parse_settings(config)
+
+    colors = sashimi_plot_settings["colors"]
+    color_index = 0
+    tmp_color = {}
     required_cols = {}
     if required:
         with open(required) as r:
@@ -636,7 +726,9 @@ def no_bam(
                 else:
                     required_cols[lines[0]] = clean_table_filename(lines[0])
 
-    sashimi_plot_settings = parse_settings(config)
+                if lines[color_factor - 1] not in tmp_color.keys():
+                    tmp_color[required_cols[lines[0]]] = colors[color_index % len(colors)]
+                    color_index += 1
 
     splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
 
@@ -649,7 +741,8 @@ def no_bam(
         count_table=input,
         splice_region=splice_region,
         required=required_cols,
-        threshold=threshold
+        threshold=threshold,
+        colors=tmp_color
     )
 
     draw_sashimi_plot(

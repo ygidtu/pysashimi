@@ -107,7 +107,19 @@ def default_sashimi_settings():
 
     sashimi_settings['intron_scale'] = 1
     sashimi_settings['exon_scale'] = 1
-    sashimi_settings['colors'] = ['#FF0000','#00FF00','#0000FF'] 
+    sashimi_settings['colors'] = [
+        '#FF8000',
+        '#00C866',
+        '#3399FF',
+        '#db5f57',
+        '#dbc257',
+        '#91db57',
+        '#57db80',
+        '#57d3db',
+        '#5770db',
+        '#a157db',
+        '#db57b2'
+    ]
     sashimi_settings['ymax'] = None
     sashimi_settings['number_junctions'] = True
     sashimi_settings['resolution'] = 0.5
