@@ -451,7 +451,7 @@ def plot_density(
         splice_region,
         show_gene=False,
         title=None,
-        shared_y=False,
+        share_y=False,
         no_bam=False
 ):
     u"""
@@ -467,7 +467,7 @@ def plot_density(
     :param show_gene: Boolean value to decide whether show gene id in this graph,
                     used by plot_transcripts()
     :param title: the title of this plot
-    :param shared_y: whether different sashimi share same y axis
+    :param share_y: whether different sashimi share same y axis
     :param no_bam:
     :return:
     """
@@ -518,7 +518,7 @@ def plot_density(
     @ 2018.12.21
     Figure out correct y-axis values
 
-    if shared_y is True, compute best ymax value for all samples: take maximum y across all.
+    if share_y is True, compute best ymax value for all samples: take maximum y across all.
     """
     # Round up
     max_used_y_val = math.ceil(max([x.max for x in read_depths_dict.values()]))
@@ -554,26 +554,26 @@ def plot_density(
     for i, sample_info in enumerate(sorted(read_depths_dict.keys(), key=lambda x: x.title)):
         average_read_depth = read_depths_dict[sample_info]
 
-        if i < n_files - 1:
-            show_x_axis = False
-        else:
-            show_x_axis = True
+        print(i)
+        show_x_axis = i == len(read_depths_dict) - 1
 
         curr_ax = plt.subplot(gs[i, :])
+
+        print(curr_ax)
 
         """
         Re-calculate the y boundary, if do not share same y axis
         @2018.12.20
-        if shared_y is False, then calculate the best y_limit per axis
+        if share_y is False, then calculate the best y_limit per axis
         and flush the universal_y_ticks
         """
-        if not shared_y:
+        if not share_y:
             # Round up
             max_used_y_val = average_read_depth.max
-
+            fake_y_min = - 0.5 * max_used_y_val
             """
             @2018.12.20 if max_used_y_val is odd, plus one, for better look
-            @2019.01.07 flush universal_y_ticks if not shared_y
+            @2019.01.07 flush universal_y_ticks if not share_y
             """
             if max_used_y_val % 2 == 1:
                 max_used_y_val += 1
@@ -599,7 +599,6 @@ def plot_density(
             color=sample_info.color,
             y_max=max_used_y_val,
             number_junctions=number_junctions,
-            # resolution=resolution,
             show_x_axis=show_x_axis,
             nx_ticks=nxticks,
             font_size=font_size,
@@ -701,7 +700,7 @@ def plot_density(
     @2018.12.26
     add more subplots, based on the number of transcripts
     """
-    ax = plt.subplot(gs[n_files - len(read_depths_dict) - 1:, :])
+    plt.subplot(gs[len(read_depths_dict):, :])
 
     plot_transcripts(
         tx_start=tx_start,
@@ -719,9 +718,10 @@ def draw_sashimi_plot(
         settings,
         average_depths_dict,
         splice_region,
-        shared_y,
+        share_y,
         no_bam=False,
-        show_gene=True
+        show_gene=True,
+        dpi=300
 ):
 
     """
@@ -761,7 +761,8 @@ def draw_sashimi_plot(
         figsize=[
             settings['width'],
             height
-        ]
+        ],
+        dpi=dpi
     )
 
     plot_density(
@@ -769,7 +770,7 @@ def draw_sashimi_plot(
         read_depths_dict=average_depths_dict,   # reads coverage
         splice_region=splice_region,            # Exon and transcript information
         show_gene=show_gene,                    # decide whether display gene id in this plot
-        shared_y=shared_y,
+        share_y=share_y,
         no_bam=no_bam
     )
 

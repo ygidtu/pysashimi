@@ -23,7 +23,7 @@ from src.reading_input import read_transcripts
 from src.sashimi_plot_utils import draw_sashimi_plot
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
-VERSION = "1.2.2"
+VERSION = "1.2.5"
 LABEL = "pySashimi"
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -275,13 +275,21 @@ def main():
     show_default=True
 )
 @click.option(
+    "-d",
+    "--dpi",
+    default=300,
+    type=click.IntRange(min=1, clamp=True),
+    help="The resolution of output file",
+    show_default=True
+)
+@click.option(
     "--indicator-lines",
     default=None,
     type=click.STRING,
     help="Where to plot additional indicator lines, comma separated int"
 )
 @click.option(
-    "--shared-y",
+    "--share-y",
     default=False,
     is_flag=True,
     type=click.BOOL,
@@ -308,9 +316,10 @@ def normal(
         config,
         threshold,
         indicator_lines,
-        shared_y,
+        share_y,
         no_gene,
         color_factor,
+        dpi
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -326,9 +335,10 @@ def normal(
     :param config: path to config file, default using settings.ini file under this suite of scripts
     :param threshold: filter out low abundance junctions
     :param indicator_lines: draw vertical lines in sashimi to show the spliced sites
-    :param shared_y: make different plots use same y axis boundary
+    :param share_y: make different plots use same y axis boundary
     :param no_gene: do not show gene id
     :param color_factor: 1-based index, only work with bam list
+    :param dpi: output file resolution
     :return:
     """
     out_dir = os.path.dirname(os.path.abspath(output))
@@ -414,9 +424,10 @@ def normal(
         settings=sashimi_plot_settings,
         average_depths_dict=reads_depth,
         splice_region=splice_region,
-        shared_y=shared_y,
+        share_y=share_y,
         no_bam=False,
-        show_gene=not no_gene
+        show_gene=not no_gene,
+        dpi=dpi
     )
 
 
@@ -471,13 +482,21 @@ def normal(
     show_default=True
 )
 @click.option(
+    "-d",
+    "--dpi",
+    default=300,
+    type=click.IntRange(min=1, clamp=True),
+    help="The resolution of output file",
+    show_default=True
+)
+@click.option(
     "--indicator-lines",
     default=None,
     type=click.STRING,
     help="Where to plot additional indicator lines, comma separated int"
 )
 @click.option(
-    "--shared-y",
+    "--share-y",
     default=False,
     is_flag=True,
     type=click.BOOL,
@@ -504,9 +523,10 @@ def pipeline(
         config,
         threshold,
         indicator_lines,
-        shared_y,
+        share_y,
         no_gene,
-        color_factor
+        color_factor,
+        dpi
 ):
     u"""
 
@@ -528,9 +548,10 @@ def pipeline(
     :param config: path to config file, default using settings.ini file under this suite of scripts
     :param threshold: filter out low abundance junctions
     :param indicator_lines: draw vertical lines in sashimi to show the spliced sites
-    :param shared_y: make different plots use same y axis boundary
+    :param share_y: make different plots use same y axis boundary
     :param no_gene: do not show gene id
     :param color_factor: 1-based index, only work with bam list
+    :param dpi: output file resolution
     :return:
     """
 
@@ -587,9 +608,10 @@ def pipeline(
                     settings=sashimi_plot_settings,
                     average_depths_dict=tmp_reads_depth_dict,
                     splice_region=splice_region.get_region(sep),
-                    shared_y=shared_y,
+                    share_y=share_y,
                     no_bam=False,
-                    show_gene=not no_gene
+                    show_gene=not no_gene,
+                    dpi=dpi
                 )
 
 
@@ -647,13 +669,21 @@ def pipeline(
     show_default=True
 )
 @click.option(
+    "-d",
+    "--dpi",
+    default=300,
+    type=click.IntRange(min=1, clamp=True),
+    help="The resolution of output file",
+    show_default=True
+)
+@click.option(
     "--indicator-lines",
     default=None,
     type=click.STRING,
     help="Where to plot additional indicator lines, comma separated int"
 )
 @click.option(
-    "--shared-y",
+    "--share-y",
     default=False,
     is_flag=True,
     type=click.BOOL,
@@ -681,9 +711,10 @@ def no_bam(
         config,
         threshold,
         indicator_lines,
-        shared_y,
+        share_y,
         no_gene,
-        color_factor
+        color_factor,
+        dpi
 ):
     u"""
     This function is used to plot sashimi without BAM file
@@ -698,9 +729,10 @@ def no_bam(
     :param config: path to config file, default using settings.ini file under this suite of scripts
     :param threshold: filter out low abundance junctions
     :param indicator_lines: draw vertical lines in sashimi to show the spliced sites
-    :param shared_y: make different plots use same y axis boundary
+    :param share_y: make different plots use same y axis boundary
     :param no_gene: do not show gene id
     :param color_factor: 1-based index, only work with bam list
+    :param dpi: output file resolution
     :return:
     """
     sashimi_plot_settings = parse_settings(config)
@@ -746,9 +778,10 @@ def no_bam(
         settings=sashimi_plot_settings,
         average_depths_dict=reads_depth,
         splice_region=splice_region,
-        shared_y=shared_y,
+        share_y=share_y,
         no_bam=True,
-        show_gene=not no_gene
+        show_gene=not no_gene,
+        dpi=dpi
     )
 
 
