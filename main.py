@@ -42,21 +42,29 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
      :param string: splice id
      :return: chromosome, start, end, strand
      """
-    if re.search(r"[\w\.]:(\d+-?){2,}:[+-]", string):
-        chromosome, sites, strand = string.split(":")
-    elif re.search(r"[\w\.]:(\d+-?){2,}[+-]", string):
-        chromosome, sites = string.split(":")
-        sites, strand = sites[:-1], sites[-1]
-    else:
-        chromosome, sites = string.split(":")
-        strand = "*"
+    split = string.split("@")
 
-    try:
-        sites = sorted([int(x) for x in sites.split("-")])
-    except ValueError as err:
-        logger.error(err)
-        logger.error("Contains illegal characters in %s" % string)
-        exit(err)
+    if not split:
+        raise ValueError("Invalid region %s" % string)
+
+    sites = []
+    for i in split:
+        if re.search(r"[\w\.]:(\d+-?){2,}:[+-]", i):
+            chromosome, tmp_sites, strand = string.split(":")
+        elif re.search(r"[\w\.]:(\d+-?){2,}[+-]", i):
+            chromosome, tmp_sites = string.split(":")
+            tmp_sites, strand = tmp_sites[:-1], tmp_sites[-1]
+        else:
+            chromosome, tmp_sites = string.split(":")
+            strand = "*"
+
+        try:
+            for x in tmp_sites.split("-"):
+                sites.append(int(x))
+        except ValueError as err:
+            logger.error(err)
+            logger.error("Contains illegal characters in %s" % string)
+            exit(err)
 
     start, end = sites[0], sites[-1]
 
@@ -155,7 +163,6 @@ def read_info_from_xlsx(xlsx, color_factor, colors):
                 tmp[header[i + 1]] = j.value
 
             data[row[0].value.strip()] = tmp
-
     tmp_color = {}
     color_index = 0
     bam_list = []
@@ -174,9 +181,6 @@ def read_info_from_xlsx(xlsx, color_factor, colors):
                 raise ValueError("%s is not a BAM" % path)
         else:
             continue
-
-        if not is_bam(i[0]):
-            raise ValueError("%s seem not ba a valid BAM file" % i[0])
 
         try:
             color_label = i[color_factor - 1].value
