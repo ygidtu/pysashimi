@@ -14,19 +14,16 @@ Migrated from SplicePlot sashimi_plot_utils
 9. add parameter to decide whether use shared y axis
 10. fix transcripts display issues
 """
-import matplotlib
-
-matplotlib.use('Agg')
-
 import math
+
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import pylab
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
-from src.logger import logger
 from src.data_types import SpliceRegion
+from src.logger import logger
 
 
 def __get_limited_index__(num, length):
@@ -554,12 +551,9 @@ def plot_density(
     for i, sample_info in enumerate(sorted(read_depths_dict.keys(), key=lambda x: x.title)):
         average_read_depth = read_depths_dict[sample_info]
 
-        print(i)
         show_x_axis = i == len(read_depths_dict) - 1
 
         curr_ax = plt.subplot(gs[i, :])
-
-        print(curr_ax)
 
         """
         Re-calculate the y boundary, if do not share same y axis
@@ -756,6 +750,8 @@ def draw_sashimi_plot(
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts)) // 2
     else:
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 3)
+
+    plt.switch_backend("Agg")
 
     plt.figure(
         figsize=[
