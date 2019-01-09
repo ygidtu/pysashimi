@@ -503,7 +503,7 @@ def plot_density(
         reverse_minus
     )
 
-    n_files = len(read_depths_dict) + (len(transcripts) // 3)
+    n_files = len(read_depths_dict) + ((len(transcripts) // 2) if len(transcripts) > 1 else 1)
 
     gs = gridspec.GridSpec(n_files, 1)
 
@@ -694,16 +694,15 @@ def plot_density(
     @2018.12.26
     add more subplots, based on the number of transcripts
     """
-    plt.subplot(gs[len(read_depths_dict):, :])
-
-    plot_transcripts(
-        tx_start=tx_start,
-        transcripts=transcripts,
-        graph_coords=graph_coords,
-        reverse_minus=reverse_minus,
-        font_size=font_size,
-        show_gene=show_gene
-    )
+    if len(transcripts) > 0:
+        plot_transcripts(
+            tx_start=tx_start,
+            transcripts=transcripts,
+            graph_coords=graph_coords,
+            reverse_minus=reverse_minus,
+            font_size=font_size,
+            show_gene=show_gene
+        )
     pylab.subplots_adjust(hspace=.1, wspace=.7)
 
 
@@ -749,7 +748,7 @@ def draw_sashimi_plot(
     if no_bam:
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts)) // 2
     else:
-        height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 3)
+        height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 2)
 
     plt.switch_backend("Agg")
 
