@@ -49,7 +49,7 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
         sites, strand = sites[:-1], sites[-1]
     else:
         chromosome, sites = string.split(":")
-        strand = "."
+        strand = "*"
 
     try:
         sites = sorted([int(x) for x in sites.split("-")])

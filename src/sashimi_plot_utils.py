@@ -176,7 +176,6 @@ def plot_density_single(
     for i in range(len(graph_coords)):
         compressed_wiggle.append(wiggle[i])
         compressed_x.append(graph_coords[i])
-        # prev_x = graph_coords[i]
 
     if no_bam:
         plt.plot(0, max(compressed_wiggle) * 2, color="white")

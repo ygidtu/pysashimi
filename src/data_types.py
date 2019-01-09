@@ -56,7 +56,7 @@ class GenomicLoci(object):
         if self.end < self.start:
             raise ValueError("End site should bigger than start site, not %d -> %d" % (self.start, self.end))
 
-        if strand not in ("+", "-"):
+        if strand not in ("+", "-", "*"):
             raise ValueError("strand should be + or -, not %s" % strand)
 
         self.strand = strand
