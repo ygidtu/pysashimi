@@ -10,7 +10,6 @@ import re
 
 import click
 from openpyxl import load_workbook
-from tqdm import tqdm
 
 from src.data_types import SpliceRegion, clean_bam_filename, clean_table_filename, bam_info
 from src.logger import logger
@@ -50,12 +49,12 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
     sites = []
     for i in split:
         if re.search(r"[\w\.]:(\d+-?){2,}:[+-]", i):
-            chromosome, tmp_sites, strand = string.split(":")
+            chromosome, tmp_sites, strand = i.split(":")
         elif re.search(r"[\w\.]:(\d+-?){2,}[+-]", i):
-            chromosome, tmp_sites = string.split(":")
+            chromosome, tmp_sites = i.split(":")
             tmp_sites, strand = tmp_sites[:-1], tmp_sites[-1]
         else:
-            chromosome, tmp_sites = string.split(":")
+            chromosome, tmp_sites = i.split(":")
             strand = "*"
 
         try:
@@ -577,11 +576,11 @@ def pipeline(
 
     coords = get_merged_event(data.keys(), span=span, indicator_lines=indicator_lines)
 
-    for k, v in tqdm(coords.items()):
+    for k, v in coords.items():
 
         v = assign_events(v)
 
-        for merged, separate in tqdm(v.items()):
+        for merged, separate in v.items():
 
             splice_region = read_transcripts(
                 gtf_file=index_gtf(input_gtf=gtf),
@@ -594,7 +593,7 @@ def pipeline(
                 threshold=threshold
             )
 
-            for sep in tqdm(separate):
+            for sep in separate:
                 tmp_reads_depth_dict = {}
 
                 # add label to read_depth

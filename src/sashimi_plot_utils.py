@@ -541,12 +541,9 @@ def plot_density(
     @2018.12.19
     
     This part of code, used to plot different allele specific, but I this to plot multiple BAM files
-    
-    @2018.12.25
-    Add a sorted for list of bam_info, sort this list by bam_info's title (normally, the sample tissues or cell lines)
     """
 
-    for i, sample_info in enumerate(sorted(read_depths_dict.keys(), key=lambda x: x.title)):
+    for i, sample_info in enumerate(read_depths_dict.keys()):
         average_read_depth = read_depths_dict[sample_info]
 
         show_x_axis = (i == len(read_depths_dict) - 1)
@@ -669,7 +666,7 @@ def plot_density(
         @2019.01.06 fix bug about sample_num out of colors bound
         """
         if sample_info.label is not None:
-            curr_label = "%s %s" % (sample_info.title, sample_info.label)
+            curr_label = sample_info.label
         else:
             curr_label = sample_info.title
 
