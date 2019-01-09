@@ -473,7 +473,6 @@ def plot_density(
     intron_scale = settings["intron_scale"]
     exon_scale = settings["exon_scale"]
     number_junctions = settings["number_junctions"]
-    resolution = settings["resolution"]
     reverse_minus = settings["reverse_minus"]
     font_size = settings["font_size"]
     nyticks = settings["nyticks"]
@@ -550,8 +549,7 @@ def plot_density(
     for i, sample_info in enumerate(sorted(read_depths_dict.keys(), key=lambda x: x.title)):
         average_read_depth = read_depths_dict[sample_info]
 
-        show_x_axis = i == len(read_depths_dict) - 1
-
+        show_x_axis = (i == len(read_depths_dict) - 1)
         curr_ax = plt.subplot(gs[i, :])
 
         """
@@ -694,6 +692,8 @@ def plot_density(
     add more subplots, based on the number of transcripts
     """
     if len(transcripts) > 0:
+        plt.subplot(gs[len(read_depths_dict):, :])
+
         plot_transcripts(
             tx_start=tx_start,
             transcripts=transcripts,
