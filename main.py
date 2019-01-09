@@ -23,7 +23,7 @@ from src.reading_input import read_transcripts
 from src.sashimi_plot_utils import draw_sashimi_plot
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
-VERSION = "1.2.5"
+VERSION = "1.2.6"
 LABEL = "pySashimi"
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
