@@ -193,8 +193,8 @@ def read_info_from_xlsx(xlsx, color_factor, colors):
             color_index += 1
 
         tmp = bam_info(
-            alias=i[0].value if i[0].value is not None else "",
-            title=i[1].value if i[1].value is not None else "",
+            alias=str(i[1].value) if i[1].value is not None else "",
+            title=str(i[0].value) if i[0].value is not None else "",
             path=path,
             label=None,
             color=tmp_color[color_label]
@@ -601,7 +601,7 @@ def pipeline(
                     tmp_reads_depth_of_bam = j.get_read_depth(sep)
 
                     try:
-                        i = i._replace(label=data[sep.events][i.alias])
+                        i = i._replace(label=data[sep.events][i.title])
                     except KeyError:
                         pass
                     tmp_reads_depth_dict[i] = tmp_reads_depth_of_bam

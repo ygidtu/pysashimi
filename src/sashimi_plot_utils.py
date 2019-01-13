@@ -37,15 +37,15 @@ def __get_limited_index__(num, length):
 
     :param num: current index
     :param length: the list or numpy array length
-    :return: int, 0 <= num <= length - 1
+    :return: (int, bool), 0 <= num <= length - 1, and modified or not
     """
     if num < 0:
-        return 0
+        return 0, True
 
     if num >= length:
-        return length - 1
+        return length - 1, True
 
-    return num
+    return num, False
 
 
 def cubic_bezier(pts, t):
@@ -207,24 +207,24 @@ def plot_density_single(
         # @2018.12.19
         # set junctions coordinate here
         # the junction out of boundaries, set the boundaries as coordinate
-        ss1 = graph_coords[__get_limited_index__(leftss - tx_start - 1, len(graph_coords))]
-        ss2 = graph_coords[__get_limited_index__(rightss - tx_start, len(graph_coords))]
+        ss1, ss1_modified = graph_coords[__get_limited_index__(leftss - tx_start - 1, len(graph_coords))]
+        ss2, ss2_modified = graph_coords[__get_limited_index__(rightss - tx_start, len(graph_coords))]
 
         # draw junction on bottom
         if plotted_count % 2 == 1:
             pts = [
-                (ss1, 0),
+                (ss1, 0 if not ss1_modified else -current_height),
                 (ss1, -current_height),
                 (ss2, -current_height),
-                (ss2, 0)
+                (ss2, 0 if not ss2_modified else -current_height)
             ]
             midpt = cubic_bezier(pts, .5)
 
         # draw junction on top
         else:
 
-            left_dens = wiggle[__get_limited_index__(leftss - tx_start - 1, len(wiggle))]
-            right_dens = wiggle[__get_limited_index__(rightss - tx_start, len(wiggle))]
+            left_dens = wiggle[ss1]
+            right_dens = wiggle[ss2]
 
             """
             @2019.01.04
@@ -236,10 +236,10 @@ def plot_density_single(
                 right_dens /= 2
 
             pts = [
-                (ss1, left_dens),
+                (ss1, left_dens if not ss1_modified else left_dens + current_height),
                 (ss1, left_dens + current_height),
                 (ss2, right_dens + current_height),
-                (ss2, right_dens)
+                (ss2, right_dens if not ss2_modified else right_dens + current_height)
             ]
 
             midpt = cubic_bezier(pts, .5)
@@ -668,7 +668,7 @@ def plot_density(
         if sample_info.label is not None:
             curr_label = sample_info.label
         else:
-            curr_label = sample_info.title
+            curr_label = ""
 
         t = curr_ax.text(
             max(graph_coords),
