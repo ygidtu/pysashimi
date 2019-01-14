@@ -207,13 +207,19 @@ def plot_density_single(
         # @2018.12.19
         # set junctions coordinate here
         # the junction out of boundaries, set the boundaries as coordinate
-        ss1, ss1_modified = __get_limited_index__(leftss - tx_start - 1, len(graph_coords))
-        ss2, ss2_modified = __get_limited_index__(rightss - tx_start, len(graph_coords))
+        ss1_idx, ss1_modified = __get_limited_index__(leftss - tx_start - 1, len(graph_coords))
+        ss2_idx, ss2_modified = __get_limited_index__(rightss - tx_start, len(graph_coords))
+
+        u"""
+        @2019.01.14
+
+        add two new variables to make it clear which one is index, which one is genomic site 
+        """
+        ss1 = graph_coords[ss1_idx]
+        ss2 = graph_coords[ss2_idx]
 
         # draw junction on bottom
         if plotted_count % 2 == 1:
-            ss1 = graph_coords[ss1]
-            ss2 = graph_coords[ss2]
 
             pts = [
                 (ss1, 0 if not ss1_modified else -current_height),
@@ -226,8 +232,8 @@ def plot_density_single(
         # draw junction on top
         else:
 
-            left_dens = wiggle[ss1]
-            right_dens = wiggle[ss2]
+            left_dens = wiggle[ss1_idx]
+            right_dens = wiggle[ss2_idx]
 
             """
             @2019.01.04
