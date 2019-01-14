@@ -207,11 +207,14 @@ def plot_density_single(
         # @2018.12.19
         # set junctions coordinate here
         # the junction out of boundaries, set the boundaries as coordinate
-        ss1, ss1_modified = graph_coords[__get_limited_index__(leftss - tx_start - 1, len(graph_coords))]
-        ss2, ss2_modified = graph_coords[__get_limited_index__(rightss - tx_start, len(graph_coords))]
+        ss1, ss1_modified = __get_limited_index__(leftss - tx_start - 1, len(graph_coords))
+        ss2, ss2_modified = __get_limited_index__(rightss - tx_start, len(graph_coords))
 
         # draw junction on bottom
         if plotted_count % 2 == 1:
+            ss1 = graph_coords[ss1]
+            ss2 = graph_coords[ss2]
+
             pts = [
                 (ss1, 0 if not ss1_modified else -current_height),
                 (ss1, -current_height),
