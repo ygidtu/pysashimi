@@ -78,13 +78,18 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
             logger.error("Invalid format of span, %s" % str(span))
             exit(err)
 
+    if indicator_lines is True:
+        indicator_lines = sites
+    elif indicator_lines is not None:
+        indicator_lines = [int(x) for x in indicator_lines.split(",")]
+
     return SpliceRegion(
         chromosome=chromosome,
         start=start,
         end=end,
         strand=strand,
         events=string,
-        sites=[int(x) for x in indicator_lines.split(",")] if indicator_lines else None
+        sites=indicator_lines
     )
 
 
@@ -411,7 +416,7 @@ def normal(
 
     splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
 
-    read_transcripts(
+    splice_region = read_transcripts(
         gtf_file=index_gtf(input_gtf=gtf),
         region=splice_region
     )
@@ -466,7 +471,7 @@ def normal(
     "-o",
     "--output",
     type=click.Path(),
-    help="Path to output graph file",
+    help="Path to output directory",
     show_default=True
 )
 @click.option(
@@ -494,9 +499,10 @@ def normal(
 )
 @click.option(
     "--indicator-lines",
-    default=None,
-    type=click.STRING,
-    help="Where to plot additional indicator lines, comma separated int"
+    is_flag=True,
+    default=False,
+    type=click.BOOL,
+    help="Where to plot additional indicator lines"
 )
 @click.option(
     "--share-y",

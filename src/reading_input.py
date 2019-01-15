@@ -191,7 +191,9 @@ def read_transcripts(gtf_file, region, retry=0):
                 logger.info("Guess 'chr' is redundant")
                 region.chromosome = region.chromosome.replace("chr", "")
 
-            read_transcripts(gtf_file=gtf_file, region=region, retry=retry + 1)
+            return read_transcripts(gtf_file=gtf_file, region=region, retry=retry + 1)
+
+    return region
 
 
 def read_reads_depth_from_bam(bam_list, splice_region, threshold=0):
