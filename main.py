@@ -411,7 +411,7 @@ def normal(
 
     splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
 
-    splice_region = read_transcripts(
+    read_transcripts(
         gtf_file=index_gtf(input_gtf=gtf),
         region=splice_region
     )

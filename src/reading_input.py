@@ -166,12 +166,6 @@ def read_transcripts(gtf_file, region, retry=0):
     if not os.path.exists(gtf_file):
         raise FileNotFoundError("%s not found" % gtf_file)
 
-    splice_region = SpliceRegion(
-        chromosome=region.chromosome,
-        start=region.start,
-        end=region.end,
-        strand=region.strand
-    )
     try:
         with pysam.Tabixfile(gtf_file, 'r') as gtf_tabix:
 
@@ -184,7 +178,7 @@ def read_transcripts(gtf_file, region, retry=0):
 
             # min_exon_start, max_exon_end, exons_list = float("inf"), float("-inf"),  []
             for line in relevant_exons_iterator:
-                splice_region.add_gtf(line)
+                region.add_gtf(line)
     except ValueError as err:
         logger.warn(err)
 
@@ -197,8 +191,7 @@ def read_transcripts(gtf_file, region, retry=0):
                 logger.info("Guess 'chr' is redundant")
                 region.chromosome = region.chromosome.replace("chr", "")
 
-            return read_transcripts(gtf_file=gtf_file, region=region, retry=retry + 1)
-    return splice_region
+            read_transcripts(gtf_file=gtf_file, region=region, retry=retry + 1)
 
 
 def read_reads_depth_from_bam(bam_list, splice_region, threshold=0):
