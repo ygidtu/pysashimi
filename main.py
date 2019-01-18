@@ -164,9 +164,9 @@ def read_info_from_xlsx(xlsx, color_factor, colors):
                 continue
             tmp = {}
             for i, j in enumerate(row[1:]):
-                tmp[header[i + 1]] = j.value
+                tmp[str(header[i + 1])] = j.value
 
-            data[row[0].value.strip()] = tmp
+            data[str(row[0].value)] = tmp
     tmp_color = {}
     color_index = 0
     bam_list = []
