@@ -41,6 +41,7 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
      :param string: splice id
      :return: chromosome, start, end, strand
      """
+    string = string.strip()
     split = string.split("@")
 
     if not split:
@@ -64,7 +65,7 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
             logger.error(err)
             logger.error("Contains illegal characters in %s" % string)
             exit(err)
-
+    sites = sorted(sites)
     start, end = sites[0], sites[-1]
 
     try:
