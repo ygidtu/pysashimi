@@ -41,6 +41,7 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
      :param string: splice id
      :return: chromosome, start, end, strand
      """
+
     string = string.strip()
     split = string.split("@")
 
@@ -48,23 +49,28 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
         raise ValueError("Invalid region %s" % string)
 
     sites = []
-    for i in split:
-        if re.search(r"[\w\.]:(\d+-?){2,}:[+-]", i):
-            chromosome, tmp_sites, strand = i.split(":")
-        elif re.search(r"[\w\.]:(\d+-?){2,}[+-]", i):
-            chromosome, tmp_sites = i.split(":")
-            tmp_sites, strand = tmp_sites[:-1], tmp_sites[-1]
-        else:
-            chromosome, tmp_sites = i.split(":")
-            strand = "*"
+    try:
+        for i in split:
+            if re.search(r"[\w\.]:(\d+-?){2,}:[+-]", i):
+                chromosome, tmp_sites, strand = i.split(":")
+            elif re.search(r"[\w\.]:(\d+-?){2,}[+-]", i):
+                chromosome, tmp_sites = i.split(":")
+                tmp_sites, strand = tmp_sites[:-1], tmp_sites[-1]
+            else:
+                chromosome, tmp_sites = i.split(":")
+                strand = "*"
 
-        try:
-            for x in tmp_sites.split("-"):
-                sites.append(int(x))
-        except ValueError as err:
-            logger.error(err)
-            logger.error("Contains illegal characters in %s" % string)
-            exit(err)
+            try:
+                for x in tmp_sites.split("-"):
+                    sites.append(int(x))
+            except ValueError as err:
+                logger.error(err)
+                logger.error("Contains illegal characters in %s" % string)
+                exit(err)
+    except ValueError as err:
+        logger.error("Invalid format of input region %s" % string)
+        exit(err)
+
     sites = sorted(sites)
     start, end = sites[0], sites[-1]
 
