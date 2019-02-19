@@ -173,6 +173,18 @@ class GenomicLoci(object):
 
         return cls(chromosome, start, end, strand)
 
+    # def to_splice_region(self):
+    #     u"""
+    #     Convert this genomic loci to splice region
+    #     :return:
+    #     """
+    #     return SpliceRegion(
+    #         chromosome=self.chromosome,
+    #         start=self.start,
+    #         end=self.end,
+    #         strand=self.strand
+    #     )
+
 
 class Transcript(GenomicLoci):
     u"""
@@ -247,7 +259,7 @@ class SpliceRegion(GenomicLoci):
             end=end,
             strand=strand,
         )
-        self.sites = sites
+        self.sites = set(sites) if sites else set()
         self.events = events
         self.chromosome = chromosome
         self.start = int(start)
@@ -262,6 +274,23 @@ class SpliceRegion(GenomicLoci):
             self.end,
             self.__transcripts__
         )
+
+    def __add__(self, other):
+        u"""
+        override add of genomic loci
+        :param other: SpliceRegion
+        :return:
+        """
+        if self.is_overlap(other):
+
+            return SpliceRegion(
+                chromosome=self.chromosome,
+                start=min(self.start, other.start),
+                end=max(self.end, other.end),
+                strand=self.strand,
+                sites=self.sites | other.sites
+            )
+
 
     @property
     def exon_starts(self):

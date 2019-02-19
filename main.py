@@ -100,29 +100,32 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
     )
 
 
-def assign_events(events):
-    u"""
-    merge separate events into a huge range
-    assign events back to this range
-    :param events:
-    :return: {merged: [events, events, events]}
-    """
-    res = {}
-    tmp = [events[0]]
-    current = events[0]
-    for i in events[1:]:
-        if current.is_overlap(i):
-            current += i
-            tmp.append(i)
-        else:
-            res[current] = tmp
-            current = i
-            tmp = [i]
-
-    if current not in res.keys():
-        res[current] = tmp
-
-    return res
+# def assign_events(events):
+#     u"""
+#     merge separate events into a huge range
+#     assign events back to this range
+#     :param events:
+#     :return: {merged: [events, events, events]}
+#     """
+#     res = {}
+#     tmp = [events[0]]
+#     current = events[0]
+#     for i in events[1:]:
+#         if current.is_overlap(i):
+#             current += i
+#             tmp.append(i)
+#         else:
+#             res[current] = tmp
+#             current = i
+#             tmp = [i]
+#
+#     if current not in res.keys():
+#         res[current] = tmp
+#
+#     for k, value in res.items():
+#         print(k, [str(x) for x in value])
+#
+#     return res
 
 
 def get_merged_event(events, span, indicator_lines):
@@ -133,6 +136,7 @@ def get_merged_event(events, span, indicator_lines):
     :param indicator_lines: see main
     :return:
     """
+    # if they came from same chr and same strand, the put together
     coords = {}
     for e in events:
         tmp = get_sites_from_splice_id(e, span=span, indicator_lines=indicator_lines)
@@ -591,13 +595,14 @@ def pipeline(
 
     for k, v in coords.items():
 
-        v = assign_events(v)
+        # v = assign_events(v)
 
-        for merged, separate in v.items():
+        # for merged, separate in v.items():
+        for region in v:
 
             splice_region = read_transcripts(
                 gtf_file=index_gtf(input_gtf=gtf),
-                region=merged
+                region=region
             )
 
             reads_depth = read_reads_depth_from_bam(
@@ -606,29 +611,30 @@ def pipeline(
                 threshold=threshold
             )
 
-            for sep in separate:
-                tmp_reads_depth_dict = {}
+            # for sep in separate:
 
-                # add label to read_depth
-                for i, j in reads_depth.items():
-                    tmp_reads_depth_of_bam = j.get_read_depth(sep)
+            tmp_reads_depth_dict = {}
 
-                    try:
-                        i = i._replace(label=data[sep.events][i.title])
-                    except KeyError:
-                        pass
-                    tmp_reads_depth_dict[i] = tmp_reads_depth_of_bam
+            # add label to read_depth
+            for i, j in reads_depth.items():
+                tmp_reads_depth_of_bam = j.get_read_depth(region)
 
-                draw_sashimi_plot(
-                    output_file_path=os.path.join(output, sep.events + ".pdf"),
-                    settings=sashimi_plot_settings,
-                    average_depths_dict=tmp_reads_depth_dict,
-                    splice_region=splice_region.get_region(sep),
-                    share_y=share_y,
-                    no_bam=False,
-                    show_gene=not no_gene,
-                    dpi=dpi
-                )
+                try:
+                    i = i._replace(label=data[region.events][i.title])
+                except KeyError:
+                    pass
+                tmp_reads_depth_dict[i] = tmp_reads_depth_of_bam
+
+            draw_sashimi_plot(
+                output_file_path=os.path.join(output, region.events + ".pdf"),
+                settings=sashimi_plot_settings,
+                average_depths_dict=tmp_reads_depth_dict,
+                splice_region=splice_region.get_region(region),
+                share_y=share_y,
+                no_bam=False,
+                show_gene=not no_gene,
+                dpi=dpi
+            )
 
 
 @main.command()
