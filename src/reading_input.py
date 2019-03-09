@@ -8,6 +8,9 @@ Inspired by SplicePlot -> mRNAObjects
 import os
 import re
 
+import gzip
+import filetype
+
 import pysam
 from tqdm import tqdm
 
@@ -21,22 +24,33 @@ def _is_gtf_(infile):
     :param infile: path to input file
     :return:
     """
-    with open(infile) as r:
-        for line in r:
-            if line.startswith("#"):
-                continue
+    is_gtf = 0
+    if filetype.guess_mime(infile) == "application/gzip":
+        is_gtf += 10
+        r = gzip.open(infile)
+    else:
+        r = open(infile)
 
-            lines = re.split(r"\s+", line)
+    for line in r:
+        if line.startswith("#"):
+            continue
 
-            if len(lines) < 8:
-                return False
+        lines = re.split(r"\s+", line)
 
-            return bool(
-                re.search(
-                    r"([\w-]+ \"[\w.\s\-%,:]+\";? ?)+",
-                    " ".join(lines[8:])
-                )
-            )
+        if len(lines) < 8:
+            break
+
+        if re.search(
+            r"([\w-]+ \"[\w.\s\-%,:]+\";? ?)+",
+            " ".join(lines[8:])
+        ):
+            is_gtf += 1
+
+        break
+
+    r.close()
+
+    return is_gtf
 
 
 def is_bam(infile):
@@ -80,11 +94,17 @@ def index_gtf(input_gtf, sort_gtf=False, retry=0):
     :param retry: only try to sort gtf once
     :return path to compressed and indexed bgzipped gtf file
     """
-    if not _is_gtf_(input_gtf):
+    is_gtf = _is_gtf_(input_gtf)
+
+    if is_gtf % 10 != 1:
         raise ValueError("gtf file required, %s seems not a valid gtf file" % input_gtf)
 
     index = False
-    output_gtf = input_gtf + ".gz"
+
+    if is_gtf // 10 > 0:
+        output_gtf = input_gtf
+    else:
+        output_gtf = input_gtf + ".gz"
     if not os.path.exists(output_gtf) or not os.path.exists(output_gtf + ".tbi"):
         index = True
 
