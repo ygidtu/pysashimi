@@ -96,7 +96,8 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
         end=end,
         strand=strand,
         events=string,
-        sites=indicator_lines
+        sites=indicator_lines,
+        ori=str(string)
     )
 
 
@@ -175,9 +176,10 @@ def read_info_from_xlsx(xlsx, color_factor, colors):
                 continue
             tmp = {}
             for i, j in enumerate(row[1:]):
-                tmp[str(header[i + 1])] = j.value
+                tmp[str(header[i + 1]).strip()] = j.value
 
-            data[str(row[0].value)] = tmp
+            data[str(row[0].value).strip()] = tmp
+
     tmp_color = {}
     color_index = 0
     bam_list = []
@@ -190,10 +192,10 @@ def read_info_from_xlsx(xlsx, color_factor, colors):
         if i[2].value is not None:
             path = i[2].value.strip()
 
-            if not os.path.exists(path):
-                raise ValueError("%s not exist" % path)
-            elif not is_bam(path):
-                raise ValueError("%s is not a BAM" % path)
+            # if not os.path.exists(path):
+            #     raise ValueError("%s not exist" % path)
+            # elif not is_bam(path):
+            #     raise ValueError("%s is not a BAM" % path)
         else:
             continue
 
@@ -210,7 +212,7 @@ def read_info_from_xlsx(xlsx, color_factor, colors):
 
         tmp = bam_info(
             alias=str(i[1].value) if i[1].value is not None else "",
-            title=str(i[0].value) if i[0].value is not None else "",
+            title=str(str(i[0].value).strip()) if i[0].value is not None else "",
             path=path,
             label=None,
             color=tmp_color[color_label]
@@ -600,6 +602,12 @@ def pipeline(
         # for merged, separate in v.items():
         for region in v:
 
+            temp_data = data.get(region.ori)
+
+            if temp_data:
+                for x in bam_list:
+                    x.label = temp_data[x.title]
+
             splice_region = read_transcripts(
                 gtf_file=index_gtf(input_gtf=gtf),
                 region=region
@@ -620,7 +628,7 @@ def pipeline(
                 tmp_reads_depth_of_bam = j.get_read_depth(region)
 
                 try:
-                    i = i._replace(label=data[region.events][i.title])
+                    i.label=data[region.events][i.title]
                 except KeyError:
                     pass
                 tmp_reads_depth_dict[i] = tmp_reads_depth_of_bam
