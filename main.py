@@ -602,12 +602,6 @@ def pipeline(
         # for merged, separate in v.items():
         for region in v:
 
-            temp_data = data.get(region.ori)
-
-            if temp_data:
-                for x in bam_list:
-                    x.label = temp_data[x.title]
-
             splice_region = read_transcripts(
                 gtf_file=index_gtf(input_gtf=gtf),
                 region=region
@@ -627,10 +621,7 @@ def pipeline(
             for i, j in reads_depth.items():
                 tmp_reads_depth_of_bam = j.get_read_depth(region)
 
-                try:
-                    i.label=data[region.events][i.title]
-                except KeyError:
-                    pass
+                i = i._replace(label=data[region.ori][i.title])
                 tmp_reads_depth_dict[i] = tmp_reads_depth_of_bam
 
             draw_sashimi_plot(

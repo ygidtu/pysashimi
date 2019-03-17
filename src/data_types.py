@@ -13,15 +13,15 @@ from copy import deepcopy
 
 import numpy
 import pysam
-from recordtype import recordtype
+from collections import namedtuple
 
 from src.logger import logger
 
 clean_bam_filename = lambda x: re.sub("([_.]?Aligned.sortedByCoord.out)?.bam", "", os.path.basename(x))
 clean_table_filename = lambda x: re.sub("[_.]?SJ.out.tab", "", os.path.basename(x))
 
-bam_info = recordtype("bam_info", ["alias", "title", "label", "path", "color"])
-ax_label = recordtype("NamedAx", ["Ax", "Label"])   # @2018.12.20 using this to handle the ylabel of different ax
+bam_info = namedtuple("bam_info", ["alias", "title", "label", "path", "color"])
+ax_label = namedtuple("NamedAx", ["Ax", "Label"])   # @2018.12.20 using this to handle the ylabel of different ax
 
 
 class GenomicLoci(object):
