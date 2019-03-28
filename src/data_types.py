@@ -173,18 +173,6 @@ class GenomicLoci(object):
 
         return cls(chromosome, start, end, strand)
 
-    # def to_splice_region(self):
-    #     u"""
-    #     Convert this genomic loci to splice region
-    #     :return:
-    #     """
-    #     return SpliceRegion(
-    #         chromosome=self.chromosome,
-    #         start=self.start,
-    #         end=self.end,
-    #         strand=self.strand
-    #     )
-
 
 class Transcript(GenomicLoci):
     u"""
@@ -583,7 +571,9 @@ class ReadDepth(GenomicLoci):
             chrm,
             start_coord,
             end_coord,
-            threshold
+            threshold,
+            log2=False,
+            log10=False
     ):
         """
             determine_depth determines the coverage at each base between start_coord and end_coord, inclusive.
@@ -598,6 +588,9 @@ class ReadDepth(GenomicLoci):
             spanned_junctions, which is a dictionary containing the junctions supported by reads.
             The keys in spanned_junctions are the
                 names of the junctions, with the format chromosome:lowerBasePosition-higherBasePosition
+
+        :param log2:
+        :param log10:
         """
         try:
             with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
@@ -653,12 +646,17 @@ class ReadDepth(GenomicLoci):
                 if v >= threshold:
                     filtered_junctions[k] = v
 
+            if log10:
+                depth_vector = numpy.log10(depth_vector + 1)
+            elif log2:
+                depth_vector = numpy.log2(depth_vector + 1)
+
             return cls(
-                chrm,
-                start_coord,
-                end_coord,
-                depth_vector,
-                filtered_junctions
+                chromosome=chrm,
+                start=start_coord,
+                end=end_coord,
+                wiggle=depth_vector,
+                junctions_dict=filtered_junctions
             )
         except IOError:
             logger.error('There is no .bam file at {0}'.format(bam_file_path))

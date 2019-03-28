@@ -216,7 +216,7 @@ def read_transcripts(gtf_file, region, retry=0):
     return region
 
 
-def read_reads_depth_from_bam(bam_list, splice_region, threshold=0):
+def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log='0'):
     u"""
     read reads coverage info from all bams
     :param bam_list: namedtuple (alias, title, path, label)
@@ -227,6 +227,15 @@ def read_reads_depth_from_bam(bam_list, splice_region, threshold=0):
 
     assert isinstance(splice_region, SpliceRegion), "splice_region should be SplcieRegion, not %s" % type(splice_region)
 
+    log2 = False
+    log10 = False
+    if log == '10':
+        log2 = False
+        log10 = True
+    elif log == '2':
+        log2 = True
+        log10 = False
+
     res = {}
     for bam in bam_list:
         logger.info("Reading from %s" % bam.path)
@@ -235,7 +244,9 @@ def read_reads_depth_from_bam(bam_list, splice_region, threshold=0):
             chrm=splice_region.chromosome,
             start_coord=splice_region.start,
             end_coord=splice_region.end,
-            threshold=threshold
+            threshold=threshold,
+            log2=log2,
+            log10=log10
         )
 
         tmp.shrink(

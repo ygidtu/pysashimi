@@ -16,6 +16,9 @@ Migrated from SplicePlot sashimi_plot_utils
 """
 import math
 
+import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import pylab
@@ -117,8 +120,8 @@ def plot_density_single(
         nx_ticks=4,
         font_size=6,
         numbering_font_size=6,
-        no_bam=False
-
+        no_bam=False,
+        log=None
 ):
     u"""
     @2018.12.19 remove unnecessary x label
@@ -139,6 +142,7 @@ def plot_density_single(
     :param font_size:
     :param numbering_font_size:
     :param no_bam:
+    :param log: write message to show the log transform level
     :return:
     """
     
@@ -303,11 +307,21 @@ def plot_density_single(
         ax_var.xaxis.set_ticks_position('bottom')
 
         # @2018.12.19 unnecessary text in figure
-        pylab.xlabel(
-            'Genomic coordinate (%s), "%s" strand' % (
+
+        xlabel = 'Genomic coordinate (%s), "%s" strand' % (
+            chromosome,
+            strand
+        )
+
+        if log in ('2', '10'):
+            xlabel = 'Genomic coordinate (%s), "%s" strand, y axis is log%s transformed' % (
                 chromosome,
-                strand
-            ),
+                strand,
+                log
+            )
+
+        pylab.xlabel(
+            xlabel,
             fontsize=font_size
         )
 
@@ -754,8 +768,6 @@ def draw_sashimi_plot(
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts)) // 2
     else:
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 2)
-
-    plt.switch_backend("Agg")
 
     plt.figure(
         figsize=[

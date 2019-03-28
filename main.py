@@ -329,6 +329,12 @@ def main():
     help="Index of column with color levels (1-based)",
     show_default=True
 )
+@click.option(
+    '--log',
+    type=click.Choice(['0', '2', '10']),
+    default="0",
+    help="y axis log transformed, 0 -> not log transform; 2 -> log2; 10 -> log10"
+)
 def normal(
         bam,
         event,
@@ -340,7 +346,8 @@ def normal(
         share_y,
         no_gene,
         color_factor,
-        dpi
+        dpi,
+        log
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -360,6 +367,7 @@ def normal(
     :param no_gene: do not show gene id
     :param color_factor: 1-based index, only work with bam list
     :param dpi: output file resolution
+    :param log: whether to perform y axis log transform
     :return:
     """
     out_dir = os.path.dirname(os.path.abspath(output))
@@ -437,7 +445,8 @@ def normal(
     reads_depth = read_reads_depth_from_bam(
         bam_list=bam_list,
         splice_region=splice_region,
-        threshold=threshold
+        threshold=threshold,
+        log=log
     )
 
     draw_sashimi_plot(
@@ -537,6 +546,12 @@ def normal(
     help="Index of column with color levels (1-based)",
     show_default=True
 )
+@click.option(
+    '--log',
+    type=click.Choice(['0', '2', '10']),
+    default="0",
+    help="y axis log transformed, 0 -> not log transform; 2 -> log2; 10 -> log10"
+)
 def pipeline(
         input,
         span,
@@ -548,7 +563,8 @@ def pipeline(
         share_y,
         no_gene,
         color_factor,
-        dpi
+        dpi,
+        log
 ):
     u"""
 
@@ -574,6 +590,7 @@ def pipeline(
     :param no_gene: do not show gene id
     :param color_factor: 1-based index, only work with bam list
     :param dpi: output file resolution
+    :param log: whether to perform y axis log transform
     :return:
     """
 
@@ -610,7 +627,8 @@ def pipeline(
             reads_depth = read_reads_depth_from_bam(
                 bam_list=bam_list,
                 splice_region=splice_region,
-                threshold=threshold
+                threshold=threshold,
+                log=log
             )
 
             # for sep in separate:
