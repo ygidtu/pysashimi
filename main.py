@@ -457,7 +457,8 @@ def normal(
         share_y=share_y,
         no_bam=False,
         show_gene=not no_gene,
-        dpi=dpi
+        dpi=dpi,
+        log=log
     )
 
 
@@ -650,7 +651,8 @@ def pipeline(
                 share_y=share_y,
                 no_bam=False,
                 show_gene=not no_gene,
-                dpi=dpi
+                dpi=dpi,
+                log=log
             )
 
 

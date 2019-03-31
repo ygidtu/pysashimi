@@ -471,7 +471,8 @@ def plot_density(
         show_gene=False,
         title=None,
         share_y=False,
-        no_bam=False
+        no_bam=False,
+        log=None
 ):
     u"""
     Several modifications were taken
@@ -488,6 +489,7 @@ def plot_density(
     :param title: the title of this plot
     :param share_y: whether different sashimi share same y axis
     :param no_bam:
+    :param log: y ticks log transformation or not, 2 -> log2; 10 -> log10
     :return:
     """
 
@@ -614,7 +616,8 @@ def plot_density(
             nx_ticks=nxticks,
             font_size=font_size,
             numbering_font_size=numbering_font_size,
-            no_bam=no_bam
+            no_bam=no_bam,
+            log=log
         )
 
         """
@@ -636,8 +639,17 @@ def plot_density(
         curr_ax.spines["left"].set_bounds(0, max_used_y_val)
         curr_ax.spines["right"].set_color('none')
 
+        u"""
+        The y ticks are formatted here
+        @2019.03.31 add little check here to make sure the y axis shows the real value
+        """
         curr_y_tick_labels = []
         for label in universal_y_ticks:
+            if log == '2':
+                label = 2 ^ label - 1
+            elif log == '10':
+                label = 10 ^ label - 1
+
             if label <= 0:
                 # Exclude label for 0
                 curr_y_tick_labels.append("")
@@ -733,7 +745,8 @@ def draw_sashimi_plot(
         share_y,
         no_bam=False,
         show_gene=True,
-        dpi=300
+        dpi=300,
+        log=None
 ):
 
     """
@@ -783,7 +796,8 @@ def draw_sashimi_plot(
         splice_region=splice_region,            # Exon and transcript information
         show_gene=show_gene,                    # decide whether display gene id in this plot
         share_y=share_y,
-        no_bam=no_bam
+        no_bam=no_bam,
+        log=log
     )
 
     logger.info("save to %s" % output_file_path)
