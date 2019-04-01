@@ -572,8 +572,7 @@ class ReadDepth(GenomicLoci):
             start_coord,
             end_coord,
             threshold,
-            log2=False,
-            log10=False
+            log,
     ):
         """
             determine_depth determines the coverage at each base between start_coord and end_coord, inclusive.
@@ -589,8 +588,7 @@ class ReadDepth(GenomicLoci):
             The keys in spanned_junctions are the
                 names of the junctions, with the format chromosome:lowerBasePosition-higherBasePosition
 
-        :param log2:
-        :param log10:
+        :param log:
         """
         try:
             with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
@@ -646,9 +644,9 @@ class ReadDepth(GenomicLoci):
                 if v >= threshold:
                     filtered_junctions[k] = v
 
-            if log10:
+            if log == 10:
                 depth_vector = numpy.log10(depth_vector + 1)
-            elif log2:
+            elif log == 2:
                 depth_vector = numpy.log2(depth_vector + 1)
 
             return cls(

@@ -15,6 +15,7 @@ Migrated from SplicePlot sashimi_plot_utils
 10. fix transcripts display issues
 """
 import math
+import numpy
 
 import matplotlib
 matplotlib.use('Agg')
@@ -142,7 +143,6 @@ def plot_density_single(
     :param font_size:
     :param numbering_font_size:
     :param no_bam:
-    :param log: write message to show the log transform level
     :return:
     """
     
@@ -313,12 +313,8 @@ def plot_density_single(
             strand
         )
 
-        if log in ('2', '10'):
-            xlabel = 'Genomic coordinate (%s), "%s" strand, y axis is log%s transformed' % (
-                chromosome,
-                strand,
-                log
-            )
+        if log in (2, 10):
+            xlabel = xlabel + ", y axis is log%d transformed" % log
 
         pylab.xlabel(
             xlabel,
@@ -489,7 +485,9 @@ def plot_density(
     :param title: the title of this plot
     :param share_y: whether different sashimi share same y axis
     :param no_bam:
-    :param log: y ticks log transformation or not, 2 -> log2; 10 -> log10
+    :param log: y ticks log transformation or not, 2 -> log2; 10 -> log10，
+                do not use `set_yscale` here, because there are junction under the x axis,
+                and there coords do not convert into log by matplotlib, so it will cause a lot troubles
     :return:
     """
 
@@ -541,7 +539,7 @@ def plot_density(
     if share_y is True, compute best ymax value for all samples: take maximum y across all.
     """
     # Round up
-    max_used_y_val = math.ceil(max([x.max for x in read_depths_dict.values()]))
+    max_used_y_val = max([x.max for x in read_depths_dict.values()])
 
     # @2018.12.20 if max_used_y_val is odd, plus one, for better look
     if max_used_y_val % 2 == 1:
@@ -644,11 +642,10 @@ def plot_density(
         @2019.03.31 add little check here to make sure the y axis shows the real value
         """
         curr_y_tick_labels = []
+
         for label in universal_y_ticks:
-            if log == '2':
-                label = 2 ^ label - 1
-            elif log == '10':
-                label = 10 ^ label - 1
+            if log in (2, 10):
+                label = numpy.power(log, label)
 
             if label <= 0:
                 # Exclude label for 0
@@ -658,6 +655,9 @@ def plot_density(
                     curr_y_tick_labels.append("%.1f" % label)
                 else:
                     curr_y_tick_labels.append("%d" % label)
+
+                # if log in (2, 10):
+                #    curr_y_tick_labels[-1] = r"$\mathregular{{" + str(log) + "}^{" + curr_y_tick_labels[-1] + "}}$"
 
         if not no_bam:
 
@@ -734,7 +734,7 @@ def plot_density(
             font_size=font_size,
             show_gene=show_gene
         )
-    pylab.subplots_adjust(hspace=.1, wspace=.7)
+    pylab.subplots_adjust(hspace=.15, wspace=.7)
 
 
 def draw_sashimi_plot(

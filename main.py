@@ -331,7 +331,7 @@ def main():
 )
 @click.option(
     '--log',
-    type=click.Choice(['0', '2', '10']),
+    type=click.Choice(["0", "2", "10"]),
     default="0",
     help="y axis log transformed, 0 -> not log transform; 2 -> log2; 10 -> log10"
 )
@@ -370,6 +370,7 @@ def normal(
     :param log: whether to perform y axis log transform
     :return:
     """
+    log = int(log)
     out_dir = os.path.dirname(os.path.abspath(output))
 
     try:
@@ -549,7 +550,7 @@ def normal(
 )
 @click.option(
     '--log',
-    type=click.Choice(['0', '2', '10']),
+    type=click.Choice(["0", "2", "10"]),
     default="0",
     help="y axis log transformed, 0 -> not log transform; 2 -> log2; 10 -> log10"
 )
@@ -580,10 +581,8 @@ def pipeline(
     Created by ygidtu@gmail.com at 2018.12.19
     :param input: input file in specific format
     :param span: str, but must be int or float
-    :param bam: list of input BAM files
     :param gtf: path to gtf file
     :param output: path to output file
-    :param event: event id, chr:100-200-100-200:+ etc
     :param config: path to config file, default using settings.ini file under this suite of scripts
     :param threshold: filter out low abundance junctions
     :param indicator_lines: draw vertical lines in sashimi to show the spliced sites
@@ -594,6 +593,8 @@ def pipeline(
     :param log: whether to perform y axis log transform
     :return:
     """
+
+    log = int(log)
 
     try:
         if not os.path.exists(output):
@@ -763,7 +764,6 @@ def no_bam(
     :param event:
     :param input:
     :param required:
-    :param bam: list of input BAM files
     :param gtf: path to gtf file
     :param output: path to output file
     :param event: event id, chr:100-200-100-200:+ etc
