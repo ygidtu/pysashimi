@@ -409,6 +409,9 @@ def normal(
                 except IndexError as err:
                     logger.error(err)
                     logger.error("Wrong color factor")
+                    logger.error("Your --color-factor is ", color_factor)
+                    logger.error("Your error line in %s" % bam, lines)
+
                     exit(err)
 
                 if color_label not in tmp_color.keys():

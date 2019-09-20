@@ -199,6 +199,7 @@ def read_transcripts(gtf_file, region, retry=0):
             # min_exon_start, max_exon_end, exons_list = float("inf"), float("-inf"),  []
             for line in relevant_exons_iterator:
                 region.add_gtf(line)
+
     except ValueError as err:
         logger.warn(err)
 
