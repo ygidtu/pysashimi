@@ -167,7 +167,15 @@ class GenomicLoci(object):
         :param string: chr1:1-100:+
         :return:
         """
-        chromosome, sites, strand = string.split(":")
+        temp = string.split(":")
+
+        if len(temp) == 3:
+            chromosome, sites, strand = temp
+        elif len(temp) == 2:
+            chromosome, sites = temp
+            strand = "*"
+        else:
+            raise ValueError("Failed to decode genomic region: %s" % string)
 
         start, end = sites.split("-")
 
@@ -403,6 +411,18 @@ class SpliceRegion(GenomicLoci):
             if i.is_overlap(genomic):
                 tmp.add_gtf(i)
         return tmp
+
+    def copy(self):
+        u"""
+
+        :return:
+        """
+        return SpliceRegion(
+            chromosome=self.chromosome,
+            start=self.start,
+            end=self.end,
+            strand=self.strand
+        )
 
 
 class Junction(object):
@@ -874,6 +894,27 @@ class ReadDepth(GenomicLoci):
             wiggle=wiggle,
             junctions_dict=junctions_dict
         )
+
+    def add_customized_junctions(self, other):
+        u"""
+        Add customized junctions to plot
+        :param other:
+        :return:
+        """
+        new_junctions_dict = {}
+
+        for key, value in self.junctions_dict.items():
+            if key in other.junctions_dict:
+                new_junctions_dict[key] = value + other.junctions_dict[key]
+            else:
+                new_junctions_dict[key] = value
+
+        for key, value in list(other.junctions_dict.items()):
+            if key not in self.junctions_dict:
+                new_junctions_dict[key] = value
+
+        self.junctions_dict = new_junctions_dict
+
 
 
 if __name__ == '__main__':

@@ -232,21 +232,24 @@ def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log=None):
     res = {}
     for bam in bam_list:
         logger.info("Reading from %s" % bam.path)
-        tmp = ReadDepth.determine_depth(
-            bam_file_path=bam.path,
-            chrm=splice_region.chromosome,
-            start_coord=splice_region.start,
-            end_coord=splice_region.end,
-            threshold=threshold,
-            log=log
-        )
+        try:
+            tmp = ReadDepth.determine_depth(
+                bam_file_path=bam.path,
+                chrm=splice_region.chromosome,
+                start_coord=splice_region.start,
+                end_coord=splice_region.end,
+                threshold=threshold,
+                log=log
+            )
 
-        tmp.shrink(
-            new_low=splice_region.start,
-            new_high=splice_region.end
-        )
+            tmp.shrink(
+                new_low=splice_region.start,
+                new_high=splice_region.end
+            )
 
-        res[bam] = tmp
+            res[bam] = tmp
+        except OSError as err:
+            logger.error(err)
     return res
 
 
@@ -277,6 +280,11 @@ def read_reads_depth_from_count_table(
                 for i, j in enumerate(lines):
                     header[i] = clean_table_filename(j)
             else:
+                # check file header, to avoide file format error
+                if len(header) == len(lines) - 1:
+                    logger.info("Change header index due to: Number of headers == number of columns - 1")
+                    new_header = {k + 1: v for k, v in header.items()}
+                    header = new_header
 
                 for i, j in enumerate(lines):
                     if i == 0:
@@ -301,12 +309,20 @@ def read_reads_depth_from_count_table(
 
     res = {}
     for key, value in data.items():
+
+        # customized junctions will introduce string type of key, and list of colors
+        # use this try catch to convert key to index to assign colors
+        try:
+            color = colors[key]
+        except TypeError:
+            color = colors[len(res) % len(colors)]
+
         key = bam_info(
             path=None,
             alias=key,
             label=None,
             title="",
-            color=colors[key]
+            color=color
         )
 
         res[key] = ReadDepth.create_depth(value, splice_region)

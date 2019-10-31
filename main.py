@@ -101,34 +101,6 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
     )
 
 
-# def assign_events(events):
-#     u"""
-#     merge separate events into a huge range
-#     assign events back to this range
-#     :param events:
-#     :return: {merged: [events, events, events]}
-#     """
-#     res = {}
-#     tmp = [events[0]]
-#     current = events[0]
-#     for i in events[1:]:
-#         if current.is_overlap(i):
-#             current += i
-#             tmp.append(i)
-#         else:
-#             res[current] = tmp
-#             current = i
-#             tmp = [i]
-#
-#     if current not in res.keys():
-#         res[current] = tmp
-#
-#     for k, value in res.items():
-#         print(k, [str(x) for x in value])
-#
-#     return res
-
-
 def get_merged_event(events, span, indicator_lines):
     u"""
     merged multiple events to huge region, to reduce the IO
@@ -335,6 +307,14 @@ def main():
     default="0",
     help="y axis log transformed, 0 -> not log transform; 2 -> log2; 10 -> log10"
 )
+@click.option(
+    "--customized-junction",
+    type=click.STRING,
+    default=None,
+    help="""
+    Path to junction table column name needs to be bam name or bam alias. \b
+    """
+)
 def normal(
         bam,
         event,
@@ -347,7 +327,8 @@ def normal(
         no_gene,
         color_factor,
         dpi,
-        log
+        log,
+        customized_junction
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -368,6 +349,7 @@ def normal(
     :param color_factor: 1-based index, only work with bam list
     :param dpi: output file resolution
     :param log: whether to perform y axis log transform
+    :param customized_junction: add customized junction to plot
     :return:
     """
     log = int(log)
@@ -443,21 +425,41 @@ def normal(
 
     splice_region = read_transcripts(
         gtf_file=index_gtf(input_gtf=gtf),
-        region=splice_region
+        region=splice_region.copy()
     )
 
     reads_depth = read_reads_depth_from_bam(
         bam_list=bam_list,
-        splice_region=splice_region,
+        splice_region=splice_region.copy(),
         threshold=threshold,
         log=log
     )
+
+    # read customized junctions
+    if customized_junction and os.path.exists(customized_junction):
+        customized_junction = read_reads_depth_from_count_table(
+            customized_junction,
+            splice_region=splice_region,
+            required=None,
+            colors=colors
+        )
+
+        temp_customized_junction = {k.alias: v for k, v in customized_junction.items()}
+
+        for key, value in reads_depth.items():
+            temp = temp_customized_junction.get(
+                key.alias,
+                customized_junction.get(os.path.basename(key.path), None)
+            )
+
+            if temp:
+                value.add_customized_junctions(temp)
 
     draw_sashimi_plot(
         output_file_path=output,
         settings=sashimi_plot_settings,
         average_depths_dict=reads_depth,
-        splice_region=splice_region,
+        splice_region=splice_region.copy(),
         share_y=share_y,
         no_bam=False,
         show_gene=not no_gene,
@@ -557,6 +559,14 @@ def normal(
     default="0",
     help="y axis log transformed, 0 -> not log transform; 2 -> log2; 10 -> log10"
 )
+@click.option(
+    "--customized-junction",
+    type=click.STRING,
+    default=None,
+    help="""
+    Path to junction table column name needs to be bam name or bam alias. \b
+    """
+)
 def pipeline(
         input,
         span,
@@ -569,7 +579,8 @@ def pipeline(
         no_gene,
         color_factor,
         dpi,
-        log
+        log,
+        customized_junction
 ):
     u"""
 
@@ -594,6 +605,7 @@ def pipeline(
     :param color_factor: 1-based index, only work with bam list
     :param dpi: output file resolution
     :param log: whether to perform y axis log transform
+    :param customized_junction: add customized junction to plot
     :return:
     """
 
@@ -626,15 +638,33 @@ def pipeline(
 
             splice_region = read_transcripts(
                 gtf_file=index_gtf(input_gtf=gtf),
-                region=region
+                region=region.copy()
             )
 
             reads_depth = read_reads_depth_from_bam(
                 bam_list=bam_list,
-                splice_region=splice_region,
+                splice_region=splice_region.copy(),
                 threshold=threshold,
                 log=log
             )
+
+            # read customized junctions
+            if customized_junction and os.path.exists(customized_junction):
+                customized_junction = read_reads_depth_from_count_table(
+                    customized_junction,
+                    splice_region=splice_region,
+                    required=None,
+                    colors=sashimi_plot_settings["colors"]
+                )
+
+                for key, value in reads_depth.items():
+                    temp = customized_junction.get(
+                        key.alias,
+                        customized_junction.get(os.path.basename(key.path), None)
+                    )
+
+                    if temp:
+                        value.add_customized_junctions(temp)
 
             # for sep in separate:
 
@@ -676,7 +706,7 @@ def pipeline(
     help="Path to junctions count table"
 )
 @click.option(
-    "--required",
+    "--input-list",
     type=click.Path(exists=True),
     help="""
     Path to tab separated list file\b
@@ -750,7 +780,7 @@ def pipeline(
 def no_bam(
         event,
         input,
-        required,
+        input_list,
         gtf,
         output,
         config,
@@ -766,7 +796,7 @@ def no_bam(
     \f
     :param event:
     :param input:
-    :param required:
+    :param input_list:
     :param gtf: path to gtf file
     :param output: path to output file
     :param event: event id, chr:100-200-100-200:+ etc
@@ -785,8 +815,8 @@ def no_bam(
     color_index = 0
     tmp_color = {}
     required_cols = {}
-    if required:
-        with open(required) as r:
+    if input_list:
+        with open(input_list) as r:
             for line in r:
                 lines = line.strip().split("\t")
 
