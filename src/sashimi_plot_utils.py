@@ -116,13 +116,13 @@ def plot_density_single(
         color='r',
         y_max=None,
         number_junctions=True,
-        # resolution=.5,
         show_x_axis=True,
         nx_ticks=4,
         font_size=6,
         numbering_font_size=6,
         no_bam=False,
-        log=None
+        log=None,
+        share_y=False
 ):
     u"""
     @2018.12.19 remove unnecessary x label
@@ -137,12 +137,12 @@ def plot_density_single(
     :param color:
     :param y_max:
     :param number_junctions:
-    :param resolution:
     :param show_x_axis:
     :param nx_ticks:
     :param font_size:
     :param numbering_font_size:
     :param no_bam:
+    :param share_y: if share y, then share_y is max height
     :return:
     """
     
@@ -193,7 +193,11 @@ def plot_density_single(
         )
 
     # sort the junctions by intron length for better plotting look
-    jxns_sorted_list = sorted(jxns.keys())
+    jxns_sorted_list = sorted(
+        jxns.keys(),
+        key=lambda x: x.end - x.start,
+        reverse=True
+    )
 
     if not jxns:
         max_junction_count, min_junction_count = 0, 0
@@ -223,7 +227,7 @@ def plot_density_single(
         ss2 = graph_coords[ss2_idx]
 
         # draw junction on bottom
-        if plotted_count % 2 == 1:
+        if plotted_count % 2 == 0:
 
             pts = [
                 (ss1, 0 if not ss1_modified else -current_height),
@@ -615,7 +619,8 @@ def plot_density(
             font_size=font_size,
             numbering_font_size=numbering_font_size,
             no_bam=no_bam,
-            log=log
+            log=log,
+            share_y=max_used_y_val if share_y else share_y
         )
 
         """
