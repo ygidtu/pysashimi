@@ -157,6 +157,7 @@ def index_gtf(input_gtf, sort_gtf=False, retry=0):
         w.close()
 
     if index:
+        logger.info("Create index for %s", input_gtf)
         try:
             pysam.tabix_index(
                 input_gtf,
@@ -165,8 +166,12 @@ def index_gtf(input_gtf, sort_gtf=False, retry=0):
                 keep_original=True
             )
         except OSError as err:
-            logger.info(err)
-            logger.info("Guess gtf needs to be sorted")
+
+            if re.search("could not open", str(err)):
+                raise err
+
+            logger.error(err)
+            logger.error("Guess gtf needs to be sorted")
             return index_gtf(input_gtf=input_gtf, sort_gtf=True, retry=retry + 1)
 
     return output_gtf
@@ -187,6 +192,8 @@ def read_transcripts(gtf_file, region, retry=0):
         raise FileNotFoundError("%s not found" % gtf_file)
 
     try:
+        logger.info("Reading from %s" % gtf_file)
+
         with pysam.Tabixfile(gtf_file, 'r') as gtf_tabix:
 
             relevant_exons_iterator = gtf_tabix.fetch(

@@ -782,6 +782,7 @@ def draw_sashimi_plot(
     @2019.01.04
     If there is no bam, reduce the height of figure
     """
+    print(splice_region.transcripts)
     if no_bam:
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts)) // 2
     else:

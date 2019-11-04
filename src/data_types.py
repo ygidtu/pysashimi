@@ -361,7 +361,6 @@ class SpliceRegion(GenomicLoci):
             self.__transcripts__[gtf_line.transcript] = gtf_line
 
         else:
-
             if gtf_line.feature == "transcript":
                 if gtf_line.transcript_id not in self.__transcripts__.keys():
                     self.__transcripts__[gtf_line.transcript_id] = Transcript(
@@ -417,12 +416,15 @@ class SpliceRegion(GenomicLoci):
 
         :return:
         """
-        return SpliceRegion(
+        temp = SpliceRegion(
             chromosome=self.chromosome,
             start=self.start,
             end=self.end,
             strand=self.strand
         )
+
+        temp.__transcripts__ = self.__transcripts__
+        return temp
 
 
 class Junction(object):
