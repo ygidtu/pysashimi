@@ -9,6 +9,9 @@ import os
 import re
 
 import click
+
+from multiprocessing import cpu_count
+
 from openpyxl import load_workbook
 
 from src.data_types import SpliceRegion, clean_bam_filename, clean_table_filename, bam_info
@@ -303,7 +306,7 @@ def main():
 )
 @click.option(
     '--log',
-    type=click.Choice(["0", "2", "10"]),
+    type=click.Choice(["0", "2", "10", "zscore"]),
     default="0",
     help="y axis log transformed, 0 -> not log transform; 2 -> log2; 10 -> log10"
 )
@@ -313,6 +316,23 @@ def main():
     default=None,
     help="""
     Path to junction table column name needs to be bam name or bam alias. \b
+    """
+)
+@click.option(
+    "-p",
+    "--process",
+    type=click.IntRange(min=1, max = cpu_count()),
+    default=1,
+    help="""
+    How many cpu to use \b
+    """
+)
+@click.option(
+    "--sort-by-color",
+    is_flag=True,
+    type=click.BOOL,
+    help="""
+    Whether sort input bam order, for better looking \b
     """
 )
 def normal(
@@ -328,7 +348,9 @@ def normal(
         color_factor,
         dpi,
         log,
-        customized_junction
+        customized_junction,
+        process,
+        sort_by_color
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -350,9 +372,15 @@ def normal(
     :param dpi: output file resolution
     :param log: whether to perform y axis log transform
     :param customized_junction: add customized junction to plot
+    :param process:
+    :param sort_by_color:
     :return:
     """
-    log = int(log)
+    try:
+        log = int(log)
+    except ValueError:
+        pass
+
     out_dir = os.path.dirname(os.path.abspath(output))
 
     try:
@@ -421,6 +449,9 @@ def normal(
                     )
                 bam_list.append(tmp)
 
+    if sort_by_color:
+        bam_list = sorted(bam_list, key=lambda x: x.color)
+
     splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
 
     splice_region = read_transcripts(
@@ -432,7 +463,8 @@ def normal(
         bam_list=bam_list,
         splice_region=splice_region.copy(),
         threshold=threshold,
-        log=log
+        log=log,
+        n_jobs=process
     )
 
     # read customized junctions
@@ -555,7 +587,7 @@ def normal(
 )
 @click.option(
     '--log',
-    type=click.Choice(["0", "2", "10"]),
+    type=click.Choice(["0", "2", "10", "zscore"]),
     default="0",
     help="y axis log transformed, 0 -> not log transform; 2 -> log2; 10 -> log10"
 )
@@ -565,6 +597,23 @@ def normal(
     default=None,
     help="""
     Path to junction table column name needs to be bam name or bam alias. \b
+    """
+)
+@click.option(
+    "-p",
+    "--process",
+    type=click.IntRange(min=1, max = cpu_count()),
+    default=1,
+    help="""
+    How many cpu to use \b
+    """
+)
+@click.option(
+    "--sort-by-color",
+    is_flag=True,
+    type=click.BOOL,
+    help="""
+    Whether sort input bam order, for better looking \b
     """
 )
 def pipeline(
@@ -580,7 +629,9 @@ def pipeline(
         color_factor,
         dpi,
         log,
-        customized_junction
+        customized_junction,
+        process,
+        sort_by_color
 ):
     u"""
 
@@ -606,10 +657,15 @@ def pipeline(
     :param dpi: output file resolution
     :param log: whether to perform y axis log transform
     :param customized_junction: add customized junction to plot
+    :param process:
+    :param sort_by_color
     :return:
     """
 
-    log = int(log)
+    try:
+        log = int(log)
+    except ValueError:
+        pass
 
     try:
         if not os.path.exists(output):
@@ -626,6 +682,9 @@ def pipeline(
         color_factor=color_factor,
         colors=sashimi_plot_settings["colors"]
     )
+
+    if sort_by_color:
+        bam_list = sorted(bam_list, key=lambda x: x.color)
 
     coords = get_merged_event(data.keys(), span=span, indicator_lines=indicator_lines)
 
@@ -645,7 +704,8 @@ def pipeline(
                 bam_list=bam_list,
                 splice_region=splice_region.copy(),
                 threshold=threshold,
-                log=log
+                log=log,
+                n_jobs=process
             )
 
             # read customized junctions

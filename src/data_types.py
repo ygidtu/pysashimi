@@ -15,6 +15,8 @@ import numpy
 import pysam
 from collections import namedtuple
 
+from scipy.stats import zscore
+
 from src.logger import logger
 
 clean_bam_filename = lambda x: re.sub("([_.]?Aligned.sortedByCoord.out)?.bam", "", os.path.basename(x))
@@ -614,7 +616,15 @@ class ReadDepth(GenomicLoci):
         """
         try:
             with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
-                relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
+
+                try:
+                    relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
+                except ValueError:
+                    if chrm.startswith("chr"):
+                        chrm = chrm.replace("chr", "")
+                    else:
+                        chrm = "chr{}".format(chrm)
+                    relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
 
                 depth_vector = numpy.zeros(end_coord - start_coord + 1, dtype='f')
                 spanned_junctions = {}
@@ -670,6 +680,8 @@ class ReadDepth(GenomicLoci):
                 depth_vector = numpy.log10(depth_vector + 1)
             elif log == 2:
                 depth_vector = numpy.log2(depth_vector + 1)
+            elif log == "zscore":
+                depth_vector = zscore(depth_vector)
 
             return cls(
                 chromosome=chrm,
@@ -916,7 +928,6 @@ class ReadDepth(GenomicLoci):
                 new_junctions_dict[key] = value
 
         self.junctions_dict = new_junctions_dict
-
 
 
 if __name__ == '__main__':

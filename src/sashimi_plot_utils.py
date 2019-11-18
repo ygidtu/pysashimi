@@ -121,8 +121,7 @@ def plot_density_single(
         font_size=6,
         numbering_font_size=6,
         no_bam=False,
-        log=None,
-        share_y=False
+        log=None
 ):
     u"""
     @2018.12.19 remove unnecessary x label
@@ -142,7 +141,7 @@ def plot_density_single(
     :param font_size:
     :param numbering_font_size:
     :param no_bam:
-    :param share_y: if share y, then share_y is max height
+    :param log:
     :return:
     """
     
@@ -619,8 +618,7 @@ def plot_density(
             font_size=font_size,
             numbering_font_size=numbering_font_size,
             no_bam=no_bam,
-            log=log,
-            share_y=max_used_y_val if share_y else share_y
+            log=log
         )
 
         """
@@ -656,22 +654,18 @@ def plot_density(
                 # Exclude label for 0
                 curr_y_tick_labels.append("")
             else:
-                if label % 1 != 0:
-                    curr_y_tick_labels.append("%.1f" % label)
-                else:
-                    curr_y_tick_labels.append("%d" % label)
+                curr_y_tick_labels.append("%.1f" % label if label % 1 != 0 else "%d" % label)
 
                 # if log in (2, 10):
-                #    curr_y_tick_labels[-1] = r"$\mathregular{{" + str(log) + "}^{" + curr_y_tick_labels[-1] + "}}$"
+                #     curr_y_tick_labels[-1] = r"$\mathregular{{" + str(log) + "}^{" + curr_y_tick_labels[-1] + "}}$"
 
         if not no_bam:
-
+            curr_ax.set_yticks(universal_y_ticks)
             curr_ax.set_yticklabels(
                 curr_y_tick_labels,
                 fontsize=font_size
             )
 
-            curr_ax.set_yticks(universal_y_ticks)
             curr_ax.yaxis.set_ticks_position('left')
         else:
             u"""
@@ -782,7 +776,6 @@ def draw_sashimi_plot(
     @2019.01.04
     If there is no bam, reduce the height of figure
     """
-    print(splice_region.transcripts)
     if no_bam:
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts)) // 2
     else:

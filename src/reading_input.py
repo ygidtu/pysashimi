@@ -11,7 +11,11 @@ import re
 import gzip
 import filetype
 
+from collections import OrderedDict
+from multiprocessing import Pool
+
 import pysam
+
 from tqdm import tqdm
 
 from src.data_types import SpliceRegion, ReadDepth, bam_info, GenomicLoci, clean_table_filename
@@ -224,39 +228,54 @@ def read_transcripts(gtf_file, region, retry=0):
     return region
 
 
-def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log=None):
+def __read_from_bam__(args):
+    splice_region, bam, threshold, log, idx = args
+
+    tmp = ReadDepth.determine_depth(
+        bam_file_path=bam.path,
+        chrm=splice_region.chromosome,
+        start_coord=splice_region.start,
+        end_coord=splice_region.end,
+        threshold=threshold,
+        log=log
+    )
+
+    tmp.shrink(
+        new_low=splice_region.start,
+        new_high=splice_region.end
+    )
+
+    return [{bam: tmp}, idx]
+
+
+def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log=None, n_jobs=1):
     u"""
     read reads coverage info from all bams
     :param bam_list: namedtuple (alias, title, path, label)
     :param splice_region: SpliceRegion
     :param threshold: filter low abundance junctions
     :param log
+    :param n_jobs
     :return: dict {alias, ReadDepth}
     """
-
+    logger.info("Reading from bam files")
     assert isinstance(splice_region, SpliceRegion), "splice_region should be SplcieRegion, not %s" % type(splice_region)
 
-    res = {}
-    for bam in bam_list:
-        logger.info("Reading from %s" % bam.path)
-        try:
-            tmp = ReadDepth.determine_depth(
-                bam_file_path=bam.path,
-                chrm=splice_region.chromosome,
-                start_coord=splice_region.start,
-                end_coord=splice_region.end,
-                threshold=threshold,
-                log=log
-            )
+    res = OrderedDict()
 
-            tmp.shrink(
-                new_low=splice_region.start,
-                new_high=splice_region.end
-            )
-
-            res[bam] = tmp
-        except OSError as err:
-            logger.error(err)
+    try:
+        # not using multiprocessing when only single process, in case the data size limitation of pickle issue
+        if n_jobs == 1:
+            for i in [[splice_region, bam, threshold, log, idx] for idx, bam in enumerate(bam_list)]:
+                res.update(__read_from_bam__(i)[0])
+        else:
+            with Pool(min(n_jobs, len(bam_list))) as p:
+                temp = p.map(__read_from_bam__, [[splice_region, bam, threshold, log, idx] for idx, bam in enumerate(bam_list)])
+                temp = sorted(temp, key=lambda x: x[1])
+                for i in temp:
+                    res.update(i[0])
+    except Exception as err:
+        logger.error(err)
     return res
 
 
