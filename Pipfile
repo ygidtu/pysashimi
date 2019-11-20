@@ -6,13 +6,20 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-pysam = "==0.15.1"
-openpyxl = "==2.5.9"
 click = "==7.0"
-tqdm = "==4.28.1"
-numpy = "==1.15.4"
+cycler = "==0.10.0"
+et-xmlfile = "==1.0.1"
+filetype = "==1.0.5"
+jdcal = "==1.4.1"
+kiwisolver = "==1.1.0"
 matplotlib = "==3.0.1"
-filetype = "*"
+numpy = "==1.15.4"
+openpyxl = "==2.5.9"
+pyparsing = "==2.4.2"
+pysam = "==0.15.1"
+python-dateutil = "==2.8.0"
+six = "==1.12.0"
+tqdm = "==4.28.1"
 
 [requires]
 python_version = "3.7"

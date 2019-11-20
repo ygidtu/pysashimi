@@ -5,8 +5,8 @@ import ast
 import configparser
 import sys
 
-from src.drawing import RGB
-from src.logger import logger
+from conf.drawing import RGB
+from conf.logger import logger
 
 
 def default_hive_settings():

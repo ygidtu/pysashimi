@@ -7,9 +7,7 @@ Inspired by SplicePlot -> mRNAObjects
 """
 import os
 import re
-
-import gzip
-import filetype
+import traceback
 
 from collections import OrderedDict
 from multiprocessing import Pool
@@ -18,73 +16,9 @@ import pysam
 
 from tqdm import tqdm
 
-from src.data_types import SpliceRegion, ReadDepth, bam_info, GenomicLoci, clean_table_filename
-from src.logger import logger
-
-
-def _is_gtf_(infile):
-    u"""
-    check if input file is gtf
-    :param infile: path to input file
-    :return:
-    """
-    is_gtf = 0
-    if filetype.guess_mime(infile) == "application/gzip":
-        is_gtf += 10
-        r = gzip.open(infile)
-    else:
-        r = open(infile)
-
-    for line in r:
-        if line.startswith("#"):
-            continue
-
-        lines = re.split(r"\s+", line)
-
-        if len(lines) < 8:
-            break
-
-        if re.search(
-            r"([\w-]+ \"[\w.\s\-%,:]+\";? ?)+",
-            " ".join(lines[8:])
-        ):
-            is_gtf += 1
-
-        break
-
-    r.close()
-
-    return is_gtf
-
-
-def is_bam(infile):
-    u"""
-    check if input file is bam or sam file
-    :param infile: path to input file
-    :return: Boolean
-    """
-
-    try:
-        create = False
-        if not os.path.exists(infile + ".bai"):
-            create = True
-        elif os.path.getctime(infile + ".bai") < os.path.getctime(infile):
-            os.remove(infile + ".bai")
-            create = True
-        else:
-            try:
-                with pysam.AlignmentFile(infile) as r:
-                    r.check_index()
-            except ValueError:
-                create = True
-
-        if create:
-            logger.info("Creating index for %s" % infile)
-            pysam.index(infile)
-        return True
-
-    except pysam.utils.SamtoolsError:
-        return False
+from src.data_types import SpliceRegion, ReadDepth, BamInfo, GenomicLoci
+from conf.logger import logger
+from utils.utils import clean_star_filename, is_gtf
 
 
 def index_gtf(input_gtf, sort_gtf=False, retry=0):
@@ -98,14 +32,14 @@ def index_gtf(input_gtf, sort_gtf=False, retry=0):
     :param retry: only try to sort gtf once
     :return path to compressed and indexed bgzipped gtf file
     """
-    is_gtf = _is_gtf_(input_gtf)
+    gtf = is_gtf(input_gtf)
 
-    if is_gtf % 10 != 1:
+    if gtf % 10 != 1:
         raise ValueError("gtf file required, %s seems not a valid gtf file" % input_gtf)
 
     index = False
 
-    if is_gtf // 10 > 0:
+    if gtf // 10 > 0:
         output_gtf = input_gtf
     else:
         output_gtf = input_gtf + ".gz"
@@ -276,6 +210,8 @@ def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log=None, n_
                     res.update(i[0])
     except Exception as err:
         logger.error(err)
+        traceback.print_exc()
+
     return res
 
 
@@ -304,7 +240,7 @@ def read_reads_depth_from_count_table(
 
             if not header:
                 for i, j in enumerate(lines):
-                    header[i] = clean_table_filename(j)
+                    header[i] = clean_star_filename(j)
             else:
                 # check file header, to avoide file format error
                 if len(header) == len(lines) - 1:
@@ -343,7 +279,7 @@ def read_reads_depth_from_count_table(
         except TypeError:
             color = colors[len(res) % len(colors)]
 
-        key = bam_info(
+        key = BamInfo(
             path=None,
             alias=key,
             label=None,

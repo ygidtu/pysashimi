@@ -7,23 +7,52 @@ This script contains all the basic data types used by this suite of scripts
 
 For better organization
 """
-import os
-import re
 from copy import deepcopy
 
 import numpy
 import pysam
-from collections import namedtuple
 
 from scipy.stats import zscore
 
-from src.logger import logger
+from conf.logger import logger
 
-clean_bam_filename = lambda x: re.sub("([_.]?Aligned.sortedByCoord.out)?.bam", "", os.path.basename(x))
-clean_table_filename = lambda x: re.sub("[_.]?SJ.out.tab", "", os.path.basename(x))
 
-bam_info = namedtuple("bam_info", ["alias", "title", "label", "path", "color"])
-ax_label = namedtuple("NamedAx", ["Ax", "Label"])   # @2018.12.20 using this to handle the ylabel of different ax
+class BamInfo(object):
+    def __init__(self, alias, title, label, path, color):
+        self.alias = alias
+        self.title = title
+        self.label = label
+        self.path = path
+        self.color = color
+
+    def __hash__(self):
+        return hash(self.path)
+
+    def __str__(self):
+
+        temp = []
+
+        for x in [self.alias, self.title, self.label, self.path, self.color]:
+            if x is None or x == "":
+                x = "None"
+            temp.append(str(x))
+
+        return "\t".join(temp)
+
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
+
+class AxLabel(object):
+    def __init__(self, Ax, Label):
+        self.Ax = Ax
+        self.Label = Label
+
+    def __hash__(self):
+        return hash(self.Ax)
+
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
 
 
 class GenomicLoci(object):

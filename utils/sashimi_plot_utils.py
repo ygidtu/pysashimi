@@ -27,7 +27,7 @@ from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
 from src.data_types import SpliceRegion
-from src.logger import logger
+from conf.logger import logger
 
 
 def __get_limited_index__(num, length):
@@ -469,7 +469,6 @@ def plot_density(
         splice_region,
         show_gene=False,
         title=None,
-        share_y=False,
         no_bam=False,
         log=None
 ):
@@ -486,7 +485,6 @@ def plot_density(
     :param show_gene: Boolean value to decide whether show gene id in this graph,
                     used by plot_transcripts()
     :param title: the title of this plot
-    :param share_y: whether different sashimi share same y axis
     :param no_bam:
     :param log: y ticks log transformation or not, 2 -> log2; 10 -> log10，
                 do not use `set_yscale` here, because there are junction under the x axis,
@@ -535,27 +533,6 @@ def plot_density(
         # Use custom title if given
         pylab.title(title, fontsize=10)
 
-    """
-    @ 2018.12.21
-    Figure out correct y-axis values
-
-    if share_y is True, compute best ymax value for all samples: take maximum y across all.
-    """
-    # Round up
-    max_used_y_val = max([x.max for x in read_depths_dict.values()])
-
-    # @2018.12.20 if max_used_y_val is odd, plus one, for better look
-    if max_used_y_val % 2 == 1:
-        max_used_y_val += 1
-
-    # Reset axes based on this.
-    # Set fake ymin bound to allow lower junctions to be visible
-    fake_y_min = - 0.5 * max_used_y_val
-    universal_y_ticks = pylab.linspace(
-        0,
-        max_used_y_val,
-        nyticks + 1
-    )
 
     """
     @2019.01.07
@@ -575,28 +552,21 @@ def plot_density(
         show_x_axis = (i == len(read_depths_dict) - 1)
         curr_ax = plt.subplot(gs[i, :])
 
+        # Round up
+        max_used_y_val = average_read_depth.max
+        fake_y_min = - 0.5 * max_used_y_val
         """
-        Re-calculate the y boundary, if do not share same y axis
-        @2018.12.20
-        if share_y is False, then calculate the best y_limit per axis
-        and flush the universal_y_ticks
+        @2018.12.20 if max_used_y_val is odd, plus one, for better look
+        @2019.01.07 flush universal_y_ticks if not share_y
         """
-        if not share_y:
-            # Round up
-            max_used_y_val = average_read_depth.max
-            fake_y_min = - 0.5 * max_used_y_val
-            """
-            @2018.12.20 if max_used_y_val is odd, plus one, for better look
-            @2019.01.07 flush universal_y_ticks if not share_y
-            """
-            if max_used_y_val % 2 == 1:
-                max_used_y_val += 1
+        if max_used_y_val % 2 == 1:
+            max_used_y_val += 1
 
-            universal_y_ticks = pylab.linspace(
-                0,
-                max_used_y_val,
-                nyticks + 1
-            )
+        universal_y_ticks = pylab.linspace(
+            0,
+            max_used_y_val,
+            nyticks + 1
+        )
 
         """
         Main body of sashimi
@@ -741,7 +711,6 @@ def draw_sashimi_plot(
         settings,
         average_depths_dict,
         splice_region,
-        share_y,
         no_bam=False,
         show_gene=True,
         dpi=300,
@@ -794,7 +763,6 @@ def draw_sashimi_plot(
         read_depths_dict=average_depths_dict,   # reads coverage
         splice_region=splice_region,            # Exon and transcript information
         show_gene=show_gene,                    # decide whether display gene id in this plot
-        share_y=share_y,
         no_bam=no_bam,
         log=log
     )

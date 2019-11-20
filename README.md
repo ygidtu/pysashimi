@@ -24,12 +24,20 @@ Thanks to [ggsashimi](https://github.com/guigolab/ggsashimi), I learned how to e
 
 Software requirements
 
-- Click==7.0
-- matplotlib==3.0.1
-- numpy==1.15.4
-- openpyxl==2.5.9
-- pysam==0.15.1
-- tqdm==4.28.1
+click==7.0
+cycler==0.10.0
+et-xmlfile==1.0.1
+filetype==1.0.5
+jdcal==1.4.1
+kiwisolver==1.1.0
+matplotlib==3.0.1
+numpy==1.15.4
+openpyxl==2.5.9
+pyparsing==2.4.2
+pysam==0.15.1
+python-dateutil==2.8.0
+six==1.12.0
+tqdm==4.28.1
 
 
 1. from source
@@ -135,6 +143,18 @@ Options:
   --no-gene                      Do not show gene id next to transcript id
   --color-factor INTEGER RANGE   Index of column with color levels (1-based)
                                  [default: 1]
+  --log [0|2|10|zscore]          y axis log transformed, 0 -> not log
+                                 transform; 2 -> log2; 10 -> log10
+  --customized-junction TEXT     Path to junction table column name needs to
+                                 be bam name or bam alias.
+  -p, --process INTEGER RANGE    How many cpu to use
+  --sort-by-color                Whether sort input bam order, for better
+                                 looking
+  --share-y-by INTEGER           Index of column with share y axis (1-based),
+                                 Need --share-y\.
+                                 For example, first 3 bam
+                                 files use same y axis, and the rest use
+                                 another  [default: -1]
   -h, --help                     Show this message and exit.
 
 ```
@@ -153,6 +173,14 @@ Options:
   | ------------------- | ------------- | ------------ |
   | /home/user/test.bam | Sample 1      | Red          |
   |                     |               |              |
+  
+- If bam list file is used, the order of bam file in this list is used. 
+    If the `--sort-by-color` used, then reorder the bam list by colors, 
+    to make sure same color bam file will be together.
+-  `-p/--process`: multiple process to read data from input files for faster processing
+- `--share-y-by`: make different input files use different y axis. For example: ![](./docs/test2.png) 
+
+- `--log`: zscore is used `scipy.stats.zscore` to convert density to zscore, just for test usage, please no use it in final plots.
 
 #### 2. pipeline
 
@@ -175,22 +203,27 @@ Options:
                                  percentage of input region  [default: 100]
   -g, --gtf PATH                 Path to gtf file, both transcript and exon
                                  tags are necessary
-  -o, --output PATH              Path to output graph file
+  -o, --output PATH              Path to output directory
   --config PATH                  Path to config file, contains graph settings
                                  of sashimi plot  [default: /Users/zhangyiming
                                  /Code/pysashimi/settings.ini]
   -t, --threshold INTEGER RANGE  Threshold to filter low abundance junctions
                                  [default: 0]
   -d, --dpi INTEGER RANGE        The resolution of output file  [default: 300]
-  --indicator-lines TEXT         Where to plot additional indicator lines,
-                                 comma separated int
+  --indicator-lines              Where to plot additional indicator lines
   --share-y                      Whether different sashimi plots shared same y
                                  axis
   --no-gene                      Do not show gene id next to transcript id
   --color-factor INTEGER RANGE   Index of column with color levels (1-based)
                                  [default: 1]
+  --log [0|2|10|zscore]          y axis log transformed, 0 -> not log
+                                 transform; 2 -> log2; 10 -> log10
+  --customized-junction TEXT     Path to junction table column name needs to
+                                 be bam name or bam alias.
+  -p, --process INTEGER RANGE    How many cpu to use
+  --sort-by-color                Whether sort input bam order, for better
+                                 looking
   -h, --help                     Show this message and exit.
-
 ```
 
 - -i/--input: path to a two sheet xlsx file, see [docs/sample.xlsx](./docs/sample.xlsx), the value (if is not empty) in first sheet will added to the top-right of each sashimi
