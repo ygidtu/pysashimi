@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+# -*- coding:utf-8 -*-
+u"""
+Created by ygidtu@gmail.com at 2018.12.16
+
+Main function to plot sashimi plot
+"""
+import click
+
+from multiprocessing import cpu_count
+
+from conf.plot_settings import parse_settings
+from utils.reading_input import index_gtf
+from utils.reading_input import read_reads_depth_from_bam
+from utils.reading_input import read_reads_depth_from_count_table
+from utils.reading_input import read_transcripts
+from utils.sashimi_plot_utils import draw_sashimi_plot
+from utils.utils import *
+
+
+__dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+@click.command()
+@click.option(
+    "-e",
+    "--event",
+    type=click.STRING,
+    required=True,
+    help="Event range eg: chr1:100-200:+"
+)
+@click.option(
+    "-b",
+    "--bam",
+    type=click.Path(exists=True),
+    help="""
+    Path to input BAM file. \b
+
+    Or a tab separated text file, \b 
+    - first column is path to BAM file, \b
+    - second column is BAM file alias(optional)
+    """
+)
+@click.option(
+    "-g",
+    "--gtf",
+    type=click.Path(exists=True),
+    help="Path to gtf file, both transcript and exon tags are necessary"
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(),
+    help="Path to output graph file",
+    show_default=True
+)
+@click.option(
+    "--config",
+    default=os.path.join(__dir__, "settings.ini"),
+    type=click.Path(),
+    help="Path to config file, contains graph settings of sashimi plot",
+    show_default=True
+)
+@click.option(
+    "-t",
+    "--threshold",
+    default=0,
+    type=click.IntRange(min=0, clamp=True),
+    help="Threshold to filter low abundance junctions",
+    show_default=True
+)
+@click.option(
+    "-d",
+    "--dpi",
+    default=300,
+    type=click.IntRange(min=1, clamp=True),
+    help="The resolution of output file",
+    show_default=True
+)
+@click.option(
+    "--indicator-lines",
+    default=None,
+    type=click.STRING,
+    help="Where to plot additional indicator lines, comma separated int"
+)
+@click.option(
+    "--share-y",
+    default=False,
+    is_flag=True,
+    type=click.BOOL,
+    help="Whether different sashimi plots shared same y axis"
+)
+@click.option(
+    "--no-gene",
+    is_flag=True,
+    type=click.BOOL,
+    help="Do not show gene id next to transcript id"
+)
+@click.option(
+    "--color-factor",
+    default=1,
+    type=click.IntRange(min=1),
+    help="Index of column with color levels (1-based)",
+    show_default=True
+)
+@click.option(
+    '--log',
+    type=click.Choice(["0", "2", "10", "zscore"]),
+    default="0",
+    help="y axis log transformed, 0 -> not log transform; 2 -> log2; 10 -> log10"
+)
+@click.option(
+    "--customized-junction",
+    type=click.STRING,
+    default=None,
+    help="""
+    Path to junction table column name needs to be bam name or bam alias. \b
+    """
+)
+@click.option(
+    "-p",
+    "--process",
+    type=click.IntRange(min=1, max = cpu_count()),
+    default=1,
+    help="""
+    How many cpu to use \b
+    """
+)
+@click.option(
+    "--sort-by-color",
+    is_flag=True,
+    type=click.BOOL,
+    help="""
+    Whether sort input bam order, for better looking \b
+    """
+)
+@click.option(
+    "--share-y-by",
+    type=click.INT,
+    default=-1,
+    help="""
+    Index of column with share y axis (1-based), Need --share-y\. 
+    For example, first 3 bam files use same y axis, and the rest use another
+    """,
+    show_default=True
+)
+def normal(
+        bam,
+        event,
+        gtf,
+        output,
+        config,
+        threshold,
+        indicator_lines,
+        share_y,
+        no_gene,
+        color_factor,
+        dpi,
+        log,
+        customized_junction,
+        process,
+        sort_by_color,
+        share_y_by
+):
+    u"""
+    This function is used to plot single sashimi plotting
+    \f
+    Created by ygidtu@gmail.com at 2018.12.19
+    :param ctx: passed parameters from main
+    :param bam: list of input BAM files
+    :param event: event id, chr:100-200-100-200:+ etc
+    :param bam: list of input BAM files
+    :param gtf: path to gtf file
+    :param output: path to output file
+    :param event: event id, chr:100-200-100-200:+ etc
+    :param config: path to config file, default using settings.ini file under this suite of scripts
+    :param threshold: filter out low abundance junctions
+    :param indicator_lines: draw vertical lines in sashimi to show the spliced sites
+    :param share_y: make different plots use same y axis boundary
+    :param no_gene: do not show gene id
+    :param color_factor: 1-based index, only work with bam list
+    :param dpi: output file resolution
+    :param log: whether to perform y axis log transform
+    :param customized_junction: add customized junction to plot
+    :param process:
+    :param sort_by_color:
+    :param share_y_by:
+    :return:
+    """
+    try:
+        log = int(log)
+    except ValueError:
+        pass
+
+    out_dir = os.path.dirname(os.path.abspath(output))
+
+    try:
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+    except IOError as err:
+        print(err)
+        print("Create output directory failed, please check %s" % out_dir)
+        exit(err)
+
+    sashimi_plot_settings = parse_settings(config)
+
+    colors = sashimi_plot_settings["colors"]
+
+    bam_list, shared_y = prepare_bam_list(bam, color_factor, colors, share_y_by)
+
+    if sort_by_color:
+        bam_list = sorted(bam_list, key=lambda x: x.color)
+
+    splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
+
+    splice_region = read_transcripts(
+        gtf_file=index_gtf(input_gtf=gtf),
+        region=splice_region.copy()
+    )
+
+    reads_depth = read_reads_depth_from_bam(
+        bam_list=bam_list,
+        splice_region=splice_region.copy(),
+        threshold=threshold,
+        log=log,
+        n_jobs=process
+    )
+
+    # set shared y
+    if share_y:
+        assign_max_y(shared_y.values(), reads_depth)
+
+    # read customized junctions
+    if customized_junction and os.path.exists(customized_junction):
+        customized_junction = read_reads_depth_from_count_table(
+            customized_junction,
+            splice_region=splice_region,
+            required=None,
+            colors=colors
+        )
+
+        temp_customized_junction = {k.alias: v for k, v in customized_junction.items()}
+
+        for key, value in reads_depth.items():
+            temp = temp_customized_junction.get(
+                key.alias,
+                customized_junction.get(os.path.basename(key.path), None)
+            )
+
+            if temp:
+                value.add_customized_junctions(temp)
+
+    draw_sashimi_plot(
+        output_file_path=output,
+        settings=sashimi_plot_settings,
+        average_depths_dict=reads_depth,
+        splice_region=splice_region.copy(),
+        no_bam=False,
+        show_gene=not no_gene,
+        dpi=dpi,
+        log=log
+    )

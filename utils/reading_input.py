@@ -165,21 +165,24 @@ def read_transcripts(gtf_file, region, retry=0):
 def __read_from_bam__(args):
     splice_region, bam, threshold, log, idx = args
 
-    tmp = ReadDepth.determine_depth(
-        bam_file_path=bam.path,
-        chrm=splice_region.chromosome,
-        start_coord=splice_region.start,
-        end_coord=splice_region.end,
-        threshold=threshold,
-        log=log
-    )
+    try:
+        tmp = ReadDepth.determine_depth(
+            bam_file_path=bam.path,
+            chrm=splice_region.chromosome,
+            start_coord=splice_region.start,
+            end_coord=splice_region.end,
+            threshold=threshold,
+            log=log
+        )
 
-    tmp.shrink(
-        new_low=splice_region.start,
-        new_high=splice_region.end
-    )
+        tmp.shrink(
+            new_low=splice_region.start,
+            new_high=splice_region.end
+        )
 
-    return [{bam: tmp}, idx]
+        return [{bam: tmp}, idx]
+    except (OSError, IOError):
+        return None
 
 
 def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log=None, n_jobs=1):
@@ -205,8 +208,12 @@ def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log=None, n_
         else:
             with Pool(min(n_jobs, len(bam_list))) as p:
                 temp = p.map(__read_from_bam__, [[splice_region, bam, threshold, log, idx] for idx, bam in enumerate(bam_list)])
+
+                temp = [x for x in temp if x is not None]
                 temp = sorted(temp, key=lambda x: x[1])
                 for i in temp:
+                    if i is None:
+                        continue
                     res.update(i[0])
     except Exception as err:
         logger.error(err)

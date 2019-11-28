@@ -1,18 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 u"""
-Migrated from SplicePlot sashimi_plot_utils
+Created at 2019.11.20
 
-1. change junctions size with fix number; DONE
-2. change subtitle to y title; DONE
-3. shrink of density not properly working; DONE
-4. add transcript id and to mRNAs; DONE
-5. tests multiple BAM; DONE
-6. display chromosome and strand; DONE
-7. Junctions count的过滤筛选; DONE
-8. add title, remove title from setting files; DONE
-9. add parameter to decide whether use shared y axis
-10. fix transcripts display issues
+Make line
 """
 import numpy
 
@@ -22,8 +13,6 @@ matplotlib.use('Agg')
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import pylab
-from matplotlib.patches import PathPatch
-from matplotlib.path import Path
 
 from src.data_types import SpliceRegion
 from conf.logger import logger
@@ -61,8 +50,8 @@ def cubic_bezier(pts, t):
     p1 = pylab.array(p1)
     p2 = pylab.array(p2)
     p3 = pylab.array(p3)
-    return p0 * (1 - t)**3 + 3 * t * p1 * (1 - t) ** 2 + \
-        3 * t**2 * (1 - t) * p2 + t**3 * p3
+    return p0 * (1 - t) ** 3 + 3 * t * p1 * (1 - t) ** 2 + \
+           3 * t ** 2 * (1 - t) * p2 + t ** 3 * p3
 
 
 def get_scaling(
@@ -113,14 +102,9 @@ def plot_density_single(
         graph_coords,
         graph_to_gene,
         ax_var,
-        color='r',
-        y_max=None,
-        number_junctions=True,
         show_x_axis=True,
         nx_ticks=4,
         font_size=6,
-        numbering_font_size=6,
-        no_bam=False,
         log=None
 ):
     u"""
@@ -133,174 +117,26 @@ def plot_density_single(
     :param graph_coords:
     :param graph_to_gene:
     :param ax_var:
-    :param color:
-    :param y_max:
-    :param number_junctions:
     :param show_x_axis:
     :param nx_ticks:
     :param font_size:
-    :param numbering_font_size:
-    :param no_bam:
     :param log:
     :return:
     """
-    
-    # extract data from read_depth_object
-    tx_start = read_depth_object.start
 
-    # @2018.12.19
-    # tx_end = read_depth_object.high
-    # chrom = read_depth_object.chrm
+    # Plot all reads depth as line
+    for bam, obj in read_depth_object.items():
+        wiggle = obj.wiggle
 
-    wiggle = read_depth_object.wiggle
+        # Reduce memory footprint by using incremented graphcoords.
+        compressed_x = []
+        compressed_wiggle = []
 
-    jxns = read_depth_object.junctions_dict
+        for i in range(len(graph_coords)):
+            compressed_wiggle.append(wiggle[i])
+            compressed_x.append(graph_coords[i])
 
-    max_height = read_depth_object.max
-    if y_max is None:
-        y_max = 1.1 * max_height
-    else:
-        y_max = y_max
-    y_min = -.5 * y_max
-
-    # Reduce memory footprint by using incremented graphcoords.
-    compressed_x = []
-    compressed_wiggle = []
-    # prev_x = graph_coords[0]
-
-    u"""
-    @2019.01.04
-    
-    If there is no bam file, use half of y axis as the upper bound of exon 
-    
-    And draw a white point to maintain the height of the y axis
-    
-    """
-    for i in range(len(graph_coords)):
-        compressed_wiggle.append(wiggle[i])
-        compressed_x.append(graph_coords[i])
-
-    if no_bam:
-        plt.plot(0, max(compressed_wiggle) * 2, color="white")
-    else:
-        pylab.fill_between(
-            compressed_x,
-            compressed_wiggle,
-            y2=0,
-            color=color,
-            lw=0
-        )
-
-    # sort the junctions by intron length for better plotting look
-    jxns_sorted_list = sorted(
-        jxns.keys(),
-        key=lambda x: x.end - x.start,
-        reverse=True
-    )
-
-    if not jxns:
-        max_junction_count, min_junction_count = 0, 0
-    else:
-        max_junction_count = max(jxns.values())
-        min_junction_count = min(jxns.values())
-    junction_count_gap = max_junction_count - min_junction_count
-
-    current_height = -3 * y_min / 4
-    for plotted_count, jxn in enumerate(jxns_sorted_list):
-        # leftss, rightss = list(map(int, jxn.split(":")[1].split("-")))
-
-        leftss, rightss = jxn.start, jxn.end
-
-        # @2018.12.19
-        # set junctions coordinate here
-        # the junction out of boundaries, set the boundaries as coordinate
-        ss1_idx, ss1_modified = __get_limited_index__(leftss - tx_start - 1, len(graph_coords))
-        ss2_idx, ss2_modified = __get_limited_index__(rightss - tx_start, len(graph_coords))
-
-        u"""
-        @2019.01.14
-
-        add two new variables to make it clear which one is index, which one is genomic site 
-        """
-        ss1 = graph_coords[ss1_idx]
-        ss2 = graph_coords[ss2_idx]
-
-        # draw junction on bottom
-        if plotted_count % 2 == 0:
-
-            pts = [
-                (ss1, 0 if not ss1_modified else -current_height),
-                (ss1, -current_height),
-                (ss2, -current_height),
-                (ss2, 0 if not ss2_modified else -current_height)
-            ]
-            midpt = cubic_bezier(pts, .5)
-
-        # draw junction on top
-        else:
-
-            left_dens = wiggle[ss1_idx]
-            right_dens = wiggle[ss2_idx]
-
-            """
-            @2019.01.04
-            
-            If there is no bam, lower half of y axis as the height of junctions
-            """
-            if no_bam:
-                left_dens /= 2
-                right_dens /= 2
-
-            pts = [
-                (ss1, left_dens if not ss1_modified else left_dens + current_height),
-                (ss1, left_dens + current_height),
-                (ss2, right_dens + current_height),
-                (ss2, right_dens if not ss2_modified else right_dens + current_height)
-            ]
-
-            midpt = cubic_bezier(pts, .5)
-
-        if number_junctions:
-            t = pylab.text(
-                midpt[0],
-                midpt[1],
-                '{0}'.format(round(jxns[jxn], 2)),
-                fontsize=numbering_font_size,
-                ha='center',
-                va='center',
-                backgroundcolor='w'
-            )
-
-            # @2018.12.19 transparent background
-            t.set_bbox(dict(alpha=0))
-
-        a = Path(
-            pts,
-            [
-                Path.MOVETO,
-                Path.CURVE4,
-                Path.CURVE4,
-                Path.CURVE4
-            ]
-        )
-
-        """
-        @2018.12.26
-        scale the junctions line width
-        """
-        if junction_count_gap > 0:
-            line_width = (jxns[jxn] - min_junction_count) / junction_count_gap
-        else:
-            line_width = 0
-
-        p = PathPatch(
-            a,
-            ec=color,
-            lw=line_width + 0.2,
-            fc='none'
-        )
-
-        ax_var.add_patch(p)
+        pylab.plot(compressed_x, compressed_wiggle, color=bam.color, lw=1)
 
     # Format plot
     ax_var.spines['right'].set_color('none')
@@ -373,13 +209,11 @@ def plot_density(
 
     intron_scale = settings["intron_scale"]
     exon_scale = settings["exon_scale"]
-    number_junctions = settings["number_junctions"]
     reverse_minus = settings["reverse_minus"]
     font_size = settings["font_size"]
     nyticks = settings["nyticks"]
     nxticks = settings["nxticks"]
     show_ylabel = settings["show_ylabel"]
-    numbering_font_size = settings["numbering_font_size"]
 
     # parse mRNA_object to get strand, exon_starts, exon_ends, tx_start, tx_end, chrom
     chromosome = splice_region.chromosome
@@ -410,27 +244,26 @@ def plot_density(
         # Use custom title if given
         pylab.title(title, fontsize=10)
 
-
     """
     @2019.01.07
     calculate the distance between ylabel and y axis
     """
-    distance_between_label_axis = max([len(x.alias) for x in read_depths_dict.keys()]) * 2.5
+    distance_between_label_axis = max([len(x) for x in read_depths_dict.keys()]) * 2.5
 
     u"""
     @2018.12.19
-    
+
     This part of code, used to plot different allele specific, but I this to plot multiple BAM files
     """
 
-    for i, sample_info in enumerate(read_depths_dict.keys()):
-        average_read_depth = read_depths_dict[sample_info]
+    for i, group in enumerate(read_depths_dict.keys()):
+        average_read_depth = read_depths_dict[group]
 
         show_x_axis = (i == len(read_depths_dict) - 1)
         curr_ax = plt.subplot(gs[i, :])
 
         # Round up
-        max_used_y_val = average_read_depth.max
+        max_used_y_val = list(average_read_depth.values())[0].max
         fake_y_min = - 0.5 * max_used_y_val
         """
         @2018.12.20 if max_used_y_val is odd, plus one, for better look
@@ -457,14 +290,9 @@ def plot_density(
             graph_coords=graph_coords,
             graph_to_gene=graph_to_gene,
             ax_var=curr_ax,
-            color=sample_info.color,
-            y_max=max_used_y_val,
-            number_junctions=number_junctions,
             show_x_axis=show_x_axis,
             nx_ticks=nxticks,
             font_size=font_size,
-            numbering_font_size=numbering_font_size,
-            no_bam=no_bam,
             log=log
         )
 
@@ -517,7 +345,7 @@ def plot_density(
         else:
             u"""
             @2019.01.04
-            
+
             If there is no bam file, draw a blank y-axis 
             """
             curr_ax.set_yticks([])
@@ -531,38 +359,26 @@ def plot_density(
         """
         if show_ylabel:
             curr_ax.set_ylabel(
-                sample_info.alias,
+                group.split("&%&")[0],
                 fontsize=font_size,
                 va="center",
                 labelpad=distance_between_label_axis,  # the distance between ylabel with axis
                 rotation="horizontal"
             )
 
-        """
-        Plot sample labels
-        
-        @2018.12.20 remove extra text inside sashimi
-        @2018.12.25 Add this text back, normally plot title (cell line or tissue) and PSI if exists
-        @2018.12.26 use the max_used_yval as y coord
-        @2019.01.06 fix bug about sample_num out of colors bound
-        """
-        if sample_info.label is not None:
-            curr_label = sample_info.label
-        else:
-            curr_label = ""
+        if "&%&" in group:
+            t = curr_ax.text(
+                max(graph_coords),
+                max_used_y_val,
+                group.split("&%&")[1],
+                fontsize=font_size,
+                va='bottom',
+                ha='right',
+                color=list(average_read_depth.keys())[0].color
+            )
 
-        t = curr_ax.text(
-            max(graph_coords),
-            max_used_y_val,
-            curr_label,
-            fontsize=font_size,
-            va='bottom',
-            ha='right',
-            color=sample_info.color
-        )
-
-        # @218.12.19 set transparent background
-        t.set_bbox(dict(alpha=0))
+            # @218.12.19 set transparent background
+            t.set_bbox(dict(alpha=0))
 
     # Draw gene structure
     """
@@ -583,7 +399,7 @@ def plot_density(
     pylab.subplots_adjust(hspace=.15, wspace=.7)
 
 
-def draw_sashimi_plot(
+def draw_line_plot(
         output_file_path,
         settings,
         average_depths_dict,
@@ -593,7 +409,6 @@ def draw_sashimi_plot(
         dpi=300,
         log=None
 ):
-
     """
         draw_sashimi_plot draws the complete sashimi plot
 
@@ -603,8 +418,7 @@ def draw_sashimi_plot(
 
         var_pos is the location of the SNP, in the format chr1:12345
 
-        average_depths_dict is a dict containing the average read depths by genotype. The keys are the genotypes,
-            and the values are ReadDepth objects
+        average_depths_dict {group: {BAM: ReadDepth}, group: {BAM: ReadDepth}}
 
         mRNAs_object is an mRNAsObject containing information about the transcript structure
 
@@ -636,10 +450,10 @@ def draw_sashimi_plot(
     )
 
     plot_density(
-        settings,                               # plot settings, untouched
-        read_depths_dict=average_depths_dict,   # reads coverage
-        splice_region=splice_region,            # Exon and transcript information
-        show_gene=show_gene,                    # decide whether display gene id in this plot
+        settings,  # plot settings, untouched
+        read_depths_dict=average_depths_dict,  # reads coverage
+        splice_region=splice_region,  # Exon and transcript information
+        show_gene=show_gene,  # decide whether display gene id in this plot
         no_bam=no_bam,
         log=log
     )

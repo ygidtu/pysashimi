@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+# -*- coding:utf-8 -*-
+import math
+from matplotlib import pylab
+
+
+def plot_transcripts(
+        tx_start,
+        transcripts,
+        graph_coords,
+        reverse_minus,
+        font_size,
+        show_gene=False,
+):
+    """
+    [original description]
+    draw the gene structure.
+
+    [now]
+    due to i changed the mrna class, therefore, this function need be modified
+
+    :param tx_start: the very start of this plot
+    :param graph_coords: numpy array, convert the coord of genome to the coord in this plot
+    :param reverse_minus:
+    :param transcripts: list of Transcript
+    :param font_size: the font size of transcript label
+    :param show_gene: Boolean value to decide whether to show gene id in this plot
+    """
+    y_loc = 0
+    exon_width = .3
+
+    """
+    @2018.12.26
+    Maybe I'm too stupid for this, using 30% of total length of x axis as the gap between text with axis
+    """
+    distance = 0.3 * (max(graph_coords) - min(graph_coords))
+
+    # @2018.12.19
+    # @2018.12.21
+    # the API of SpliceRegion has changed, the transcripts here should be sorted
+
+    for transcript in transcripts:
+        # narrows = math.floor(narrows * (transcript.length / len(graphcoords)))
+
+        # @2018.12.20 add transcript id, based on fixed coordinates
+        if show_gene:
+            pylab.text(
+                x=-1 * distance,
+                y=y_loc + 0.15,
+                s=transcript.gene,
+                fontsize=font_size
+            )
+
+            pylab.text(
+                x=-1 * distance,
+                y=y_loc - 0.25,
+                s=transcript.transcript,
+                fontsize=font_size
+            )
+        else:
+            pylab.text(
+                x=-1 * distance,
+                y=y_loc - 0.1,
+                s=transcript.transcript,
+                fontsize=font_size
+            )
+
+        strand = "+"
+        # @2018.12.19
+        # s and e is the start and end site of single exon
+        for exon in transcript.exons:
+            s, e, strand = exon.start, exon.end, exon.strand
+            s = s - tx_start
+            e = e - tx_start
+            x = [
+                graph_coords[s],
+                graph_coords[e],
+                graph_coords[e],
+                graph_coords[s]
+            ]
+            y = [
+                y_loc - exon_width / 2,
+                y_loc - exon_width / 2,
+                y_loc + exon_width / 2,
+                y_loc + exon_width / 2
+            ]
+            pylab.fill(x, y, 'k', lw=.5, zorder=20)
+
+        # @2018.12.21
+        # change the intron range
+        # Draw intron.
+        intron_sites = [
+            graph_coords[transcript.start - tx_start],
+            graph_coords[transcript.end - tx_start]
+        ]
+        pylab.plot(
+            intron_sites,
+            [y_loc, y_loc],
+            color='k',
+            lw=0.5
+        )
+
+        # @2018.12.23 fix intron arrows issues
+        # Draw intron arrows.
+        max_ = graph_coords[transcript.end - tx_start]
+        min_ = graph_coords[transcript.start - tx_start]
+        length = max_ - min_
+        narrows = math.ceil(length / max(graph_coords) * 50)
+
+        spread = .2 * length / narrows
+
+        for i in range(narrows):
+            loc = float(i) * length / narrows + graph_coords[transcript.start - tx_start]
+            if strand == '+' or reverse_minus:
+                x = [loc - spread, loc, loc - spread]
+            else:
+                x = [loc + spread, loc, loc + spread]
+            y = [y_loc - exon_width / 5, y_loc, y_loc + exon_width / 5]
+            pylab.plot(x, y, lw=.5, color='k')
+
+        y_loc += 1
+
+    pylab.xlim(0, max(graph_coords))
+    pylab.ylim(-.5, len(transcripts) + .5)
+    pylab.box(on=False)
+    pylab.xticks([])
+    pylab.yticks([])

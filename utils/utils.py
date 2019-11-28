@@ -266,6 +266,7 @@ def assign_max_y(shared_y, reads_depth):
     """
 
     if len(shared_y) == 0:
+
         max_ = max([x.max for x in reads_depth.values()])
 
         for v in reads_depth.values():
@@ -274,8 +275,103 @@ def assign_max_y(shared_y, reads_depth):
 
         for i in shared_y:
 
-            max_ = max([reads_depth[x].max for x in i])
+            max_ = max([reads_depth[x].max for x in i if x in reads_depth.keys()])
 
             for j in i:
-                reads_depth[j].max = max_
+                if j in reads_depth.keys():
+                    reads_depth[j].max = max_
 
+
+def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
+    u"""
+    Prepare bam list
+    :return:
+    """
+    if is_bam(bam):
+        return [
+            BamInfo(
+                path=bam,
+                alias=clean_star_filename(bam),
+                title=None,
+                label=None,
+                color=colors[0]
+            )
+        ], {}
+
+    shared_y = {}    # {sample group: [BamInfo...]}
+    tmp_color = {}
+    color_index = 0
+    bam_list = []
+    with open(bam) as r:
+        for line in r:
+            lines = re.split(r"\t| {2,}", line.strip())
+
+            try:
+                color_label = lines[color_factor - 1]
+            except IndexError as err:
+                logger.error(err)
+                logger.error("Wrong color factor")
+                logger.error("Your --color-factor is %d" % color_factor)
+                logger.error("Your error line in %s" % lines)
+
+                exit(err)
+
+            if color_label not in tmp_color.keys():
+                tmp_color[color_label] = colors[color_index % len(colors)]
+                color_index += 1
+
+            if len(lines) > 1:
+                tmp = BamInfo(
+                    path=lines[0],
+                    alias=lines[1],
+                    title="",
+                    label=None,
+                    color=tmp_color[color_label]
+                )
+            else:
+                if not is_bam(bam):
+                    raise ValueError("%s seem not ba a valid BAM file" % bam)
+
+                tmp = BamInfo(
+                    path=bam,
+                    alias=clean_star_filename(bam),
+                    title="",
+                    label=None,
+                    color=tmp_color[color_label]
+                )
+            bam_list.append(tmp)
+
+            if plot_by is not None:
+                bam_list[-1].label = color_label
+
+                if plot_by < 0:
+                    tmp = shared_y.get("", [])
+                    tmp.append(bam_list[-1])
+                    shared_y[""] = tmp
+                else:
+                    try:
+                        tmp = shared_y.get(lines[plot_by - 1], [])
+                        tmp.append(bam_list[-1])
+                        shared_y[lines[plot_by - 1]] = tmp
+                    except IndexError as err:
+                        logger.error(err)
+                        logger.error("Wrong --plot-by index")
+                        logger.error("Your --plot-by is %d" % plot_by)
+                        logger.error("Your error line in %s" % lines)
+
+                        exit(err)
+
+            elif share_y_by > 0:
+                try:
+                    tmp = shared_y.get(lines[share_y_by - 1], [])
+                    tmp.append(bam_list[-1])
+                    shared_y[lines[share_y_by - 1]] = tmp
+                except IndexError as err:
+                    logger.error(err)
+                    logger.error("Wrong --share-y-by index")
+                    logger.error("Your --share-y-by is %d" % share_y_by)
+                    logger.error("Your error line in %s" % lines)
+
+                    exit(err)
+
+    return bam_list, shared_y

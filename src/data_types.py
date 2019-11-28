@@ -719,9 +719,9 @@ class ReadDepth(GenomicLoci):
                 wiggle=depth_vector,
                 junctions_dict=filtered_junctions
             )
-        except IOError:
+        except IOError as err:
             logger.error('There is no .bam file at {0}'.format(bam_file_path))
-            raise Exception
+            raise err
         except ValueError as err:
             logger.error(bam_file_path)
             logger.error(err)

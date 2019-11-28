@@ -14,11 +14,14 @@ Thanks to [ggsashimi](https://github.com/guigolab/ggsashimi), I learned how to e
 
 - sashmi plot share y axis
 
-![share-y](./docs/test.png)
+![share-y](./docs/0.png)
 
 - Sahimi do not share y axis
 
-  ![do not share-y](./docs/test1.png)
+  ![do not share-y](./docs/1.png)
+  
+- Line plot, used to viz ATAC
+    ![](./docs/3.png)
 
 ## Installation
 
@@ -64,7 +67,7 @@ There are three different mode in this suite of scripts
 1. **normal** -> quite like ggsashimi
 2. **pipeline** -> specific format of meta info is required
 3. **no-bam** -> draw sashimi plot without BAM, use exons to replace BAM density
-
+4. **line** -> draw a line plot which a used to viz ATAC-seq
 
 This suite of scripts will automatically check the index of BAM files and gtf files.
 
@@ -178,7 +181,7 @@ Options:
     If the `--sort-by-color` used, then reorder the bam list by colors, 
     to make sure same color bam file will be together.
 -  `-p/--process`: multiple process to read data from input files for faster processing
-- `--share-y-by`: make different input files use different y axis. For example: ![](./docs/test2.png) 
+- `--share-y-by`: make different input files use different y axis. For example: ![](./docs/2.png) 
 
 - `--log`: zscore is used `scipy.stats.zscore` to convert density to zscore, just for test usage, please no use it in final plots.
 
