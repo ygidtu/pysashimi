@@ -11,6 +11,7 @@ def plot_transcripts(
         reverse_minus,
         font_size,
         show_gene=False,
+        distance_ratio=0.3
 ):
     """
     [original description]
@@ -25,6 +26,7 @@ def plot_transcripts(
     :param transcripts: list of Transcript
     :param font_size: the font size of transcript label
     :param show_gene: Boolean value to decide whether to show gene id in this plot
+    :param distance_ratio: distance between transcript label and transcript line
     """
     y_loc = 0
     exon_width = .3
@@ -33,7 +35,7 @@ def plot_transcripts(
     @2018.12.26
     Maybe I'm too stupid for this, using 30% of total length of x axis as the gap between text with axis
     """
-    distance = 0.3 * (max(graph_coords) - min(graph_coords))
+    distance = distance_ratio * (max(graph_coords) - min(graph_coords))
 
     # @2018.12.19
     # @2018.12.21

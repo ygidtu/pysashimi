@@ -25,7 +25,7 @@ from matplotlib import pylab
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
-from src.data_types import SpliceRegion
+from src.SpliceRegion import SpliceRegion
 from conf.logger import logger
 from utils.transcripts_plot_utils import plot_transcripts
 
@@ -188,7 +188,8 @@ def plot_density_single(
             compressed_wiggle,
             y2=0,
             color=color,
-            lw=0
+            lw=0,
+            step="post"
         )
 
     # sort the junctions by intron length for better plotting look
@@ -214,7 +215,7 @@ def plot_density_single(
         # @2018.12.19
         # set junctions coordinate here
         # the junction out of boundaries, set the boundaries as coordinate
-        ss1_idx, ss1_modified = __get_limited_index__(leftss - tx_start - 1, len(graph_coords))
+        ss1_idx, ss1_modified = __get_limited_index__(leftss - tx_start, len(graph_coords))
         ss2_idx, ss2_modified = __get_limited_index__(rightss - tx_start, len(graph_coords))
 
         u"""
@@ -347,7 +348,8 @@ def plot_density(
         show_gene=False,
         title=None,
         no_bam=False,
-        log=None
+        log=None,
+        distance_ratio=0.3
 ):
     u"""
     Several modifications were taken
@@ -366,6 +368,7 @@ def plot_density(
     :param log: y ticks log transformation or not, 2 -> log2; 10 -> log10，
                 do not use `set_yscale` here, because there are junction under the x axis,
                 and there coords do not convert into log by matplotlib, so it will cause a lot troubles
+    :param distance_ratio: distance between transcript label and transcript line
     :return:
     """
 
@@ -578,8 +581,20 @@ def plot_density(
             graph_coords=graph_coords,
             reverse_minus=reverse_minus,
             font_size=font_size,
-            show_gene=show_gene
+            show_gene=show_gene,
+            distance_ratio=distance_ratio
         )
+
+        if splice_region.sites:
+            for site in splice_region.sites:
+                plt.vlines(
+                    x=graph_coords[site - tx_start],
+                    ymin=-0.5,
+                    ymax=len(transcripts) - .5,
+                    linestyle="dashed",
+                    lw=0.5
+                )
+
     pylab.subplots_adjust(hspace=.15, wspace=.7)
 
 
@@ -591,7 +606,8 @@ def draw_sashimi_plot(
         no_bam=False,
         show_gene=True,
         dpi=300,
-        log=None
+        log=None,
+        distance_ratio=0.3
 ):
 
     """
@@ -641,7 +657,8 @@ def draw_sashimi_plot(
         splice_region=splice_region,            # Exon and transcript information
         show_gene=show_gene,                    # decide whether display gene id in this plot
         no_bam=no_bam,
-        log=log
+        log=log,
+        distance_ratio=distance_ratio
     )
 
     logger.info("save to %s" % output_file_path)

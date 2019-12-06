@@ -144,6 +144,21 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     """,
     show_default=True
 )
+@click.option(
+    "--remove-empty-gene",
+    is_flag=True,
+    type=click.BOOL,
+    help="""
+    Whether to plot empty transcript \b
+    """
+)
+@click.option(
+    "--distance-ratio",
+    type=click.FLOAT,
+    default=0.3,
+    help="distance between transcript label and transcript line",
+    show_default=True
+)
 def normal(
         bam,
         event,
@@ -160,7 +175,9 @@ def normal(
         customized_junction,
         process,
         sort_by_color,
-        share_y_by
+        share_y_by,
+        remove_empty_gene,
+        distance_ratio
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -185,6 +202,8 @@ def normal(
     :param process:
     :param sort_by_color:
     :param share_y_by:
+    :param remove_empty_gene:
+    :param distance_ratio:
     :return:
     """
     try:
@@ -215,8 +234,11 @@ def normal(
 
     splice_region = read_transcripts(
         gtf_file=index_gtf(input_gtf=gtf),
-        region=splice_region.copy()
+        region=splice_region
     )
+
+    if remove_empty_gene:
+        splice_region.remove_empty_transcripts()
 
     reads_depth = read_reads_depth_from_bam(
         bam_list=bam_list,
@@ -258,5 +280,6 @@ def normal(
         no_bam=False,
         show_gene=not no_gene,
         dpi=dpi,
-        log=log
+        log=log,
+        distance_ratio=distance_ratio
     )

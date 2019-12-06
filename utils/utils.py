@@ -8,7 +8,8 @@ import filetype
 from openpyxl import load_workbook
 
 from conf.logger import logger
-from src.data_types import SpliceRegion, BamInfo
+from src.BamInfo import BamInfo
+from src.SpliceRegion import SpliceRegion
 
 
 def clean_star_filename(x):

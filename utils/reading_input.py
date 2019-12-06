@@ -16,8 +16,11 @@ import pysam
 
 from tqdm import tqdm
 
-from src.data_types import SpliceRegion, ReadDepth, BamInfo, GenomicLoci
 from conf.logger import logger
+from src.BamInfo import BamInfo
+from src.GenomicLoci import GenomicLoci
+from src.ReadDepth import ReadDepth
+from src.SpliceRegion import SpliceRegion
 from utils.utils import clean_star_filename, is_gtf
 
 
@@ -143,7 +146,10 @@ def read_transcripts(gtf_file, region, retry=0):
 
             # min_exon_start, max_exon_end, exons_list = float("inf"), float("-inf"),  []
             for line in relevant_exons_iterator:
-                region.add_gtf(line)
+                try:
+                    region.add_gtf(line)
+                except IndexError as err:
+                    logger.error(err)
 
     except ValueError as err:
         logger.warn(err)
@@ -174,6 +180,9 @@ def __read_from_bam__(args):
             threshold=threshold,
             log=log
         )
+
+        if tmp is None:
+            return None
 
         tmp.shrink(
             new_low=splice_region.start,
@@ -218,6 +227,10 @@ def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log=None, n_
     except Exception as err:
         logger.error(err)
         traceback.print_exc()
+
+    if len(res) == 0:
+        logger.error("Error reading files")
+        exit(1)
 
     return res
 

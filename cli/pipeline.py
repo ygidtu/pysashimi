@@ -135,6 +135,21 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     Whether sort input bam order, for better looking \b
     """
 )
+@click.option(
+    "--remove-empty-gene",
+    is_flag=True,
+    type=click.BOOL,
+    help="""
+    Whether to plot empty transcript \b
+    """
+)
+@click.option(
+    "--distance-ratio",
+    type=click.FLOAT,
+    default=0.3,
+    help="distance between transcript label and transcript line",
+    show_default=True
+)
 def pipeline(
         input,
         span,
@@ -150,7 +165,9 @@ def pipeline(
         log,
         customized_junction,
         process,
-        sort_by_color
+        sort_by_color,
+        distance_ratio,
+        remove_empty_gene
 ):
     u"""
 
@@ -219,6 +236,9 @@ def pipeline(
                 region=region.copy()
             )
 
+            if remove_empty_gene:
+                splice_region.remove_empty_transcripts()
+
             reads_depth = read_reads_depth_from_bam(
                 bam_list=bam_list,
                 splice_region=splice_region.copy(),
@@ -252,9 +272,12 @@ def pipeline(
             # add label to read_depth
             for i, j in reads_depth.items():
                 tmp_reads_depth_of_bam = j.get_read_depth(region)
-
                 i = i._replace(label=data[region.ori][i.title])
                 tmp_reads_depth_dict[i] = tmp_reads_depth_of_bam
+
+            # set shared y
+            if share_y:
+                assign_max_y(bam_list, reads_depth)
 
             draw_sashimi_plot(
                 output_file_path=os.path.join(output, region.events + ".pdf"),
@@ -264,6 +287,7 @@ def pipeline(
                 no_bam=False,
                 show_gene=not no_gene,
                 dpi=dpi,
-                log=log
+                log=log,
+                distance_ratio=distance_ratio
             )
 

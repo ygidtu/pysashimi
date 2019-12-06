@@ -14,7 +14,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import pylab
 
-from src.data_types import SpliceRegion
+from src.SpliceRegion import SpliceRegion
 from conf.logger import logger
 from utils.transcripts_plot_utils import plot_transcripts
 
