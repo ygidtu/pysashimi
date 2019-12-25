@@ -595,7 +595,7 @@ def plot_density(
                     lw=0.5
                 )
 
-    pylab.subplots_adjust(hspace=.15, wspace=.7)
+    pylab.subplots_adjust(hspace=.05, wspace=.7)
 
 
 def draw_sashimi_plot(

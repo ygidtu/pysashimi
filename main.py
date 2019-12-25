@@ -3,7 +3,7 @@
 u"""
 Created by ygidtu@gmail.com at 2018.12.16
 
-Main function to plot sashimi plot
+cli function to plot sashimi plot
 """
 import click
 
@@ -22,7 +22,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
     context_settings=CONTEXT_SETTINGS,
 )
 @click.version_option(VERSION, message="Current version %(version)s")
-def main():
+def cli():
     u"""
     Welcome
 
@@ -37,12 +37,14 @@ def main():
     pass
 
 
+cli.add_command(normal)
+cli.add_command(no_bam)
+cli.add_command(pipeline)
+cli.add_command(line)
+
+
 if __name__ == '__main__':
-    main.add_command(normal)
-    main.add_command(no_bam)
-    main.add_command(pipeline)
-    main.add_command(line)
-    main()
+    cli()
     pass
 
 

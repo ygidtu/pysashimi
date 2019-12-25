@@ -172,6 +172,7 @@ def __read_from_bam__(args):
     splice_region, bam, threshold, log, idx = args
 
     try:
+
         tmp = ReadDepth.determine_depth(
             bam_file_path=bam.path,
             chrm=splice_region.chromosome,
