@@ -14,20 +14,17 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import pylab
 
-from src import SpliceRegion
-from conf import logger
+from src.SpliceRegion import SpliceRegion
+from conf.logger import logger
 from utils.transcripts_plot_utils import plot_transcripts
 
 
 def __get_limited_index__(num, length):
     u"""
     Created by Zhang yimint at 2018.12.19
-
     Due to the original author didn't draw any element out of provided range
     So the scripts will through a lot of IndexError
-
     This function is used to scale that index into the reasonable range
-
     :param num: current index
     :param length: the list or numpy array length
     :return: (int, bool), 0 <= num <= length - 1, and modified or not
@@ -175,7 +172,6 @@ def plot_density_single(
     pylab.xlim(0, max(graph_coords))
 
 
-# Plot density for a series of bam files.
 def plot_density(
         settings,
         read_depths_dict,
@@ -183,15 +179,14 @@ def plot_density(
         show_gene=False,
         title=None,
         no_bam=False,
-        log=None
+        log=None,
+        distance_ratio=0.3
 ):
     u"""
     Several modifications were taken
-
     1. Due to the change of mRNAObjects, the plot_mRNAs need to be modified
     2. ordered_genotypes_list used to plot the different allele specific situation,
         for now, I changed this to plot multiple BAM files
-
     :param settings:
     :param read_depths_dict:
     :param splice_region:
@@ -252,7 +247,6 @@ def plot_density(
 
     u"""
     @2018.12.19
-
     This part of code, used to plot different allele specific, but I this to plot multiple BAM files
     """
 
@@ -345,7 +339,6 @@ def plot_density(
         else:
             u"""
             @2019.01.04
-
             If there is no bam file, draw a blank y-axis 
             """
             curr_ax.set_yticks([])
@@ -354,7 +347,6 @@ def plot_density(
         """
         Plot y labels
         @2018.12.20 using BAM label as ylabel
-
         @2019.01.04 change the standards of distance between ylabel and y-axis
         """
         if show_ylabel:
@@ -394,7 +386,8 @@ def plot_density(
             graph_coords=graph_coords,
             reverse_minus=reverse_minus,
             font_size=font_size,
-            show_gene=show_gene
+            show_gene=show_gene,
+            distance_ratio=distance_ratio
         )
     pylab.subplots_adjust(hspace=.15, wspace=.7)
 
@@ -407,7 +400,9 @@ def draw_line_plot(
         no_bam=False,
         show_gene=True,
         dpi=300,
-        log=None
+        log=None,
+        title=None,
+        distance_ratio=0.3
 ):
     """
         draw_sashimi_plot draws the complete sashimi plot
@@ -455,7 +450,9 @@ def draw_line_plot(
         splice_region=splice_region,  # Exon and transcript information
         show_gene=show_gene,  # decide whether display gene id in this plot
         no_bam=no_bam,
-        log=log
+        log=log,
+        title=title,
+        distance_ratio=distance_ratio
     )
 
     logger.info("save to %s" % output_file_path)

@@ -41,6 +41,7 @@ def index_gtf(input_gtf, sort_gtf=False, retry=0):
         raise ValueError("gtf file required, %s seems not a valid gtf file" % input_gtf)
 
     index = False
+    sort_gtf = True
 
     if gtf // 10 > 0:
         output_gtf = input_gtf
@@ -81,6 +82,9 @@ def index_gtf(input_gtf, sort_gtf=False, retry=0):
                     continue
 
                 lines = line.split()
+
+                if len(lines) < 1:
+                    continue
 
                 data.append(
                     GenomicLoci(

@@ -56,6 +56,8 @@ class SpliceRegion(GenomicLoci):
         self.__transcripts__ = {}  # {transcript_id: namedtuple(gtf proxy of transcript, [gtf proxy of exons])}
         self.ori = ori
 
+        self.__uniq_transcripts__ = set()
+
     def __str__(self):
         return '{0}:{1}-{2},{3}'.format(
             self.chromosome,

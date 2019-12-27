@@ -6,6 +6,7 @@ import pysam
 import filetype
 
 from openpyxl import load_workbook
+from matplotlib.colors import is_color_like
 
 from conf.logger import logger
 from src.BamInfo import BamInfo
@@ -307,6 +308,9 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
         for line in r:
             lines = re.split(r"\t| {2,}", line.strip())
 
+            if not os.path.exists(lines[0]) and not os.path.isfile(lines[0]):
+                continue
+
             try:
                 color_label = lines[color_factor - 1]
             except IndexError as err:
@@ -317,8 +321,11 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
 
                 exit(err)
 
-            if color_label not in tmp_color.keys():
-                tmp_color[color_label] = colors[color_index % len(colors)]
+            # 如果文件中指定的为特定的颜色，则直接使用该颜色
+            if is_color_like(color_label.split("|")[-1]):
+                tmp_color[color_label.split("|")[0]] = color_label.split("|")[-1]
+            elif color_label.split("|")[0] not in tmp_color.keys():
+                tmp_color[color_label.split("|")[0]] = colors[color_index % len(colors)]
                 color_index += 1
 
             if len(lines) > 1:
@@ -327,7 +334,7 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
                     alias=lines[1],
                     title="",
                     label=None,
-                    color=tmp_color[color_label]
+                    color=tmp_color[color_label.split("|")[0]]
                 )
             else:
                 if not is_bam(bam):
@@ -338,12 +345,12 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
                     alias=clean_star_filename(bam),
                     title="",
                     label=None,
-                    color=tmp_color[color_label]
+                    color=tmp_color[color_label.split("|")[0]]
                 )
             bam_list.append(tmp)
 
             if plot_by is not None:
-                bam_list[-1].label = color_label
+                bam_list[-1].label = color_label.split("|")[0]
 
                 if plot_by < 0:
                     tmp = shared_y.get("", [])

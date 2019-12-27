@@ -100,7 +100,9 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     "--color-factor",
     default=1,
     type=click.IntRange(min=1),
-    help="Index of column with color levels (1-based)",
+    help="""Index of column with color levels (1-based); 
+        NOTE: LUAD|red -> LUAD while be labeled in plots and red while be the fill color
+    """,
     show_default=True
 )
 @click.option(
@@ -159,6 +161,13 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     help="distance between transcript label and transcript line",
     show_default=True
 )
+@click.option(
+    "--title",
+    type=click.STRING,
+    default=None,
+    help="Title",
+    show_default=True
+)
 def normal(
         bam,
         event,
@@ -177,7 +186,8 @@ def normal(
         sort_by_color,
         share_y_by,
         remove_empty_gene,
-        distance_ratio
+        distance_ratio,
+        title
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -204,6 +214,7 @@ def normal(
     :param share_y_by:
     :param remove_empty_gene:
     :param distance_ratio:
+    :param title
     :return:
     """
     try:
@@ -281,5 +292,6 @@ def normal(
         show_gene=not no_gene,
         dpi=dpi,
         log=log,
-        distance_ratio=distance_ratio
+        distance_ratio=distance_ratio,
+        title=title
     )

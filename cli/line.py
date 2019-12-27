@@ -89,7 +89,9 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     "--color-factor",
     default=1,
     type=click.IntRange(min=1),
-    help="Index of column with color levels (1-based)",
+    help="""Index of column with color levels (1-based); 
+        NOTE: LUAD|red -> LUAD while be labeled in plots and red while be the fill color
+    """,
     show_default=True
 )
 @click.option(
@@ -123,6 +125,28 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     help="whether to plot colors in different plot",
     show_default=True
 )
+@click.option(
+    "--remove-empty-gene",
+    is_flag=True,
+    type=click.BOOL,
+    help="""
+    Whether to plot empty transcript \b
+    """
+)
+@click.option(
+    "--title",
+    type=click.STRING,
+    default=None,
+    help="Title",
+    show_default=True
+)
+@click.option(
+    "--distance-ratio",
+    type=click.FLOAT,
+    default=0.3,
+    help="distance between transcript label and transcript line",
+    show_default=True
+)
 def line(
         bam,
         event,
@@ -137,7 +161,10 @@ def line(
         log,
         process,
         plot_by,
-        sep_by_color
+        sep_by_color,
+        remove_empty_gene,
+        title,
+        distance_ratio
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -160,6 +187,9 @@ def line(
     :param process:
     :param plot_by:
     :param sep_by_color:
+    :param remove_empty_gene:
+    :param title
+    :param distance_ratio
     :return:
     """
     try:
@@ -190,6 +220,9 @@ def line(
         gtf_file=index_gtf(input_gtf=gtf),
         region=splice_region.copy()
     )
+
+    if remove_empty_gene:
+        splice_region.remove_empty_transcripts()
 
     # reads_depth is dict of {BAM: ReadDepth}
     reads_depth = read_reads_depth_from_bam(
@@ -224,5 +257,7 @@ def line(
         no_bam=False,
         show_gene=not no_gene,
         dpi=dpi,
-        log=log
+        log=log,
+        title=title,
+        distance_ratio=distance_ratio
     )

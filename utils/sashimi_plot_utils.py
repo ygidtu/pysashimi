@@ -15,10 +15,6 @@ Migrated from SplicePlot sashimi_plot_utils
 10. fix transcripts display issues
 """
 import numpy
-
-import matplotlib
-matplotlib.use('Agg')
-
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import pylab
@@ -27,6 +23,7 @@ from matplotlib.path import Path
 
 from src.SpliceRegion import SpliceRegion
 from conf.logger import logger
+
 from utils.transcripts_plot_utils import plot_transcripts
 
 
@@ -409,20 +406,15 @@ def plot_density(
 
     gs = gridspec.GridSpec(n_files, 1)
 
-    if title:
-        # Use custom title if given
-        pylab.title(title, fontsize=10)
-
-
     """
     @2019.01.07
     calculate the distance between ylabel and y axis
     """
-    distance_between_label_axis = max([len(x.alias) for x in read_depths_dict.keys()]) * 2.5
+    distance_between_label_axis = max([len(x) if isinstance(x, str) else len(x.alias) for x in read_depths_dict.keys()]) * 2.5
 
     u"""
     @2018.12.19
-    
+
     This part of code, used to plot different allele specific, but I this to plot multiple BAM files
     """
 
@@ -431,6 +423,9 @@ def plot_density(
 
         show_x_axis = (i == len(read_depths_dict) - 1)
         curr_ax = plt.subplot(gs[i, :])
+
+        if title is not None and i == 0:
+            curr_ax.set_title(title, fontsize=10, loc="center")
 
         # Round up
         max_used_y_val = average_read_depth.max
@@ -520,7 +515,7 @@ def plot_density(
         else:
             u"""
             @2019.01.04
-            
+
             If there is no bam file, draw a blank y-axis 
             """
             curr_ax.set_yticks([])
@@ -543,7 +538,7 @@ def plot_density(
 
         """
         Plot sample labels
-        
+
         @2018.12.20 remove extra text inside sashimi
         @2018.12.25 Add this text back, normally plot title (cell line or tissue) and PSI if exists
         @2018.12.26 use the max_used_yval as y coord
@@ -595,7 +590,9 @@ def plot_density(
                     lw=0.5
                 )
 
-    pylab.subplots_adjust(hspace=.05, wspace=.7)
+    pylab.subplots_adjust(hspace=.15, wspace=.7)
+
+
 
 
 def draw_sashimi_plot(
@@ -607,7 +604,8 @@ def draw_sashimi_plot(
         show_gene=True,
         dpi=300,
         log=None,
-        distance_ratio=0.3
+        distance_ratio=0.3,
+        title=None
 ):
 
     """
@@ -658,7 +656,8 @@ def draw_sashimi_plot(
         show_gene=show_gene,                    # decide whether display gene id in this plot
         no_bam=no_bam,
         log=log,
-        distance_ratio=distance_ratio
+        distance_ratio=distance_ratio,
+        title=title
     )
 
     logger.info("save to %s" % output_file_path)
