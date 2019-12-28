@@ -1,13 +1,20 @@
-VERSION = "1.4.0"
-LABEL = "pySashimi"
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
-
+#!/usr/bin/env python3
+# -*- coding:utf-8 -*-
+u"""
+Created at 2019.12.27
+"""
 import click
 
 from cli.no_bam import no_bam
 from cli.normal import normal
 from cli.pipeline import pipeline
 from cli.line import line
+
+
+VERSION = "1.4.1"
+LABEL = "pySashimi"
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+
 
 @click.group(
     context_settings=CONTEXT_SETTINGS,

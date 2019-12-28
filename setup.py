@@ -1,12 +1,10 @@
 from setuptools import setup, find_packages
-import pysashimi
-
 
 setup(
     name='pySashimi',
     author='ChenlinLab',
     author_email='ygidtu@gmail.com',
-    version='1.4.0',
+    version='1.4.1',
     long_description=__doc__,
     packages=find_packages(),
     include_package_data=True,
@@ -20,6 +18,7 @@ setup(
                 'pysashimi = cli.cli:cli'
             ]
     },
+    data_files=[(".", ['settings.ini'])],
     # scripts=['main.py'],
     install_requires=[
         "click",

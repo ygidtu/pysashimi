@@ -235,10 +235,6 @@ def plot_density(
 
     gs = gridspec.GridSpec(n_files, 1)
 
-    if title:
-        # Use custom title if given
-        pylab.title(title, fontsize=10)
-
     """
     @2019.01.07
     calculate the distance between ylabel and y axis
@@ -255,6 +251,9 @@ def plot_density(
 
         show_x_axis = (i == len(read_depths_dict) - 1)
         curr_ax = plt.subplot(gs[i, :])
+
+        if title is not None and i == 0:
+            curr_ax.set_title(title, fontsize=10, loc="center")
 
         # Round up
         max_used_y_val = list(average_read_depth.values())[0].max
