@@ -79,28 +79,18 @@ def get_scaling(
     for i in range(len(exon_starts)):
         exon_coords[exon_starts[i] - tx_start: exon_ends[i] - tx_start] = 1
 
-    graph_to_gene = {}
     graph_coords = pylab.zeros((tx_end - tx_start + 1), dtype='f')
 
     x = 0
-    if strand == '+' or not reverse_minus:
-        for i in range(tx_end - tx_start + 1):
-            graph_coords[i] = x
-            graph_to_gene[int(x)] = i + tx_start
-            if exon_coords[i] == 1:
-                x += 1. / exon_scale
-            else:
-                x += 1. / intron_scale
-    else:
-        for i in range(tx_end - tx_start + 1):
-            graph_coords[-(i + 1)] = x
-            graph_to_gene[int(x)] = tx_end - i + 1
-            if exon_coords[-(i + 1)] == 1:
-                x += 1. / exon_scale
-            else:
-                x += 1. / intron_scale
+    for i in range(0, tx_end - tx_start + 1):
+        graph_coords[i] = x
 
-    return graph_coords, graph_to_gene
+        if exon_coords[i if strand == '+' or not reverse_minus else -(i + 1)] == 1:
+            x += 1. / exon_scale
+        else:
+            x += 1. / intron_scale
+
+    return graph_coords
 
 
 def plot_density_single(
@@ -108,7 +98,6 @@ def plot_density_single(
         chromosome,
         strand,
         graph_coords,
-        graph_to_gene,
         ax_var,
         color='r',
         y_max=None,
@@ -260,12 +249,10 @@ def plot_density_single(
 
         if number_junctions:
             t = pylab.text(
-                midpt[0],
-                midpt[1],
+                midpt[0], midpt[1],
                 '{0}'.format(round(jxns[jxn], 2)),
                 fontsize=numbering_font_size,
-                ha='center',
-                va='center',
+                ha='center', va='center',
                 backgroundcolor='w'
             )
 
@@ -275,10 +262,8 @@ def plot_density_single(
         a = Path(
             pts,
             [
-                Path.MOVETO,
-                Path.CURVE4,
-                Path.CURVE4,
-                Path.CURVE4
+                Path.MOVETO, Path.CURVE4,
+                Path.CURVE4, Path.CURVE4
             ]
         )
 
@@ -292,10 +277,8 @@ def plot_density_single(
             line_width = 0
 
         p = PathPatch(
-            a,
-            ec=color,
-            lw=line_width + 0.2,
-            fc='none'
+            a, ec=color,
+            lw=line_width + 0.2, fc='none'
         )
 
         ax_var.add_patch(p)
@@ -309,26 +292,31 @@ def plot_density_single(
 
         # @2018.12.19 unnecessary text in figure
 
-        xlabel = 'Genomic coordinate (%s), "%s" strand' % (
-            chromosome,
-            strand
-        )
+        xlabel = 'Genomic coordinate (%s), "%s" strand' % (chromosome, strand)
 
         if log in (2, 10):
             xlabel = xlabel + ", y axis is log%d transformed" % log
 
-        pylab.xlabel(
-            xlabel,
-            fontsize=font_size
-        )
+        pylab.xlabel(xlabel, fontsize=font_size)
 
-        max_graph_coords = max(graph_coords) - 1
+        bk = 1
+        if not read_depth_object.sequence:
+            bk = len(graph_coords) // nx_ticks
 
-        pylab.xticks(
-            pylab.linspace(0, max_graph_coords, nx_ticks),
-            [graph_to_gene[int(x)] for x in pylab.linspace(0, max_graph_coords, nx_ticks)],
-            fontsize=font_size
-        )
+        linspace, ticks = [], []
+        for i in range(0, len(graph_coords), bk):
+            linspace.append(graph_coords[i])
+
+            temp_txs = tx_start + i
+            if read_depth_object.sequence:
+                # print(i - read_depth_object.start, nx_ticks)
+                if (i - read_depth_object.start) % nx_ticks == 0:
+                    temp_txs = "{}\n{}".format(tx_start + i, read_depth_object.sequence[i])
+                else:
+                    temp_txs = "\n{}".format(read_depth_object.sequence[i])
+            ticks.append(temp_txs)
+
+        pylab.xticks(linspace, ticks, fontsize=font_size)
 
     else:
         ax_var.spines['bottom'].set_color('none')
@@ -368,7 +356,6 @@ def plot_density(
     :param distance_ratio: distance between transcript label and transcript line
     :return:
     """
-
     assert isinstance(splice_region, SpliceRegion)
 
     intron_scale = settings["intron_scale"]
@@ -391,14 +378,10 @@ def plot_density(
     strand = splice_region.strand
 
     # Get the right scalings
-    graph_coords, graph_to_gene = get_scaling(
-        tx_start,
-        tx_end,
-        strand,
-        exon_starts,
-        exon_ends,
-        intron_scale,
-        exon_scale,
+    graph_coords = get_scaling(
+        tx_start, tx_end, strand,
+        exon_starts, exon_ends,
+        intron_scale, exon_scale,
         reverse_minus
     )
 
@@ -453,7 +436,6 @@ def plot_density(
             chromosome=chromosome,
             strand=strand,
             graph_coords=graph_coords,
-            graph_to_gene=graph_to_gene,
             ax_var=curr_ax,
             color=sample_info.color,
             y_max=max_used_y_val,
@@ -568,7 +550,7 @@ def plot_density(
     add more subplots, based on the number of transcripts
     """
     if len(transcripts) > 0:
-        plt.subplot(gs[len(read_depths_dict):, :])
+        plt.subplot(gs[len(read_depths_dict):, :]) # + 1 if splice_region.sequence else len(read_depths_dict)
 
         plot_transcripts(
             tx_start=tx_start,
@@ -591,8 +573,6 @@ def plot_density(
                 )
 
     pylab.subplots_adjust(hspace=.15, wspace=.7)
-
-
 
 
 def draw_sashimi_plot(
@@ -641,13 +621,10 @@ def draw_sashimi_plot(
     else:
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 2)
 
-    plt.figure(
-        figsize=[
-            settings['width'],
-            height
-        ],
-        dpi=dpi
-    )
+        if splice_region.sequence:
+            height += (settings["height"] * .2)
+
+    plt.figure(figsize=[settings['width'], height], dpi=dpi)
 
     plot_density(
         settings,                               # plot settings, untouched

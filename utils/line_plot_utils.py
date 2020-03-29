@@ -157,13 +157,14 @@ def plot_density_single(
             fontsize=font_size
         )
 
-        max_graph_coords = max(graph_coords) - 1
+        bk = len(graph_coords) // nx_ticks
 
-        pylab.xticks(
-            pylab.linspace(0, max_graph_coords, nx_ticks),
-            [graph_to_gene[int(x)] for x in pylab.linspace(0, max_graph_coords, nx_ticks)],
-            fontsize=font_size
-        )
+        linspace, ticks = [], []
+        for i in range(0, len(graph_coords), bk):
+            linspace.append(graph_coords[i])
+            ticks.append(read_depth_object.start + i)
+
+        pylab.xticks(linspace, ticks, fontsize=font_size)
 
     else:
         ax_var.spines['bottom'].set_color('none')

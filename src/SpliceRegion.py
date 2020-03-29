@@ -55,6 +55,7 @@ class SpliceRegion(GenomicLoci):
         self.strand = strand
         self.__transcripts__ = {}  # {transcript_id: namedtuple(gtf proxy of transcript, [gtf proxy of exons])}
         self.ori = ori
+        self.sequence = None
 
         self.__uniq_transcripts__ = set()
 
@@ -155,7 +156,7 @@ class SpliceRegion(GenomicLoci):
             self.__transcripts__[gtf_line.transcript] = gtf_line
 
         else:
-            if gtf_line.feature == "transcript":
+            if gtf_line.feature in ["transcript", "CDS"]:
                 if gtf_line.transcript_id not in self.__transcripts__.keys():
                     self.__transcripts__[gtf_line.transcript_id] = Transcript(
                         chromosome=gtf_line.contig,
@@ -221,6 +222,7 @@ class SpliceRegion(GenomicLoci):
         )
 
         temp.__transcripts__ = self.__transcripts__
+        temp.sequence = self.sequence
         return temp
 
     def remove_empty_transcripts(self):

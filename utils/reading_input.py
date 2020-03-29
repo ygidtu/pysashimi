@@ -24,7 +24,7 @@ from src.SpliceRegion import SpliceRegion
 from utils.utils import clean_star_filename, is_gtf
 
 
-def index_gtf(input_gtf, sort_gtf=False, retry=0):
+def index_gtf(input_gtf, sort_gtf=True, retry=0):
     u"""
     Created by ygidtu
 
@@ -41,8 +41,6 @@ def index_gtf(input_gtf, sort_gtf=False, retry=0):
         raise ValueError("gtf file required, %s seems not a valid gtf file" % input_gtf)
 
     index = False
-    sort_gtf = True
-
     if gtf // 10 > 0:
         output_gtf = input_gtf
     else:
@@ -122,7 +120,7 @@ def index_gtf(input_gtf, sort_gtf=False, retry=0):
     return output_gtf
 
 
-def read_transcripts(gtf_file, region, retry=0):
+def read_transcripts(gtf_file, region, genome=None, retry=0):
     u"""
     Read transcripts from tabix indexed gtf files
 
@@ -131,6 +129,7 @@ def read_transcripts(gtf_file, region, retry=0):
     :param gtf_file: path to bgzip gtf files (with tabix index), only ordered exons in this gtf file
     :param region: splice region
     :param retry: if the gtf chromosome and input chromosome does not match. eg: chr9:1-100:+ <-> 9:1-100:+
+    :param genome: path to genome fasta file
     :return: SpliceRegion
     """
     if not os.path.exists(gtf_file):
@@ -139,8 +138,11 @@ def read_transcripts(gtf_file, region, retry=0):
     try:
         logger.info("Reading from %s" % gtf_file)
 
-        with pysam.Tabixfile(gtf_file, 'r') as gtf_tabix:
+        if genome:
+            with pysam.FastaFile(genome) as fa:
+                region.sequence = fa.fetch(region.chromosome, region.start - 1, region.end + 1)
 
+        with pysam.Tabixfile(gtf_file, 'r') as gtf_tabix:
             relevant_exons_iterator = gtf_tabix.fetch(
                 region.chromosome,
                 region.start - 1,
@@ -185,6 +187,8 @@ def __read_from_bam__(args):
             threshold=threshold,
             log=log
         )
+
+        tmp.sequence = splice_region.sequence
 
         if tmp is None:
             return None

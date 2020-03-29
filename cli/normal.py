@@ -129,6 +129,15 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     """
 )
 @click.option(
+    "-f",
+    "--genome",
+    type=click.Path(),
+    default=None,
+    help="""
+    Path to genome fasta \b
+    """
+)
+@click.option(
     "--sort-by-color",
     is_flag=True,
     type=click.BOOL,
@@ -169,25 +178,13 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     show_default=True
 )
 def normal(
-        bam,
-        event,
-        gtf,
-        output,
-        config,
-        threshold,
-        indicator_lines,
-        share_y,
-        no_gene,
-        color_factor,
-        dpi,
-        log,
-        customized_junction,
-        process,
-        sort_by_color,
-        share_y_by,
-        remove_empty_gene,
-        distance_ratio,
-        title
+        bam, event, gtf, output,
+        config, threshold, indicator_lines,
+        share_y, no_gene, color_factor,
+        dpi, log, customized_junction,
+        process, sort_by_color, share_y_by,
+        remove_empty_gene, distance_ratio,
+        title, genome
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -245,6 +242,7 @@ def normal(
 
     splice_region = read_transcripts(
         gtf_file=index_gtf(input_gtf=gtf),
+        genome=genome,
         region=splice_region
     )
 

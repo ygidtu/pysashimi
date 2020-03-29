@@ -38,6 +38,7 @@ class ReadDepth(GenomicLoci):
         self.wiggle = wiggle
         self.junctions_dict = junctions_dict
         self.max = max(self.wiggle)
+        self.sequence = None
 
     @classmethod
     def determine_depth(
