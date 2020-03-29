@@ -619,10 +619,12 @@ def draw_sashimi_plot(
     if no_bam:
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts)) // 2
     else:
-        height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 2)
+        temp_num = (len(average_depths_dict) + len(splice_region.transcripts) // 2)
+
+        height = settings['height'] * temp_num
 
         if splice_region.sequence:
-            height += (settings["height"] * .2)
+            height += (settings["height"] * .2 if temp_num > 5 else .4)
 
     plt.figure(figsize=[settings['width'], height], dpi=dpi)
 
