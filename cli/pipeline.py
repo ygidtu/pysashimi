@@ -70,6 +70,15 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     show_default=True
 )
 @click.option(
+    "-f",
+    "--genome",
+    type=click.Path(),
+    default=None,
+    help="""
+    Path to genome fasta \b
+    """
+)
+@click.option(
     "-d",
     "--dpi",
     default=300,
@@ -151,23 +160,13 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     show_default=True
 )
 def pipeline(
-        input,
-        span,
-        gtf,
-        output,
-        config,
-        threshold,
-        indicator_lines,
-        share_y,
-        no_gene,
-        color_factor,
-        dpi,
-        log,
-        customized_junction,
-        process,
-        sort_by_color,
-        distance_ratio,
-        remove_empty_gene
+        input, span, gtf,
+        output, config,
+        threshold, indicator_lines,
+        share_y, no_gene, color_factor,
+        dpi, log,customized_junction,
+        process, sort_by_color, distance_ratio,
+        remove_empty_gene, genome
 ):
     u"""
 
@@ -233,6 +232,7 @@ def pipeline(
 
             splice_region = read_transcripts(
                 gtf_file=index_gtf(input_gtf=gtf),
+                genome=genome,
                 region=region.copy()
             )
 
