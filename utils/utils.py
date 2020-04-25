@@ -306,9 +306,11 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
     bam_list = []
     with open(bam) as r:
         for line in r:
+
             lines = re.split(r"\t| {2,}", line.strip())
 
             if not os.path.exists(lines[0]) and not os.path.isfile(lines[0]):
+                logger.warning("wrong input path or input list sep by blank, it should be '\\t'")
                 continue
 
             try:
@@ -381,5 +383,9 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
                     logger.error("Your error line in %s" % lines)
 
                     exit(err)
+
+    if len(bam_list) == 0:
+        logger.error("Cannot find any input bam file, please check the bam path or the input list")
+        exit(err)
 
     return bam_list, shared_y

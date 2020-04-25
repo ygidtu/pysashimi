@@ -7,9 +7,6 @@ Make line
 """
 import numpy
 
-import matplotlib
-matplotlib.use('Agg')
-
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import pylab

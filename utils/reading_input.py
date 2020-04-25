@@ -178,7 +178,7 @@ def __read_from_bam__(args):
     splice_region, bam, threshold, log, idx = args
 
     try:
-
+        # print(bam)
         tmp = ReadDepth.determine_depth(
             bam_file_path=bam.path,
             chrm=splice_region.chromosome,
@@ -222,6 +222,7 @@ def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log=None, n_
         # not using multiprocessing when only single process, in case the data size limitation of pickle issue
         if n_jobs == 1:
             for i in [[splice_region, bam, threshold, log, idx] for idx, bam in enumerate(bam_list)]:
+                # print(i)
                 res.update(__read_from_bam__(i)[0])
         else:
             with Pool(min(n_jobs, len(bam_list))) as p:
@@ -236,9 +237,10 @@ def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log=None, n_
     except Exception as err:
         logger.error(err)
         traceback.print_exc()
+        exit(err)
 
     if len(res) == 0:
-        logger.error("Error reading files")
+        logger.error("Error reading files, cannot read anything")
         exit(1)
 
     return res

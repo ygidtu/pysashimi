@@ -13,6 +13,8 @@ from conf.logger import logger
 from src.GenomicLoci import GenomicLoci
 from src.Junction import Junction
 
+from tqdm import tqdm
+
 
 class ReadDepth(GenomicLoci):
     u"""
@@ -68,7 +70,6 @@ class ReadDepth(GenomicLoci):
         """
         try:
             with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
-
                 try:
                     relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
                 except ValueError:
@@ -81,7 +82,7 @@ class ReadDepth(GenomicLoci):
                 depth_vector = numpy.zeros(end_coord - start_coord + 1, dtype='f')
                 spanned_junctions = {}
 
-                for read in relevant_reads:
+                for read in tqdm(relevant_reads):
 
                     # make sure that the read can be used
                     cigar_string = read.cigartuples
@@ -96,26 +97,28 @@ class ReadDepth(GenomicLoci):
                         if cigar_event[0] == 1 or cigar_event[0] == 2:
                             continue
 
-                    for index, base_position in enumerate(read.get_reference_positions()):
-                        if start_coord <= base_position + 1 <= end_coord:
-                            depth_vector[base_position - start_coord + 1] += 1
+                    reference_pos = read.get_reference_positions()
+
+                for index, base_position in enumerate(reference_pos):
+                    if start_coord <= base_position + 1 <= end_coord:
+                        depth_vector[base_position - start_coord + 1] += 1
 
                         # junction spanning case
                         if (index + 1) < len(read.positions) and \
-                                base_position + 1 != read.get_reference_positions()[index + 1]:
-
+                                base_position + 1 != reference_pos[index + 1]:
                             try:
                                 junction_name = Junction(
                                     chrm,
                                     base_position + 1,
-                                    read.get_reference_positions()[index + 1] + 1
+                                    reference_pos[index + 1] + 1
                                 )
 
                                 if junction_name not in spanned_junctions:
                                     spanned_junctions[junction_name] = 0
 
                                 spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
-                            except ValueError:
+                            except ValueError as err:
+                                logger.warn(err)
                                 continue
 
             filtered_junctions = {}
