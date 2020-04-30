@@ -272,12 +272,12 @@ def pipeline(
             # add label to read_depth
             for i, j in reads_depth.items():
                 tmp_reads_depth_of_bam = j.get_read_depth(region)
-                i = i._replace(label=data[region.ori][i.title])
+                i.label = data[region.ori][i.title]
                 tmp_reads_depth_dict[i] = tmp_reads_depth_of_bam
 
             # set shared y
             if share_y:
-                assign_max_y(bam_list, reads_depth)
+                assign_max_y(bam_list, reads_depth, batch=True)
 
             draw_sashimi_plot(
                 output_file_path=os.path.join(output, region.events + ".pdf"),

@@ -29,3 +29,13 @@ class BamInfo(object):
 
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
+
+    def to_csv(self):
+        temp = []
+
+        for x in [self.alias, self.title, self.label, self.path, self.color]:
+            if x is None or x == "":
+                x = "None"
+            temp.append(str(x))
+
+        return ",".join(temp)

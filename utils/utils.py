@@ -258,7 +258,7 @@ def read_info_from_xlsx(xlsx, color_factor, colors):
     return data, bam_list
 
 
-def assign_max_y(shared_y, reads_depth):
+def assign_max_y(shared_y, reads_depth, batch = False):
     u"""
     assign max y for input files
 
@@ -273,6 +273,10 @@ def assign_max_y(shared_y, reads_depth):
 
         for v in reads_depth.values():
             v.max = max_
+    elif batch:
+        max_ = max([reads_depth[x].max for x in shared_y if x in reads_depth.keys()])
+        for j in shared_y:
+            reads_depth[j].max = max_
     else:
 
         for i in shared_y:
@@ -324,7 +328,7 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
                 exit(err)
 
             # 如果文件中指定的为特定的颜色，则直接使用该颜色
-            if is_color_like(color_label.split("|")[-1]):
+            if "|" in color_label and is_color_like(color_label.split("|")[-1]):
                 tmp_color[color_label.split("|")[0]] = color_label.split("|")[-1]
             elif color_label.split("|")[0] not in tmp_color.keys():
                 tmp_color[color_label.split("|")[0]] = colors[color_index % len(colors)]

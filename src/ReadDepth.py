@@ -41,6 +41,8 @@ class ReadDepth(GenomicLoci):
         self.junctions_dict = junctions_dict
         self.max = max(self.wiggle)
         self.sequence = None
+        self.chromosome = chromosome
+        self.start = start
 
     @classmethod
     def determine_depth(
@@ -82,7 +84,8 @@ class ReadDepth(GenomicLoci):
                 depth_vector = numpy.zeros(end_coord - start_coord + 1, dtype='f')
                 spanned_junctions = {}
 
-                for read in tqdm(relevant_reads):
+                # tqdm()
+                for read in relevant_reads:
 
                     # make sure that the read can be used
                     cigar_string = read.cigartuples
@@ -98,28 +101,28 @@ class ReadDepth(GenomicLoci):
                             continue
 
                     reference_pos = read.get_reference_positions()
+                    # print(reference_pos, bam_file_path)
+                    for index, base_position in enumerate(reference_pos):
+                        if start_coord <= base_position + 1 <= end_coord:
+                            depth_vector[base_position - start_coord + 1] += 1
 
-                for index, base_position in enumerate(reference_pos):
-                    if start_coord <= base_position + 1 <= end_coord:
-                        depth_vector[base_position - start_coord + 1] += 1
+                            # junction spanning case
+                            if (index + 1) < len(read.positions) and \
+                                    base_position + 1 != reference_pos[index + 1]:
+                                try:
+                                    junction_name = Junction(
+                                        chrm,
+                                        base_position + 1,
+                                        reference_pos[index + 1] + 1
+                                    )
 
-                        # junction spanning case
-                        if (index + 1) < len(read.positions) and \
-                                base_position + 1 != reference_pos[index + 1]:
-                            try:
-                                junction_name = Junction(
-                                    chrm,
-                                    base_position + 1,
-                                    reference_pos[index + 1] + 1
-                                )
+                                    if junction_name not in spanned_junctions:
+                                        spanned_junctions[junction_name] = 0
 
-                                if junction_name not in spanned_junctions:
-                                    spanned_junctions[junction_name] = 0
-
-                                spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
-                            except ValueError as err:
-                                logger.warn(err)
-                                continue
+                                    spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
+                                except ValueError as err:
+                                    logger.warn(err)
+                                    continue
 
             filtered_junctions = {}
             for k, v in spanned_junctions.items():
@@ -378,6 +381,11 @@ class ReadDepth(GenomicLoci):
                 new_junctions_dict[key] = value
 
         self.junctions_dict = new_junctions_dict
+
+    def __iter__(self):
+        for idx, val in enumerate(self.wiggle):
+            for i in range(int(val)):
+                yield "{},{},{}".format(self.chromosome, self.start + idx, val)
 
 
 if __name__ == '__main__':

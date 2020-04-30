@@ -177,6 +177,17 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     help="Title",
     show_default=True
 )
+@click.option(
+    "--save-depth",
+    is_flag=True,
+    type=click.BOOL,
+    help="""
+    Whether to save reads depth to file, 
+    the last 3 columns are chrom, position and depth,
+    The same pos will repeated multiple times for joyplot in R
+     \b
+    """
+)
 def normal(
         bam, event, gtf, output,
         config, threshold, indicator_lines,
@@ -184,7 +195,7 @@ def normal(
         dpi, log, customized_junction,
         process, sort_by_color, share_y_by,
         remove_empty_gene, distance_ratio,
-        title, genome
+        title, genome, save_depth
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -256,6 +267,13 @@ def normal(
         log=log,
         n_jobs=process
     )
+
+    if save_depth:
+        with open(output, "w+") as w:
+            for key, value in reads_depth.items():
+                for val in value:
+                    w.write("{},{}\n".format(key.to_csv(), val))
+        exit(0)
 
     # set shared y
     if share_y:
