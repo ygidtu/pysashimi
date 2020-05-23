@@ -13,8 +13,6 @@ from conf.logger import logger
 from src.GenomicLoci import GenomicLoci
 from src.Junction import Junction
 
-from tqdm import tqdm
-
 
 class ReadDepth(GenomicLoci):
     u"""
@@ -74,12 +72,21 @@ class ReadDepth(GenomicLoci):
             with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
                 try:
                     relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
-                except ValueError:
-                    if chrm.startswith("chr"):
-                        chrm = chrm.replace("chr", "")
+                except ValueError as err:
+                    logger.warn(err)
+                    err = str(err)
+
+                    if "without index" in err:
+                        logger.info("try to create index for %s" % bam_file_path)
+                        pysam.index(bam_file_path)
                     else:
-                        chrm = "chr{}".format(chrm)
-                    relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
+                        if chrm.startswith("chr"):
+                            logger.info("try without chr")
+                            chrm = chrm.replace("chr", "")
+                        else:
+                            logger.info("try with chr")
+                            chrm = "chr{}".format(chrm)
+                        relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
 
                 depth_vector = numpy.zeros(end_coord - start_coord + 1, dtype='f')
                 spanned_junctions = {}
