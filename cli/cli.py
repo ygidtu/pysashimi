@@ -11,7 +11,7 @@ from cli.pipeline import pipeline
 from cli.line import line
 
 
-VERSION = "1.4.2"
+VERSION = "1.4.3"
 LABEL = "pySashimi"
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 

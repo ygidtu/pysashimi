@@ -311,7 +311,7 @@ def read_reads_depth_from_count_table(
             color = colors[len(res) % len(colors)]
 
         key = BamInfo(
-            path=None,
+            path=key,
             alias=key,
             label=None,
             title="",
