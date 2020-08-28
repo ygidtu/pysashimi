@@ -106,24 +106,30 @@ class ReadDepth(GenomicLoci):
                     start = read.reference_start
 
                     exons_in_read = []
-                    for cigar, length in read.cigartuples:
+                    for cigar, length in cigar_string:
 
                         if cigar not in (1, 2, 5):  # I, D, H
                             for i in range(length):
-                                if start_coord <= start + 1 <= end_coord:
-                                    depth_vector[start + i + 1 - start_coord] += 1
-                            
-                            
+                                if start_coord <= start + i + 1 <= end_coord:
+                                    try:
+                                        depth_vector[start + i + 1 - start_coord] += 1
+                                    except IndexError as err:
+                                        print(start_coord, end_coord)
+                                        print(cigar_string)
+                                        print(start, i)
+                                        exit(err)
+
                         if cigar not in (1, 2, 4, 5): # I, D, S, H
                             start += length
 
                         if cigar == 0: # M
-                            exons_in_read.append(GenomicLoci(
-                                chromosome=read.reference_name,
-                                start=start - length + 1,
-                                end=start + 1,
-                                strand="+",
-                            ))
+                            if start - length + 1 < end_coord and start + 1 > start_coord:
+                                exons_in_read.append(GenomicLoci(
+                                    chromosome=read.reference_name,
+                                    start=start - length + 1 if start - length + 1 > start_coord else start_coord,
+                                    end=start + 1 if start + 1 <= end_coord else end_coord,
+                                    strand="+",
+                                ))
 
                         if cigar == 3: # N
                             try:
@@ -143,8 +149,8 @@ class ReadDepth(GenomicLoci):
                                 
                     reads.add(Transcript(
                         chromosome=read.reference_name,
-                        start=read.reference_start,
-                        end=read.reference_end,
+                        start=read.reference_start + 1 if read.reference_start + 1 > start_coord else start_coord,
+                        end=read.reference_end + 1 if read.reference_end + 1 < end_coord else end_coord,
                         strand="+",
                         transcript_id="",
                         gene_id="",
