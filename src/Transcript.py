@@ -18,9 +18,10 @@ class Transcript(GenomicLoci):
         "transcript",
         "gene",
         "exons",
+        "is_reads"
     ]
 
-    def __init__(self, chromosome, start, end, strand, transcript_id, gene_id, exons):
+    def __init__(self, chromosome, start, end, strand, transcript_id, gene_id, exons, is_reads=False):
         u"""
         init this class
         :param chromosome: str
@@ -29,6 +30,7 @@ class Transcript(GenomicLoci):
         :param strand: str
         :param gene_id: str
         :param exons: list of pysam.GTFProxy
+        :param is_reads: is flag used by transcript  plot draw
         """
 
         super().__init__(
@@ -40,6 +42,7 @@ class Transcript(GenomicLoci):
         self.transcript = transcript_id
         self.gene = gene_id
         self.exons = exons
+        self.is_reads = is_reads
 
     def __str__(self):
         u"""

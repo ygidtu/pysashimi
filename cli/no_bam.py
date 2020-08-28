@@ -79,6 +79,7 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     help="The resolution of output file",
     show_default=True
 )
+
 @click.option(
     "--indicator-lines",
     default=None,
@@ -106,18 +107,10 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     show_default=True
 )
 def no_bam(
-        event,
-        input,
-        input_list,
-        gtf,
-        output,
-        config,
-        threshold,
-        indicator_lines,
-        share_y,
-        no_gene,
-        color_factor,
-        dpi
+        event, input, input_list,
+        gtf, output, config,
+        threshold, indicator_lines,
+        no_gene, color_factor, dpi
 ):
     u"""
     This function is used to plot sashimi without BAM file

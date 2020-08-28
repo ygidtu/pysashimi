@@ -4,6 +4,7 @@ u"""
 Created by ygidtu@gmail.com at 2019.12.06
 """
 
+from src.Transcript import Transcript
 import numpy
 import pysam
 
@@ -21,7 +22,7 @@ class ReadDepth(GenomicLoci):
     add a parent class to handle all the position comparision
     """
 
-    def __init__(self, chromosome, start, end, wiggle, junctions_dict):
+    def __init__(self, chromosome, start, end, wiggle, junctions_dict, reads):
         u"""
         init this class
         :param chromosome: str
@@ -41,6 +42,7 @@ class ReadDepth(GenomicLoci):
         self.sequence = None
         self.chromosome = chromosome
         self.start = start
+        self.__reads__ = reads
 
     @classmethod
     def determine_depth(
@@ -68,6 +70,7 @@ class ReadDepth(GenomicLoci):
 
         :param log:
         """
+        reads = set()
         try:
             with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
                 try:
@@ -93,7 +96,6 @@ class ReadDepth(GenomicLoci):
 
                 # tqdm()
                 for read in relevant_reads:
-
                     # make sure that the read can be used
                     cigar_string = read.cigartuples
 
@@ -101,35 +103,83 @@ class ReadDepth(GenomicLoci):
                     if cigar_string is None:
                         continue
 
+                    start = read.reference_start
+
+                    exons_in_read = []
+                    for cigar, length in read.cigartuples:
+
+                        if cigar not in (1, 2, 5):  # I, D, H
+                            for i in range(length):
+                                if start_coord <= start + 1 <= end_coord:
+                                    depth_vector[start + i + 1 - start_coord] += 1
+                            
+                            
+                        if cigar not in (1, 2, 4, 5): # I, D, S, H
+                            start += length
+
+                        if cigar == 0: # M
+                            exons_in_read.append(GenomicLoci(
+                                chromosome=read.reference_name,
+                                start=start - length + 1,
+                                end=start + 1,
+                                strand="+",
+                            ))
+
+                        if cigar == 3: # N
+                            try:
+                                junction_name = Junction(
+                                    chrm,
+                                    start - length + 1,
+                                    start + 1
+                                )
+
+                                if junction_name not in spanned_junctions:
+                                    spanned_junctions[junction_name] = 0
+
+                                spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
+                            except ValueError as err:
+                                logger.warn(err)
+                                continue
+                                
+                    reads.add(Transcript(
+                        chromosome=read.reference_name,
+                        start=read.reference_start,
+                        end=read.reference_end,
+                        strand="+",
+                        transcript_id="",
+                        gene_id="",
+                        exons=exons_in_read,
+                        is_reads=True
+                    ))
                     # read cannot have insertions or deletions
                     # spans_more_than_one_junction = False
-                    for cigar_event in cigar_string:
-                        if cigar_event[0] == 1 or cigar_event[0] == 2:
-                            continue
+                    # for cigar_event in cigar_string:
+                    #     if cigar_event[0] == 1 or cigar_event[0] == 2:
+                    #         continue
 
-                    reference_pos = read.get_reference_positions()
-                    # print(reference_pos, bam_file_path)
-                    for index, base_position in enumerate(reference_pos):
-                        if start_coord <= base_position + 1 <= end_coord:
-                            depth_vector[base_position - start_coord + 1] += 1
+                    # reference_pos = read.get_reference_positions()
+                    # # print(reference_pos, bam_file_path)
+                    # for index, base_position in enumerate(reference_pos):
+                    #     if start_coord <= base_position + 1 <= end_coord:
+                    #         depth_vector[base_position - start_coord + 1] += 1
 
-                            # junction spanning case
-                            if (index + 1) < len(read.positions) and \
-                                    base_position + 1 != reference_pos[index + 1]:
-                                try:
-                                    junction_name = Junction(
-                                        chrm,
-                                        base_position + 1,
-                                        reference_pos[index + 1] + 1
-                                    )
+                    #         # junction spanning case
+                    #         if (index + 1) < len(read.positions) and \
+                    #                 base_position + 1 != reference_pos[index + 1]:
+                    #             try:
+                    #                 junction_name = Junction(
+                    #                     chrm,
+                    #                     base_position + 1,
+                    #                     reference_pos[index + 1] + 1
+                    #                 )
 
-                                    if junction_name not in spanned_junctions:
-                                        spanned_junctions[junction_name] = 0
+                    #                 if junction_name not in spanned_junctions:
+                    #                     spanned_junctions[junction_name] = 0
 
-                                    spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
-                                except ValueError as err:
-                                    logger.warn(err)
-                                    continue
+                    #                 spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
+                    #             except ValueError as err:
+                    #                 logger.warn(err)
+                    #                 continue
 
             filtered_junctions = {}
             for k, v in spanned_junctions.items():
@@ -148,7 +198,8 @@ class ReadDepth(GenomicLoci):
                 start=start_coord,
                 end=end_coord,
                 wiggle=depth_vector,
-                junctions_dict=filtered_junctions
+                junctions_dict=filtered_junctions,
+                reads = reads
             )
         except IOError as err:
             logger.error('There is no .bam file at {0}'.format(bam_file_path))
@@ -393,6 +444,48 @@ class ReadDepth(GenomicLoci):
         for idx, val in enumerate(self.wiggle):
             for i in range(int(val)):
                 yield "{},{},{}".format(self.chromosome, self.start + idx, val)
+
+    @property
+    def reads(self):
+        u"""
+        convert self.__transcripts__ to list format
+
+        Note: wrapper gtf proxy to list and dict format
+            1. there no need to change the code of sashimi plot
+            2. shrink the transcript range
+
+        :return: [[{transcript: id, gene: id, exon: []}, {}, {}], [{}]]
+        """
+        # print("reads in this region", len(self.__reads__))
+        return sorted(
+            self.__reads__,
+            key=lambda x: (x.start, x.end, len(x.exons)),
+            reverse=True
+        )
+
+    @property
+    def exon_starts(self):
+        u"""
+        API for extract all exon starts
+        :return:
+        """
+        starts = []
+        for i in self.reads:
+            for j in i.exons:
+                starts.append(j.start)
+        return sorted(starts)
+
+    @property
+    def exon_ends(self):
+        u"""
+        API for extract all exon ends
+        :return:
+        """
+        ends = []
+        for i in self.reads:
+            for j in i.exons:
+                ends.append(j.end)
+        return sorted(ends)
 
 
 if __name__ == '__main__':

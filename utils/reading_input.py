@@ -35,6 +35,8 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
     :param retry: only try to sort gtf once
     :return path to compressed and indexed bgzipped gtf file
     """
+    if input_gtf is None:
+        return None
     gtf = is_gtf(input_gtf)
 
     if gtf % 10 != 1:
@@ -132,6 +134,9 @@ def read_transcripts(gtf_file, region, genome=None, retry=0):
     :param genome: path to genome fasta file
     :return: SpliceRegion
     """
+    if gtf_file is None:
+        return region
+
     if not os.path.exists(gtf_file):
         raise FileNotFoundError("%s not found" % gtf_file)
 

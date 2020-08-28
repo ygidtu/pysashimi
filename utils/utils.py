@@ -28,12 +28,19 @@ def is_gtf(infile):
     :param infile: path to input file
     :return:
     """
+    if infile is None:
+        return False
+
     is_gtf = 0
-    if filetype.guess_mime(infile) == "application/gzip":
-        is_gtf += 10
-        r = gzip.open(infile)
-    else:
-        r = open(infile)
+    try:
+        if filetype.guess_mime(infile) == "application/gzip":
+            is_gtf += 10
+            r = gzip.open(infile, "rt")
+        else:
+            r = open(infile)
+    except TypeError as err:
+        logger.error("failed to open %s", infile)
+        exit(err)
 
     for line in r:
         if line.startswith("#"):

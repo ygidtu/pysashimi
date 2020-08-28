@@ -334,7 +334,8 @@ def plot_density(
         title=None,
         no_bam=False,
         log=None,
-        distance_ratio=0.3
+        distance_ratio=0.3,
+        stack=False
 ):
     u"""
     Several modifications were taken
@@ -354,6 +355,7 @@ def plot_density(
                 do not use `set_yscale` here, because there are junction under the x axis,
                 and there coords do not convert into log by matplotlib, so it will cause a lot troubles
     :param distance_ratio: distance between transcript label and transcript line
+    :param stack: whether to make stacked reads
     :return:
     """
     assert isinstance(splice_region, SpliceRegion)
@@ -376,6 +378,16 @@ def plot_density(
     tx_end = splice_region.end
     transcripts = splice_region.transcripts
     strand = splice_region.strand
+    reads = []
+
+    if stack:   # modify information of reads
+        for key, val in read_depths_dict.items():
+            for i in val.reads:
+                i.transcript = key.alias
+                reads.append(i)
+
+            exon_starts += val.exon_starts
+            exon_ends += val.exon_ends
 
     # Get the right scalings
     graph_coords = get_scaling(
@@ -385,7 +397,7 @@ def plot_density(
         reverse_minus
     )
 
-    n_files = len(read_depths_dict) + ((len(transcripts) // 2) if len(transcripts) > 1 else 1)
+    n_files = len(read_depths_dict) + ((len(transcripts) // 2) if len(transcripts) > 1 else 1)  + ((len(reads) // 4) if len(reads) > 1 else 1)
 
     gs = gridspec.GridSpec(n_files, 1)
 
@@ -405,6 +417,7 @@ def plot_density(
         average_read_depth = read_depths_dict[sample_info]
 
         show_x_axis = (i == len(read_depths_dict) - 1)
+
         curr_ax = plt.subplot(gs[i, :])
 
         if title is not None and i == 0:
@@ -544,13 +557,26 @@ def plot_density(
         # @218.12.19 set transparent background
         t.set_bbox(dict(alpha=0))
 
+    # Draw reads
+    if len(reads) > 0:
+        plt.subplot(gs[len(read_depths_dict) + 1:len(reads) // 4 + len(read_depths_dict), :])
+        plot_transcripts(
+            tx_start=tx_start,
+            transcripts=reads,
+            graph_coords=graph_coords,
+            reverse_minus=reverse_minus,
+            font_size=font_size,
+            show_gene=show_gene,
+            distance_ratio=distance_ratio,
+            color="darkgrey"
+        )
     # Draw gene structure
     """
     @2018.12.26
     add more subplots, based on the number of transcripts
     """
     if len(transcripts) > 0:
-        plt.subplot(gs[len(read_depths_dict):, :]) # + 1 if splice_region.sequence else len(read_depths_dict)
+        plt.subplot(gs[len(read_depths_dict) + len(reads) // 4 + 1:, :]) # + 1 if splice_region.sequence else len(read_depths_dict)
 
         plot_transcripts(
             tx_start=tx_start,
@@ -585,7 +611,8 @@ def draw_sashimi_plot(
         dpi=300,
         log=None,
         distance_ratio=0.3,
-        title=None
+        title=None,
+        stack=False
 ):
 
     """
@@ -636,7 +663,8 @@ def draw_sashimi_plot(
         no_bam=no_bam,
         log=log,
         distance_ratio=distance_ratio,
-        title=title
+        title=title,
+        stack=stack
     )
 
     logger.info("save to %s" % output_file_path)

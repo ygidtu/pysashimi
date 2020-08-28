@@ -146,6 +146,13 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     """
 )
 @click.option(
+    "--stack",
+    default=False,
+    is_flag=True,
+    type=click.BOOL,
+    help="Whether to draw stacked reads"
+)
+@click.option(
     "--share-y-by",
     type=click.INT,
     default=-1,
@@ -195,7 +202,7 @@ def normal(
         dpi, log, customized_junction,
         process, sort_by_color, share_y_by,
         remove_empty_gene, distance_ratio,
-        title, genome, save_depth
+        title, genome, save_depth, stack
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -309,5 +316,6 @@ def normal(
         dpi=dpi,
         log=log,
         distance_ratio=distance_ratio,
-        title=title
+        title=title,
+        stack=stack
     )
