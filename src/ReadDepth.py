@@ -52,6 +52,7 @@ class ReadDepth(GenomicLoci):
         start_coord,
         end_coord,
         threshold,
+        threshold_of_reads,
         log,
     ):
         """
@@ -70,7 +71,7 @@ class ReadDepth(GenomicLoci):
 
         :param log:
         """
-        reads = set()
+        reads = {}
         try:
             with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
                 try:
@@ -82,6 +83,7 @@ class ReadDepth(GenomicLoci):
                     if "without index" in err:
                         logger.info("try to create index for %s" % bam_file_path)
                         pysam.index(bam_file_path)
+                        relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
                     else:
                         if chrm.startswith("chr"):
                             logger.info("try without chr")
@@ -90,7 +92,7 @@ class ReadDepth(GenomicLoci):
                             logger.info("try with chr")
                             chrm = "chr{}".format(chrm)
                         relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
-
+                
                 depth_vector = numpy.zeros(end_coord - start_coord + 1, dtype='f')
                 spanned_junctions = {}
 
@@ -147,7 +149,7 @@ class ReadDepth(GenomicLoci):
                                 logger.warn(err)
                                 continue
                                 
-                    reads.add(Transcript(
+                    t = Transcript(
                         chromosome=read.reference_name,
                         start=read.reference_start + 1 if read.reference_start + 1 > start_coord else start_coord,
                         end=read.reference_end + 1 if read.reference_end + 1 < end_coord else end_coord,
@@ -156,7 +158,8 @@ class ReadDepth(GenomicLoci):
                         gene_id="",
                         exons=exons_in_read,
                         is_reads=True
-                    ))
+                    )
+                    reads[t] = reads.get(t, 0) + 1
                     # read cannot have insertions or deletions
                     # spans_more_than_one_junction = False
                     # for cigar_event in cigar_string:
@@ -199,13 +202,18 @@ class ReadDepth(GenomicLoci):
             elif log == "zscore":
                 depth_vector = zscore(depth_vector)
 
+            filtered_reads = set()
+            for k, v in reads.items():
+                if v >= threshold_of_reads:
+                    filtered_reads.add(k)
+
             return cls(
                 chromosome=chrm,
                 start=start_coord,
                 end=end_coord,
                 wiggle=depth_vector,
                 junctions_dict=filtered_junctions,
-                reads = reads
+                reads = filtered_reads
             )
         except IOError as err:
             logger.error('There is no .bam file at {0}'.format(bam_file_path))

@@ -70,6 +70,14 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     show_default=True
 )
 @click.option(
+    "-T",
+    "--threshold-of-reads",
+    default=0,
+    type=click.IntRange(min=0, clamp=True),
+    help="Threshold to filter low abundance reads for stacked plot",
+    show_default=True
+)
+@click.option(
     "-d",
     "--dpi",
     default=300,
@@ -202,7 +210,8 @@ def normal(
         dpi, log, customized_junction,
         process, sort_by_color, share_y_by,
         remove_empty_gene, distance_ratio,
-        title, genome, save_depth, stack
+        title, genome, save_depth, stack,
+        threshold_of_reads
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -255,7 +264,7 @@ def normal(
 
     if sort_by_color:
         bam_list = sorted(bam_list, key=lambda x: x.color)
-
+  
     splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
 
     splice_region = read_transcripts(
@@ -271,6 +280,7 @@ def normal(
         bam_list=bam_list,
         splice_region=splice_region.copy(),
         threshold=threshold,
+        threshold_of_reads=threshold_of_reads,
         log=log,
         n_jobs=process
     )

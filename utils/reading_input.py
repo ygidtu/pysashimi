@@ -180,8 +180,9 @@ def read_transcripts(gtf_file, region, genome=None, retry=0):
 
 
 def __read_from_bam__(args):
-    splice_region, bam, threshold, log, idx = args
-
+    splice_region, bam, threshold, threds_of_reads, log, idx = args
+    if not splice_region:
+        return None
     try:
         # print(bam)
         tmp = ReadDepth.determine_depth(
@@ -190,6 +191,7 @@ def __read_from_bam__(args):
             start_coord=splice_region.start,
             end_coord=splice_region.end,
             threshold=threshold,
+            threshold_of_reads=threds_of_reads,
             log=log
         )
 
@@ -208,7 +210,10 @@ def __read_from_bam__(args):
         return None
 
 
-def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log=None, n_jobs=1):
+def read_reads_depth_from_bam(
+    bam_list, splice_region, 
+    threshold=0, threshold_of_reads=0, log=None, n_jobs=1
+):
     u"""
     read reads coverage info from all bams
     :param bam_list: namedtuple (alias, title, path, label)
@@ -226,12 +231,12 @@ def read_reads_depth_from_bam(bam_list, splice_region, threshold=0, log=None, n_
     try:
         # not using multiprocessing when only single process, in case the data size limitation of pickle issue
         if n_jobs == 1:
-            for i in [[splice_region, bam, threshold, log, idx] for idx, bam in enumerate(bam_list)]:
+            for i in [[splice_region, bam, threshold, threshold_of_reads, threshold_of_reads, log, idx] for idx, bam in enumerate(bam_list)]:
                 # print(i)
                 res.update(__read_from_bam__(i)[0])
         else:
             with Pool(min(n_jobs, len(bam_list))) as p:
-                temp = p.map(__read_from_bam__, [[splice_region, bam, threshold, log, idx] for idx, bam in enumerate(bam_list)])
+                temp = p.map(__read_from_bam__, [[splice_region, bam, threshold, threshold_of_reads, log, idx] for idx, bam in enumerate(bam_list)])
 
                 temp = [x for x in temp if x is not None]
                 temp = sorted(temp, key=lambda x: x[1])

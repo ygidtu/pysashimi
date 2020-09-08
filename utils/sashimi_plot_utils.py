@@ -559,7 +559,7 @@ def plot_density(
 
     # Draw reads
     if len(reads) > 0:
-        plt.subplot(gs[len(read_depths_dict) + 1:len(reads) // 4 + len(read_depths_dict), :])
+        plt.subplot(gs[len(read_depths_dict):len(reads) // 4 + len(read_depths_dict), :])
         plot_transcripts(
             tx_start=tx_start,
             transcripts=reads,
@@ -576,7 +576,7 @@ def plot_density(
     add more subplots, based on the number of transcripts
     """
     if len(transcripts) > 0:
-        plt.subplot(gs[len(read_depths_dict) + len(reads) // 4 + 1:, :]) # + 1 if splice_region.sequence else len(read_depths_dict)
+        plt.subplot(gs[len(read_depths_dict) + len(reads) // 4:, :]) # + 1 if splice_region.sequence else len(read_depths_dict)
 
         plot_transcripts(
             tx_start=tx_start,
@@ -645,6 +645,19 @@ def draw_sashimi_plot(
     """
     if no_bam:
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts)) // 2
+    elif stack:
+        num_reads = 0
+        for val in average_depths_dict.values():
+            num_reads += len(val.reads)
+
+        temp_num = len(average_depths_dict) + \
+            len(splice_region.transcripts) // 2 + \
+            num_reads // 4
+
+        height = settings['height'] * temp_num
+
+        if splice_region.sequence:
+            height += (settings["height"] * .2 if temp_num > 5 else .4)
     else:
         temp_num = (len(average_depths_dict) + len(splice_region.transcripts) // 2)
 
