@@ -76,8 +76,12 @@ def is_bam(infile):
         if not os.path.exists(infile + ".bai"):
             create = True
         elif os.path.getctime(infile + ".bai") < os.path.getctime(infile):
-            os.remove(infile + ".bai")
-            create = True
+            try:
+                os.remove(infile + ".bai")
+                create = True
+            except PermissionError as err:
+                logger.warn(err)
+                create = False
         else:
             try:
                 with pysam.AlignmentFile(infile) as r:
