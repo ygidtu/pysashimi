@@ -231,7 +231,7 @@ def read_reads_depth_from_bam(
     try:
         # not using multiprocessing when only single process, in case the data size limitation of pickle issue
         if n_jobs == 1:
-            for i in [[splice_region, bam, threshold, threshold_of_reads, threshold_of_reads, log, idx] for idx, bam in enumerate(bam_list)]:
+            for i in [[splice_region, bam, threshold, threshold_of_reads, log, idx] for idx, bam in enumerate(bam_list)]:
                 # print(i)
                 res.update(__read_from_bam__(i)[0])
         else:
