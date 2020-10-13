@@ -110,7 +110,7 @@ class ReadDepth(GenomicLoci):
                     exons_in_read = []
                     for cigar, length in cigar_string:
 
-                        if cigar not in (1, 2, 5):  # I, D, H
+                        if cigar not in (1, 2, 3, 5):  # I, D, H
                             for i in range(length):
                                 if start_coord <= start + i + 1 <= end_coord:
                                     try:
