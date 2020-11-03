@@ -6,14 +6,14 @@ from tqdm import tqdm
 
 
 def plot_transcripts(
-        tx_start,
-        transcripts,
-        graph_coords,
-        reverse_minus,
-        font_size,
-        show_gene=False,
-        distance_ratio=0.3,
-        color = None
+    tx_start,
+    transcripts,
+    graph_coords,
+    reverse_minus,
+    font_size,
+    show_gene=False,
+    distance_ratio=0.3,
+    color = None
 ):
     """
     [original description]
@@ -47,7 +47,7 @@ def plot_transcripts(
     strand = "+"
     for transcript in transcripts:
         # narrows = math.floor(narrows * (transcript.length / len(graphcoords)))
-
+        strand = transcript.strand
         # @2018.12.20 add transcript id, based on fixed coordinates
         if transcript.transcript:
             if show_gene and transcript.gene:
