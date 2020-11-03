@@ -44,6 +44,7 @@ def plot_transcripts(
     # @2018.12.21
     # the API of SpliceRegion has changed, the transcripts here should be sorted
 
+    strand = "+"
     for transcript in transcripts:
         # narrows = math.floor(narrows * (transcript.length / len(graphcoords)))
 
@@ -71,7 +72,6 @@ def plot_transcripts(
                     fontsize=font_size
                 )
 
-        strand = "+"
         # @2018.12.19
         # s and e is the start and end site of single exon
         # print(transcript)
