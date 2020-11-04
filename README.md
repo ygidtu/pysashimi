@@ -21,7 +21,8 @@ Thanks to [ggsashimi](https://github.com/guigolab/ggsashimi), I learned how to e
   ![do not share-y](./docs/1.png)
   
 - Line plot, used to viz ATAC
-    ![](./docs/3.png)
+
+  ![line plot](./docs/3.png)
 
 ## Installation
 
@@ -42,21 +43,30 @@ python-dateutil==2.8.0
 six==1.12.0
 tqdm==4.28.1
 
-
 1. from source
+
     ```bash
     git clone https://github.com/ygidtu/pysashimi.git
-
     cd pysashimi
-
     pip install -r requirements.txt
     ```
-2. using docker image
+
+2. install as command line tools
+
+    ```bash
+    git clone https://github.com/ygidtu/pysashimi.git
+    cd pysashimi
+    python setup.py install
+    pysashimi --help
+    ```
+
+3. using docker image
+
     ```bash
     git clone https://github.com/ygidtu/pysashimi.git
 
     cd pysashimi
-    
+
     docker build --rm -t chenlinlab/sashimi .
     ```
 
@@ -93,18 +103,16 @@ Commands:
   pipeline  This function is used to plot sashimi based on specific meta...
 ```
 
+### Common parameters between three modes
 
-
-#### Common parameters between three modes
-
-- -e/--event: The region you want to plot, support chr1:100-200:+ or chr1:100-200:+@chr1:100-300:+. 
+- -e/--event: The region you want to plot, support chr1:100-200:+ or chr1:100-200:+@chr1:100-300:+.
 - -g/--gtf: for now only gtf is supported, gff3 is also in the plan (quite easy though). This suite of scripts will try to create .tbi index for gtf file to increase the I/O speed first time. Therefore write permission of the directory of gtf file may required.
-- -o/--output: 
-  - **For normal and no-bam**: path to the output file, support common formats like pdf, png, svg, jpg, tif (may face compression issues, due to linux system do not install libtiff normally) and so on. 
-  - **For pipelin**: path to the output directory, all the figures will saved as pdf
-- --indicator-lines: 
-  - **For normal and no-bam**: add additional vertical dash lines in figure, to show the splice site or some else. eg: 150,170. 
-  - **For pipeline**: this only is a flag, no comma separated integers required
+- -o/--output:
+    - **For normal and no-bam**: path to the output file, support common formats like pdf, png, svg, jpg, tif (may face compression issues, due to linux system do not install libtiff normally) and so on. 
+    - **For pipelin**: path to the output directory, all the figures will saved as pdf
+- --indicator-lines:
+    - **For normal and no-bam**: add additional vertical dash lines in figure, to show the splice site or some else. eg: 150,170. 
+    - **For pipeline**: this only is a flag, no comma separated integers required
 - --share-y: see samples
 - --dpi: the resolution of output figure 
 - -t/--threshold: threshold to filter low abundance junctions, means will not draw any low expression juncitons
@@ -164,8 +172,8 @@ Options:
 
 - -b/--bam: two different types of parameter were supported
 
-  - path to specific BAM file
-  - path to a list of BAM files (tab separated), and at least one column in this file
+    - path to specific BAM file
+    - path to a list of BAM files (tab separated), and at least one column in this file
     - path to BAM files
     - The alias of BAM files, due to this list is tab separated, so space in this alias is also fine.
     - additional colmuns, may used to assign colors and so on
@@ -180,8 +188,8 @@ Options:
 - If bam list file is used, the order of bam file in this list is used. 
     If the `--sort-by-color` used, then reorder the bam list by colors, 
     to make sure same color bam file will be together.
--  `-p/--process`: multiple process to read data from input files for faster processing
-- `--share-y-by`: make different input files use different y axis. For example: ![](./docs/2.png) 
+- `-p/--process`: multiple process to read data from input files for faster processing
+- `--share-y-by`: make different input files use different y axis. For example: ![share by y](./docs/2.png)
 
 - `--log`: zscore is used `scipy.stats.zscore` to convert density to zscore, just for test usage, please no use it in final plots.
 
@@ -230,9 +238,9 @@ Options:
 ```
 
 - -i/--input: path to a two sheet xlsx file, see [docs/sample.xlsx](./docs/sample.xlsx), the value (if is not empty) in first sheet will added to the top-right of each sashimi
-- -s/--span: 
-  - Int: will extand the input region by bp before drawing
-  - Float: will extand the input region by percentage of exist region length before drawing
+- -s/--span:
+    - Int: will extand the input region by bp before drawing
+    - Float: will extand the input region by percentage of exist region length before drawing
 - --indicator-lines: will extract the splice sites from the input splice event ids
 
 #### 3.no_bam
@@ -275,7 +283,6 @@ Options:
 
 - -i/--input: path to extracted count table
 - --required: path to a list, quite like bam list in normal mode
-  - First column is the sample names used for plotting, corresponding to the column names of count table
-  - Second column is the alias names
-  - Additional columns
-
+    - First column is the sample names used for plotting, corresponding to the column names of count table
+    - Second column is the alias names
+    - Additional columns

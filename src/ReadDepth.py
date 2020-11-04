@@ -107,10 +107,24 @@ class ReadDepth(GenomicLoci):
 
                     start = read.reference_start
 
+                    """
+                    M	BAM_CMATCH	0
+                    I	BAM_CINS	1
+                    D	BAM_CDEL	2
+                    N	BAM_CREF_SKIP	3
+                    S	BAM_CSOFT_CLIP	4
+                    H	BAM_CHARD_CLIP	5
+                    P	BAM_CPAD	6
+                    =	BAM_CEQUAL	7
+                    X	BAM_CDIFF	8
+                    B	BAM_CBACK	9
+                    """
                     exons_in_read = []
                     for cigar, length in cigar_string:
+                        cur_start = start + 1
+                        cur_end = start + length + 1
 
-                        if cigar not in (1, 2, 3, 5):  # I, D, H
+                        if cigar == 0: # M
                             for i in range(length):
                                 if start_coord <= start + i + 1 <= end_coord:
                                     try:
@@ -121,24 +135,23 @@ class ReadDepth(GenomicLoci):
                                         print(start, i)
                                         exit(err)
 
-                        if cigar not in (1, 2, 4, 5): # I, D, S, H
-                            start += length
-
-                        if cigar == 0: # M
-                            if start - length + 1 < end_coord and start + 1 > start_coord:
+                            if cur_start < end_coord and cur_end > start_coord:
                                 exons_in_read.append(GenomicLoci(
                                     chromosome=read.reference_name,
-                                    start=start - length + 1 if start - length + 1 > start_coord else start_coord,
-                                    end=start + 1 if start + 1 <= end_coord else end_coord,
+                                    start=cur_start if cur_start > start_coord else start_coord,
+                                    end=cur_end if cur_end <= end_coord else end_coord,
                                     strand="+",
                                 ))
+
+                        if cigar not in (1, 2, 4, 5):  # I, D, S, H
+                            start += length
 
                         if cigar == 3: # N
                             try:
                                 junction_name = Junction(
                                     chrm,
-                                    start - length + 1,
-                                    start + 1
+                                    cur_start,
+                                    cur_end
                                 )
 
                                 if junction_name not in spanned_junctions:
@@ -160,36 +173,7 @@ class ReadDepth(GenomicLoci):
                         is_reads=True
                     )
                     reads[t] = reads.get(t, 0) + 1
-                    # read cannot have insertions or deletions
-                    # spans_more_than_one_junction = False
-                    # for cigar_event in cigar_string:
-                    #     if cigar_event[0] == 1 or cigar_event[0] == 2:
-                    #         continue
-
-                    # reference_pos = read.get_reference_positions()
-                    # # print(reference_pos, bam_file_path)
-                    # for index, base_position in enumerate(reference_pos):
-                    #     if start_coord <= base_position + 1 <= end_coord:
-                    #         depth_vector[base_position - start_coord + 1] += 1
-
-                    #         # junction spanning case
-                    #         if (index + 1) < len(read.positions) and \
-                    #                 base_position + 1 != reference_pos[index + 1]:
-                    #             try:
-                    #                 junction_name = Junction(
-                    #                     chrm,
-                    #                     base_position + 1,
-                    #                     reference_pos[index + 1] + 1
-                    #                 )
-
-                    #                 if junction_name not in spanned_junctions:
-                    #                     spanned_junctions[junction_name] = 0
-
-                    #                 spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
-                    #             except ValueError as err:
-                    #                 logger.warn(err)
-                    #                 continue
-
+                    
             filtered_junctions = {}
             for k, v in spanned_junctions.items():
                 if v >= threshold:
