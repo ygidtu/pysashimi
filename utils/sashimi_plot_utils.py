@@ -29,7 +29,7 @@ from utils.transcripts_plot_utils import plot_transcripts
 
 def __get_limited_index__(num, length):
     u"""
-    Created by Zhang yimint at 2018.12.19
+    Created by Zhang yiming at 2018.12.19
 
     Due to the original author didn't draw any element out of provided range
     So the scripts will through a lot of IndexError

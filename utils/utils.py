@@ -339,7 +339,9 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
                 exit(err)
 
             # 如果文件中指定的为特定的颜色，则直接使用该颜色
-            if "|" in color_label and is_color_like(color_label.split("|")[-1]):
+            if is_color_like(color_label):
+                tmp_color[color_label.split("|")[0]] = color_label
+            elif "|" in color_label and is_color_like(color_label.split("|")[-1]):
                 tmp_color[color_label.split("|")[0]] = color_label.split("|")[-1]
             elif color_label.split("|")[0] not in tmp_color.keys():
                 tmp_color[color_label.split("|")[0]] = colors[color_index % len(colors)]
@@ -401,6 +403,6 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
 
     if len(bam_list) == 0:
         logger.error("Cannot find any input bam file, please check the bam path or the input list")
-        exit(err)
+        exit(1)
 
     return bam_list, shared_y
