@@ -5,8 +5,9 @@ Created by ygidtu@gmail.com at 2018.12.16
 
 cli function to plot sashimi plot
 """
-import matplotlib
-matplotlib.use('Agg')
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
+mpl.use('Agg')
 
 from cli.cli import cli
 
