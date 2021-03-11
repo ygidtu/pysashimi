@@ -10,12 +10,12 @@ import click
 from multiprocessing import cpu_count
 
 from conf.plot_settings import parse_settings
-from utils.reading_input import index_gtf
-from utils.reading_input import read_reads_depth_from_bam
-from utils.reading_input import read_reads_depth_from_count_table
-from utils.reading_input import read_transcripts
-from utils.sashimi_plot_utils import draw_sashimi_plot
-from utils.utils import *
+from ioutils.reading_input import index_gtf
+from ioutils.reading_input import read_reads_depth_from_bam
+from ioutils.reading_input import read_reads_depth_from_count_table
+from ioutils.reading_input import read_transcripts
+from ioutils.utils import *
+from plot.sashimi_plot_utils import draw_sashimi_plot
 
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -203,6 +203,35 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
      \b
     """
 )
+@click.option(
+    "--barcode",
+    type=click.Path(),
+    help="""
+    Path to barcode list file, 
+    At list  three columns were required,
+    1st The alias of bam file; 2nd the barcode;
+    3rd The group label
+     \b
+    """
+)
+@click.option(
+    "--barcode-tag",
+    type=click.STRING,
+    default="CB",
+    help="""
+    The default cell barcode tag label
+     \b
+    """
+)
+@click.option(
+    "--reads",
+    type=click.Choice(["All", "R1", "R2"]),
+    default="All",
+    help="""
+    Whether filter R1 or R2
+     \b
+    """
+)
 def normal(
         bam, event, gtf, output,
         config, threshold, indicator_lines,
@@ -211,7 +240,8 @@ def normal(
         process, sort_by_color, share_y_by,
         remove_empty_gene, distance_ratio,
         title, genome, save_depth, stack,
-        threshold_of_reads
+        threshold_of_reads, barcode, barcode_tag,
+        reads
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -248,6 +278,9 @@ def normal(
 
     out_dir = os.path.dirname(os.path.abspath(output))
 
+    # check reads to kept
+    reads = None if reads == "All" else reads == "R1"
+
     try:
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
@@ -260,7 +293,7 @@ def normal(
 
     colors = sashimi_plot_settings["colors"]
 
-    bam_list, shared_y = prepare_bam_list(bam, color_factor, colors, share_y_by)
+    bam_list, shared_y = prepare_bam_list(bam, color_factor, colors, share_y_by, barcodes=barcode)
 
     if sort_by_color:
         bam_list = sorted(bam_list, key=lambda x: x.color)
@@ -282,7 +315,9 @@ def normal(
         threshold=threshold,
         threshold_of_reads=threshold_of_reads,
         log=log,
-        n_jobs=process
+        n_jobs=process,
+        reads=reads,
+        barcode_tag=barcode_tag
     )
 
     if save_depth:

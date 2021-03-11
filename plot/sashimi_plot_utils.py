@@ -20,11 +20,10 @@ import matplotlib.pyplot as plt
 from matplotlib import pylab
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
+from loguru import logger
 
 from src.SpliceRegion import SpliceRegion
-from conf.logger import logger
-
-from utils.transcripts_plot_utils import plot_transcripts
+from plot.transcripts_plot_utils import plot_transcripts
 
 
 def __get_limited_index__(num, length):
@@ -303,13 +302,13 @@ def plot_density_single(
         if not read_depth_object.sequence:
             bk = len(graph_coords) // nx_ticks
 
+
         linspace, ticks = [], []
         for i in range(0, len(graph_coords), bk):
             linspace.append(graph_coords[i])
 
             temp_txs = tx_start + i
             if read_depth_object.sequence:
-                # print(i - read_depth_object.start, nx_ticks)
                 if (i - read_depth_object.start) % nx_ticks == 0:
                     temp_txs = "{}\n{}".format(tx_start + i, read_depth_object.sequence[i])
                 else:

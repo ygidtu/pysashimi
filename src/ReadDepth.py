@@ -3,14 +3,14 @@
 u"""
 Created by ygidtu@gmail.com at 2019.12.06
 """
-
+from typing import List, Optional
 from src.Transcript import Transcript
 import numpy
 import pysam
 
+from loguru import logger
 from scipy.stats import zscore
 
-from conf.logger import logger
 from src.GenomicLoci import GenomicLoci
 from src.Junction import Junction
 
@@ -47,13 +47,16 @@ class ReadDepth(GenomicLoci):
     @classmethod
     def determine_depth(
         cls,
-        bam_file_path,
-        chrm,
-        start_coord,
-        end_coord,
-        threshold,
-        threshold_of_reads,
+        bam_file_path: str,
+        chrm: str,
+        start_coord: int,
+        end_coord: int,
+        threshold: int,
+        threshold_of_reads: int,
         log,
+        barcodes: Optional[List[str]] = None,
+        reads1: Optional[bool] = None,
+        barcode_tag: str = "CB"
     ):
         """
             determine_depth determines the coverage at each base between start_coord and end_coord, inclusive.
@@ -69,7 +72,9 @@ class ReadDepth(GenomicLoci):
             The keys in spanned_junctions are the
                 names of the junctions, with the format chromosome:lowerBasePosition-higherBasePosition
 
-        :param log:
+        :param log: whether use log transformed numbber of reads in sashimi
+        :param barcodes: for 10x single cell
+        :param reads1: None -> all reads, True -> only R1 kept; False -> only R2 kept
         """
         reads = {}
         try:
@@ -104,6 +109,18 @@ class ReadDepth(GenomicLoci):
                     # each read must have a cigar string
                     if cigar_string is None:
                         continue
+                    
+                    # select R1 or R2
+                    if reads1 is True and not read.is_read1:
+                        continue
+
+                    if reads1 is False and not read.is_read2:
+                        continue
+                    
+                    # filter reads by 10x barcodes
+                    if barcodes is not None and barcodes:
+                        if not read.has_tag(barcode_tag) or not read.get_tag(barcode_tag) not in barcodes:
+                            continue
 
                     start = read.reference_start
 

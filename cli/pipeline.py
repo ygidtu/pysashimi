@@ -10,12 +10,12 @@ import click
 from multiprocessing import cpu_count
 
 from conf.plot_settings import parse_settings
-from utils.reading_input import index_gtf
-from utils.reading_input import read_reads_depth_from_bam
-from utils.reading_input import read_reads_depth_from_count_table
-from utils.reading_input import read_transcripts
-from utils.sashimi_plot_utils import draw_sashimi_plot
-from utils.utils import *
+from ioutils.reading_input import index_gtf
+from ioutils.reading_input import read_reads_depth_from_bam
+from ioutils.reading_input import read_reads_depth_from_count_table
+from ioutils.reading_input import read_transcripts
+from ioutils.utils import *
+from plot.sashimi_plot_utils import draw_sashimi_plot
 
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

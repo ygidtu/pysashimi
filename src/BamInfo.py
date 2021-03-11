@@ -6,15 +6,16 @@ Created by ygidtu@gmail.com at 2019.12.06
 
 
 class BamInfo(object):
-    def __init__(self, alias, title, label, path, color):
+    def __init__(self, alias, title, label, path, color, barcodes = None):
         self.alias = alias
         self.title = title
         self.label = label
         self.path = path
         self.color = color
+        self.barcodes = barcodes
 
     def __hash__(self):
-        return hash(self.path)
+        return hash(self.alias)
 
     def __str__(self):
 

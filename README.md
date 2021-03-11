@@ -43,6 +43,7 @@ Software requirements
 - six = ">=1.12.0"
 - tqdm = ">=4.28.1"
 - scipy = "*"
+- logrus = "*"
 
 1. from source
 
@@ -123,52 +124,83 @@ Commands:
 #### 1. normal
 
 ```bash
->> python main.py normal -h
-
 Usage: main.py normal [OPTIONS]
 
   This function is used to plot single sashimi plotting
 
 Options:
-  -e, --event TEXT               Event range eg: chr1:100-200:+  [required]
-  -b, --bam PATH                 Path to input BAM file.
+  -e, --event TEXT                Event range eg: chr1:100-200:+  [required]
+  -b, --bam PATH                  Path to input BAM file. 
+                                  
+                                  Or a tab separated text file,  - first
+                                  column is path to BAM file, - second
+                                  column is BAM file alias(optional)
 
-                                 Or a tab separated
-                                 text file,
-                                 - first column is path to BAM
-                                 file,
-                                 - second column is BAM file
-                                 alias(optional)
-  -g, --gtf PATH                 Path to gtf file, both transcript and exon
-                                 tags are necessary
-  -o, --output PATH              Path to output graph file
-  --config PATH                  Path to config file, contains graph settings
-                                 of sashimi plot  [default: /Users/zhangyiming
-                                 /Code/pysashimi/settings.ini]
-  -t, --threshold INTEGER RANGE  Threshold to filter low abundance junctions
-                                 [default: 0]
-  -d, --dpi INTEGER RANGE        The resolution of output file  [default: 300]
-  --indicator-lines TEXT         Where to plot additional indicator lines,
-                                 comma separated int
-  --share-y                      Whether different sashimi plots shared same y
-                                 axis
-  --no-gene                      Do not show gene id next to transcript id
-  --color-factor INTEGER RANGE   Index of column with color levels (1-based)
-                                 [default: 1]
-  --log [0|2|10|zscore]          y axis log transformed, 0 -> not log
-                                 transform; 2 -> log2; 10 -> log10
-  --customized-junction TEXT     Path to junction table column name needs to
-                                 be bam name or bam alias.
-  -p, --process INTEGER RANGE    How many cpu to use
-  --sort-by-color                Whether sort input bam order, for better
-                                 looking
-  --share-y-by INTEGER           Index of column with share y axis (1-based),
-                                 Need --share-y\.
-                                 For example, first 3 bam
-                                 files use same y axis, and the rest use
-                                 another  [default: -1]
-  -h, --help                     Show this message and exit.
+  -g, --gtf PATH                  Path to gtf file, both transcript and exon
+                                  tags are necessary
 
+  -o, --output PATH               Path to output graph file
+  --config PATH                   Path to config file, contains graph settings
+                                  of sashimi plot  [default: /mnt/raid61/Perso
+                                  nal_data/zhangyiming/code/pysashimi/settings
+                                  .ini]
+
+  -t, --threshold INTEGER RANGE   Threshold to filter low abundance junctions
+                                  [default: 0]
+
+  -T, --threshold-of-reads INTEGER RANGE
+                                  Threshold to filter low abundance reads for
+                                  stacked plot  [default: 0]
+
+  -d, --dpi INTEGER RANGE         The resolution of output file  [default:
+                                  300]
+
+  --indicator-lines TEXT          Where to plot additional indicator lines,
+                                  comma separated int
+
+  --share-y                       Whether different sashimi plots shared same
+                                  y axis
+
+  --no-gene                       Do not show gene id next to transcript id
+  --color-factor INTEGER RANGE    Index of column with color levels (1-based);
+                                  NOTE: LUAD|red -> LUAD while be labeled in
+                                  plots and red while be the fill color
+                                  [default: 1]
+
+  --log [0|2|10|zscore]           y axis log transformed, 0 -> not log
+                                  transform; 2 -> log2; 10 -> log10
+
+  --customized-junction TEXT      Path to junction table column name needs to
+                                  be bam name or bam alias. 
+
+  -p, --process INTEGER RANGE     How many cpu to use 
+  -f, --genome PATH               Path to genome fasta 
+  --sort-by-color                 Whether sort input bam order, for better
+                                  looking 
+
+  --stack                         Whether to draw stacked reads
+  --share-y-by INTEGER            Index of column with share y axis (1-based),
+                                  Need --share-y\.  For example, first 3 bam
+                                  files use same y axis, and the rest use
+                                  another  [default: -1]
+
+  --remove-empty-gene             Whether to plot empty transcript 
+  --distance-ratio FLOAT          distance between transcript label and
+                                  transcript line  [default: 0.3]
+
+  --title TEXT                    Title
+  --save-depth                    Whether to save reads depth to file,  the
+                                  last 3 columns are chrom, position and
+                                  depth, The same pos will repeated multiple
+                                  times for joyplot in R  
+
+  --barcode PATH                  Path to barcode list file,  At list  three
+                                  columns were required, 1st The alias of bam
+                                  file; 2nd the barcode; 3rd The group label  
+
+  --barcode-tag TEXT              The default cell barcode tag label  
+  --reads [All|R1|R2]             Whether filter R1 or R2  
+  -h, --help                      Show this message and exit.
 ```
 
 - -b/--bam: two different types of parameter were supported

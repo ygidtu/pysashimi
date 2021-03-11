@@ -8,7 +8,7 @@ import filetype
 from openpyxl import load_workbook
 from matplotlib.colors import is_color_like
 
-from conf.logger import logger
+from loguru import logger
 from src.BamInfo import BamInfo
 from src.SpliceRegion import SpliceRegion
 
@@ -107,11 +107,6 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
     :param indicator_lines: bool
     :return: chromosome, start, end, strand
     """
-    u"""
-     get splice range from splice id
-     :param string: splice id
-     :return: chromosome, start, end, strand
-     """
 
     string = string.strip()
     split = string.split("@")
@@ -157,9 +152,9 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
             exit(err)
 
     if indicator_lines is True:
-        indicator_lines = sites
-    elif indicator_lines is not None:
-        indicator_lines = [int(x) for x in indicator_lines.split(",")]
+        indicator_lines = {x: 'k' for x in sites}
+    elif indicator_lines:
+        indicator_lines = [int(i) for i in indicator_lines.split(",")]
 
     return SpliceRegion(
         chromosome=chromosome,
@@ -299,7 +294,7 @@ def assign_max_y(shared_y, reads_depth, batch = False):
                     reads_depth[j].max = max_
 
 
-def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
+def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, barcodes=None):
     u"""
     Prepare bam list
     :return:
@@ -315,6 +310,25 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
             )
         ], {}
 
+    # load barcode groups
+    barcodes_group = {}
+    if barcodes:
+        with open(barcodes) as r:
+            for line in r:
+                lines = re.split(r"\t| {2,}", line.strip())
+
+                if len(lines) > 1:
+                    key = f"{lines[0]} ({lines[2]})" if len(lines) == 3 else lines[0]
+                    temp = barcodes_group.get(lines[0], {})
+
+                    if key not in temp.keys():
+                        temp[key] = [lines[1]]
+                    else:
+                        temp[key].append(lines[1])
+
+                    barcodes_group[lines[0]] = temp
+
+    # load bam list
     shared_y = {}    # {sample group: [BamInfo...]}
     tmp_color = {}
     color_index = 0
@@ -347,26 +361,30 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None):
                 tmp_color[color_label.split("|")[0]] = colors[color_index % len(colors)]
                 color_index += 1
 
+            temp_barcodes = {}
             if len(lines) > 1:
-                tmp = BamInfo(
-                    path=lines[0],
-                    alias=lines[1],
-                    title="",
-                    label=None,
-                    color=tmp_color[color_label.split("|")[0]]
-                )
+                temp_barcodes = barcodes_group.get(lines[1], None)
+
+                if not temp_barcodes:
+                    temp_barcodes[line[1]] = None
             else:
                 if not is_bam(bam):
                     raise ValueError("%s seem not ba a valid BAM file" % bam)
+                
+                temp_barcodes = barcodes_group.get(clean_star_filename(bam), None)
+                if not temp_barcodes:
+                    temp_barcodes[clean_star_filename(bam)] = None
 
+            for alias, barcode in temp_barcodes.items():
                 tmp = BamInfo(
-                    path=bam,
-                    alias=clean_star_filename(bam),
+                    path=lines[0],
+                    alias=alias,
                     title="",
                     label=None,
-                    color=tmp_color[color_label.split("|")[0]]
+                    color=tmp_color[color_label.split("|")[0]],
+                    barcodes=set(barcode)
                 )
-            bam_list.append(tmp)
+                bam_list.append(tmp)
 
             if plot_by is not None:
                 bam_list[-1].label = color_label.split("|")[0]

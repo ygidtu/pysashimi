@@ -10,10 +10,10 @@ import numpy
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import pylab
+from loguru import logger
 
 from src.SpliceRegion import SpliceRegion
-from conf.logger import logger
-from utils.transcripts_plot_utils import plot_transcripts
+from plot.transcripts_plot_utils import plot_transcripts
 
 
 def __get_limited_index__(num, length):

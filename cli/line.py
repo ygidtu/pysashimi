@@ -9,12 +9,13 @@ Main function to plot sashimi plot
 import click
 
 from multiprocessing import cpu_count
-from utils.reading_input import index_gtf
-from utils.reading_input import read_reads_depth_from_bam
-from utils.reading_input import read_transcripts
-from utils.line_plot_utils import draw_line_plot
+
 from conf.plot_settings import parse_settings
-from utils.utils import *
+from ioutils.reading_input import index_gtf
+from ioutils.reading_input import read_reads_depth_from_bam
+from ioutils.reading_input import read_transcripts
+from ioutils.utils import *
+from plot.line_plot_utils import draw_line_plot
 
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

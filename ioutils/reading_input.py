@@ -14,14 +14,15 @@ from multiprocessing import Pool
 
 import pysam
 
+from loguru import logger
 from tqdm import tqdm
 
-from conf.logger import logger
+
 from src.BamInfo import BamInfo
 from src.GenomicLoci import GenomicLoci
 from src.ReadDepth import ReadDepth
 from src.SpliceRegion import SpliceRegion
-from utils.utils import clean_star_filename, is_gtf
+from ioutils.utils import clean_star_filename, is_gtf
 
 
 def index_gtf(input_gtf, sort_gtf=True, retry=0):
@@ -73,7 +74,8 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
         try:
             w = open(input_gtf, "w+")
         except IOError as err:
-            w = open("/tmp/sorted.gtf")
+            logger.error("could not sort gtf")
+            exit(1)
 
         with open(old_input_gtf) as r:
             for line in tqdm(r):
@@ -96,7 +98,7 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
                     )
                 )
 
-        for i in sorted(data):
+        for i in sorted(data, key=lambda x: [x.chromosome, x.start]):
             w.write(i.gtf_line)
 
         w.close()
@@ -180,19 +182,30 @@ def read_transcripts(gtf_file, region, genome=None, retry=0):
 
 
 def __read_from_bam__(args):
-    splice_region, bam, threshold, threds_of_reads, log, idx = args
+    splice_region = args["splice_region"]
+    bam = args["bam"]
+    threshold = args["threshold"]
+    threshold_of_reads = args["threshold_of_reads"]
+    log = args["log"]
+    idx = args["idx"]
+    reads = args["reads"]
+    barcode_tag = args["barcode_tag"]
+
     if not splice_region:
         return None
     try:
-        # print(bam)
+
         tmp = ReadDepth.determine_depth(
             bam_file_path=bam.path,
             chrm=splice_region.chromosome,
             start_coord=splice_region.start,
             end_coord=splice_region.end,
             threshold=threshold,
-            threshold_of_reads=threds_of_reads,
-            log=log
+            threshold_of_reads=threshold_of_reads,
+            log=log,
+            reads1=reads,
+            barcodes=bam.barcodes,
+            barcode_tag=barcode_tag
         )
 
         tmp.sequence = splice_region.sequence
@@ -212,7 +225,8 @@ def __read_from_bam__(args):
 
 def read_reads_depth_from_bam(
     bam_list, splice_region, 
-    threshold=0, threshold_of_reads=0, log=None, n_jobs=1
+    threshold=0, threshold_of_reads=0, log=None, n_jobs=1,
+    reads=None, barcode_tag="CB"
 ):
     u"""
     read reads coverage info from all bams
@@ -221,6 +235,7 @@ def read_reads_depth_from_bam(
     :param threshold: filter low abundance junctions
     :param log
     :param n_jobs
+    :param reads: whether to fitler out R1/R2
     :return: dict {alias, ReadDepth}
     """
     logger.info("Reading from bam files")
@@ -228,15 +243,27 @@ def read_reads_depth_from_bam(
 
     res = OrderedDict()
 
+    cmds = []
+    for idx, bam in enumerate(bam_list):
+        cmds.append({
+            "splice_region": splice_region, 
+            "bam": bam, 
+            "threshold": threshold, 
+            "threshold_of_reads": threshold_of_reads, 
+            "log": log, 
+            "idx": idx, 
+            "reads": reads,
+            "barcode_tag": barcode_tag
+        })
+
     try:
         # not using multiprocessing when only single process, in case the data size limitation of pickle issue
         if n_jobs == 1:
-            for i in [[splice_region, bam, threshold, threshold_of_reads, log, idx] for idx, bam in enumerate(bam_list)]:
-                # print(i)
+            for i in cmds:
                 res.update(__read_from_bam__(i)[0])
         else:
             with Pool(min(n_jobs, len(bam_list))) as p:
-                temp = p.map(__read_from_bam__, [[splice_region, bam, threshold, threshold_of_reads, log, idx] for idx, bam in enumerate(bam_list)])
+                temp = p.map(__read_from_bam__, cmds)
 
                 temp = [x for x in temp if x is not None]
                 temp = sorted(temp, key=lambda x: x[1])
