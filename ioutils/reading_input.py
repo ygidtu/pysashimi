@@ -41,7 +41,7 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
     gtf = is_gtf(input_gtf)
 
     if gtf % 10 != 1:
-        raise ValueError("gtf file required, %s seems not a valid gtf file" % input_gtf)
+        raise ValueError(f"gtf file required, {input_gtf} seems not a valid gtf file")
 
     index = False
     if gtf // 10 > 0:
@@ -165,7 +165,7 @@ def read_transcripts(gtf_file, region, genome=None, retry=0):
                     logger.error(err)
 
     except ValueError as err:
-        logger.warn(err)
+        logger.warning(err)
 
         # handle the mismatch of chromosomes here
         if retry < 2:

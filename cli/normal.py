@@ -232,6 +232,33 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
      \b
     """
 )
+@click.option(
+    "--show-side",
+    is_flag=True,
+    type=click.BOOL,
+    help="""
+    Whether to draw additional side plot, 
+     \b
+    """
+)
+@click.option(
+    "--show-side",
+    is_flag=True,
+    type=click.BOOL,
+    help="""
+    Whether to draw additional side plot, 
+     \b
+    """
+)
+@click.option(
+    "--side-strand",
+    type=click.Choice(["All", "+", "-"]),
+    default="All",
+    help="""
+    which strand kept for side plot, default use all
+     \b
+    """
+)
 def normal(
         bam, event, gtf, output,
         config, threshold, indicator_lines,
@@ -241,7 +268,7 @@ def normal(
         remove_empty_gene, distance_ratio,
         title, genome, save_depth, stack,
         threshold_of_reads, barcode, barcode_tag,
-        reads
+        reads, show_side, side_strand
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -359,8 +386,10 @@ def normal(
         no_bam=False,
         show_gene=not no_gene,
         dpi=dpi,
-        log=log,
+        logtrans=log,
         distance_ratio=distance_ratio,
         title=title,
-        stack=stack
+        stack=stack,
+        show_side = show_side,
+        side_strand_choice = {"+": "plus", "-": "minus"}.get(side_strand)
     )

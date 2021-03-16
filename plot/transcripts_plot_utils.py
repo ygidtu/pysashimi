@@ -4,6 +4,8 @@ import math
 from matplotlib import pylab
 from tqdm import tqdm
 
+from plot.utils import set_indicator_lines
+
 
 def plot_transcripts(
     tx_start,
@@ -11,6 +13,8 @@ def plot_transcripts(
     graph_coords,
     reverse_minus,
     font_size,
+    ymax=None,
+    sites=None,
     show_gene=False,
     distance_ratio=0.3,
     color = None
@@ -133,3 +137,5 @@ def plot_transcripts(
     pylab.box(on=False)
     pylab.xticks([])
     pylab.yticks([])
+
+    set_indicator_lines(tx_start, None, graph_coords, sites, ymax=ymax)

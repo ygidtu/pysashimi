@@ -80,7 +80,7 @@ def is_bam(infile):
                 os.remove(infile + ".bai")
                 create = True
             except PermissionError as err:
-                logger.warn(err)
+                logger.warning(err)
                 create = False
         else:
             try:
@@ -339,7 +339,7 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
             lines = re.split(r"\t| {2,}", line.strip())
 
             if not os.path.exists(lines[0]) and not os.path.isfile(lines[0]):
-                logger.warning("wrong input path or input list sep by blank, it should be '\\t'")
+                logger.warninging("wrong input path or input list sep by blank, it should be '\\t'")
                 continue
 
             try:

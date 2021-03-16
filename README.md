@@ -196,10 +196,15 @@ Options:
 
   --barcode PATH                  Path to barcode list file,  At list  three
                                   columns were required, 1st The alias of bam
-                                  file; 2nd the barcode; 3rd The group label  
-
+                                  file; 2nd the barcode; 3rd The group label
+                                  
   --barcode-tag TEXT              The default cell barcode tag label  
   --reads [All|R1|R2]             Whether filter R1 or R2  
+  --show-side                     Whether to draw additional side plot,   
+  --show-side                     Whether to draw additional side plot,   
+  --side-strand [All|+|-]         which strand kept for side plot, default use
+                                  all  
+
   -h, --help                      Show this message and exit.
 ```
 

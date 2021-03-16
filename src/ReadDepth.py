@@ -5,7 +5,7 @@ Created by ygidtu@gmail.com at 2019.12.06
 """
 from typing import List, Optional
 from src.Transcript import Transcript
-import numpy
+import numpy as np
 import pysam
 
 from loguru import logger
@@ -22,7 +22,7 @@ class ReadDepth(GenomicLoci):
     add a parent class to handle all the position comparision
     """
 
-    def __init__(self, chromosome, start, end, wiggle, junctions_dict, reads):
+    def __init__(self, chromosome, start, end, wiggle, junctions_dict, reads, plus = None, minus = None):
         u"""
         init this class
         :param chromosome: str
@@ -43,6 +43,8 @@ class ReadDepth(GenomicLoci):
         self.chromosome = chromosome
         self.start = start
         self.__reads__ = reads
+        self.plus = plus
+        self.minus = minus * -1
 
     @classmethod
     def determine_depth(
@@ -77,12 +79,13 @@ class ReadDepth(GenomicLoci):
         :param reads1: None -> all reads, True -> only R1 kept; False -> only R2 kept
         """
         reads = {}
+        plus, minus = np.zeros(end_coord - start_coord + 1, dtype="f"), np.zeros(end_coord - start_coord + 1, dtype="f")
         try:
             with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
                 try:
                     relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
                 except ValueError as err:
-                    logger.warn(err)
+                    logger.warning(err)
                     err = str(err)
 
                     if "without index" in err:
@@ -98,7 +101,7 @@ class ReadDepth(GenomicLoci):
                             chrm = "chr{}".format(chrm)
                         relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
                 
-                depth_vector = numpy.zeros(end_coord - start_coord + 1, dtype='f')
+                depth_vector = np.zeros(end_coord - start_coord + 1, dtype='f')
                 spanned_junctions = {}
 
                 # tqdm()
@@ -176,20 +179,32 @@ class ReadDepth(GenomicLoci):
 
                                 spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
                             except ValueError as err:
-                                logger.warn(err)
+                                logger.warning(err)
                                 continue
-                                
+
+
+                    strand = "+"
+                    if read.is_reverse:
+                        strand = "+" if read.is_read1 else "-"
+                    else:
+                        strand = "+" if not read.is_read1 else "-"
+
                     t = Transcript(
                         chromosome=read.reference_name,
                         start=read.reference_start + 1 if read.reference_start + 1 > start_coord else start_coord,
                         end=read.reference_end + 1 if read.reference_end + 1 < end_coord else end_coord,
-                        strand="+",
+                        strand=strand,
                         transcript_id="",
                         gene_id="",
                         exons=exons_in_read,
                         is_reads=True
                     )
                     reads[t] = reads.get(t, 0) + 1
+
+                    if t.strand == "+":
+                        plus[t.start - start_coord] += 1
+                    else:
+                        minus[t.end - start_coord] += 1
                     
             filtered_junctions = {}
             for k, v in spanned_junctions.items():
@@ -197,9 +212,9 @@ class ReadDepth(GenomicLoci):
                     filtered_junctions[k] = v
 
             if log == 10:
-                depth_vector = numpy.log10(depth_vector + 1)
+                depth_vector = np.log10(depth_vector + 1)
             elif log == 2:
-                depth_vector = numpy.log2(depth_vector + 1)
+                depth_vector = np.log2(depth_vector + 1)
             elif log == "zscore":
                 depth_vector = zscore(depth_vector)
 
@@ -214,7 +229,9 @@ class ReadDepth(GenomicLoci):
                 end=end_coord,
                 wiggle=depth_vector,
                 junctions_dict=filtered_junctions,
-                reads = filtered_reads
+                reads = filtered_reads,
+                plus = plus,
+                minus = minus
             )
         except IOError as err:
             logger.error('There is no .bam file at {0}'.format(bam_file_path))
@@ -237,7 +254,7 @@ class ReadDepth(GenomicLoci):
         for key, value in data.items():
             junctions_dict[Junction.create_junction(key)] = value
 
-        depth_vector = numpy.zeros(
+        depth_vector = np.zeros(
             splice_region.end - splice_region.start + 1,
             dtype='f'
         )
