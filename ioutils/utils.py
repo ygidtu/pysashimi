@@ -363,10 +363,8 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
 
             temp_barcodes = {}
             if len(lines) > 1:
-                temp_barcodes = barcodes_group.get(lines[1], None)
-
-                if not temp_barcodes:
-                    temp_barcodes[line[1]] = None
+                if not lines[1] in barcodes_group.keys():
+                    temp_barcodes[lines[1]] = None
             else:
                 if not is_bam(bam):
                     raise ValueError("%s seem not ba a valid BAM file" % bam)
@@ -382,7 +380,7 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                     title="",
                     label=None,
                     color=tmp_color[color_label.split("|")[0]],
-                    barcodes=set(barcode)
+                    barcodes=set(barcode) if barcode else None
                 )
                 bam_list.append(tmp)
 
