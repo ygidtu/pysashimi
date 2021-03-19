@@ -18,8 +18,6 @@ import numpy
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import pylab
-from matplotlib.patches import PathPatch
-from matplotlib.path import Path
 from loguru import logger
 
 from src.SpliceRegion import SpliceRegion
@@ -27,28 +25,6 @@ from plot.density_plot_utils import plot_density_single
 from plot.sideplot_utils import plot_sideplot
 from plot.transcripts_plot_utils import plot_transcripts
 from plot.utils import *
-
-
-def __get_limited_index__(num, length):
-    u"""
-    Created by Zhang yiming at 2018.12.19
-
-    Due to the original author didn't draw any element out of provided range
-    So the scripts will through a lot of IndexError
-
-    This function is used to scale that index into the reasonable range
-
-    :param num: current index
-    :param length: the list or numpy array length
-    :return: (int, bool), 0 <= num <= length - 1, and modified or not
-    """
-    if num < 0:
-        return 0, True
-
-    if num >= length:
-        return length - 1, True
-
-    return num, False
 
 
 # Plot density for a series of bam files.

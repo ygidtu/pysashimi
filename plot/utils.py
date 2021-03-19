@@ -9,6 +9,28 @@ from loguru import logger
 from matplotlib import pylab
 
 
+def get_limited_index(num, length):
+    u"""
+    Created by Zhang yiming at 2018.12.19
+
+    Due to the original author didn't draw any element out of provided range
+    So the scripts will through a lot of IndexError
+
+    This function is used to scale that index into the reasonable range
+
+    :param num: current index
+    :param length: the list or numpy array length
+    :return: (int, bool), 0 <= num <= length - 1, and modified or not
+    """
+    if num < 0:
+        return 0, True
+
+    if num >= length:
+        return length - 1, True
+
+    return num, False
+
+
 def cubic_bezier(pts, t):
     """
     Get points in a cubic bezier.

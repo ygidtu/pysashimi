@@ -10,6 +10,8 @@ import numpy
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import pylab
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
 
 from plot.utils import *
 
@@ -124,8 +126,8 @@ def plot_density_single(
         # @2018.12.19
         # set junctions coordinate here
         # the junction out of boundaries, set the boundaries as coordinate
-        ss1_idx, ss1_modified = __get_limited_index__(leftss - tx_start, len(graph_coords))
-        ss2_idx, ss2_modified = __get_limited_index__(rightss - tx_start, len(graph_coords))
+        ss1_idx, ss1_modified = get_limited_index(leftss - read_depth_object.start, len(graph_coords))
+        ss2_idx, ss2_modified = get_limited_index(rightss - read_depth_object.start, len(graph_coords))
 
         u"""
         @2019.01.14
@@ -200,7 +202,7 @@ def plot_density_single(
             line_width = 0
 
         p = PathPatch(
-            a, ec=color,
+            a, ec=sample_info.color,
             lw=line_width + 0.2, fc='none'
         )
 
