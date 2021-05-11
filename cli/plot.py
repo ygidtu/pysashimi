@@ -5,20 +5,155 @@ Created by ygidtu@gmail.com at 2018.12.16
 
 Main function to plot sashimi plot
 """
-import click
-
 from multiprocessing import cpu_count
 
+import click
 from conf.plot_settings import parse_settings
-from ioutils.reading_input import index_gtf
-from ioutils.reading_input import read_reads_depth_from_bam
-from ioutils.reading_input import read_reads_depth_from_count_table
-from ioutils.reading_input import read_transcripts
+from ioutils.reading_input import (index_gtf, read_reads_depth_from_bam,
+                                   read_reads_depth_from_count_table,
+                                   read_transcripts)
 from ioutils.utils import *
+
 from plot.sashimi_plot_utils import draw_sashimi_plot
 
-
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def darw_without_bam(
+    bam,
+    count_table,
+    splice_region, 
+    colors, 
+    color_factor,
+    threshold, 
+    output, 
+    sashimi_plot_settings, 
+    no_gene, 
+    dpi,
+    distance_ratio,
+    title
+):
+    color_index = 0
+    tmp_color = {}
+    required_cols = {}
+    if bam:
+        with open(bam) as r:
+            for line in r:
+                lines = re.split(r"\t| {2,}", line.strip())
+
+                if not lines:
+                    continue
+
+                if len(lines) > 1:
+                    required_cols[lines[0]] = lines[1]
+                else:
+                    required_cols[lines[0]] = clean_star_filename(lines[0])
+
+                if lines[color_factor - 1] not in tmp_color.keys():
+                    tmp_color[required_cols[lines[0]]] = colors[color_index % len(colors)]
+                    color_index += 1
+
+    reads_depth = read_reads_depth_from_count_table(
+        count_table=count_table,
+        splice_region=splice_region,
+        required=colors,
+        threshold=threshold,
+        colors=colors
+    )
+
+    draw_sashimi_plot(
+        output_file_path=output,
+        settings=sashimi_plot_settings,
+        average_depths_dict=reads_depth,
+        splice_region=splice_region,
+        no_bam=True,
+        show_gene=not no_gene,
+        dpi=dpi,
+        distance_ratio=distance_ratio,
+        title=title,
+    )
+
+
+def draw_default(
+    bam, splice_region, 
+    color_factor, colors, 
+    share_y, share_y_by, 
+    barcode,
+    sort_by_color,
+    threshold, threshold_of_reads, 
+    log, process, reads, 
+    barcode_tag, save_depth,
+    output, 
+    customized_junction,
+    sashimi_plot_settings,
+    no_gene, dpi, 
+    distance_ratio,
+    title, show_side,
+    stack, side_strand
+):
+    bam_list, shared_y = prepare_bam_list(bam, color_factor, colors, share_y_by, barcodes=barcode)
+
+    if sort_by_color:
+        bam_list = sorted(bam_list, key=lambda x: x.color)
+
+    reads_depth = read_reads_depth_from_bam(
+        bam_list=bam_list,
+        splice_region=splice_region.copy(),
+        threshold=threshold,
+        threshold_of_reads=threshold_of_reads,
+        log=log,
+        n_jobs=process,
+        reads=reads,
+        barcode_tag=barcode_tag
+    )
+
+    if save_depth:
+        with open(output, "w+") as w:
+            for key, value in reads_depth.items():
+                for val in value:
+                    w.write("{},{}\n".format(key.to_csv(), val))
+        exit(0)
+
+    # set shared y
+    if share_y:
+        assign_max_y(shared_y.values(), reads_depth)
+
+    # read customized junctions
+    if customized_junction and os.path.exists(customized_junction):
+        customized_junction = read_reads_depth_from_count_table(
+            customized_junction,
+            splice_region=splice_region,
+            required=None,
+            colors=colors
+        )
+
+        temp_customized_junction = {k.alias: v for k, v in customized_junction.items()}
+
+        for key, value in reads_depth.items():
+            temp = temp_customized_junction.get(
+                key.alias,
+                customized_junction.get(os.path.basename(key.path), None)
+            )
+
+            if temp:
+                value.add_customized_junctions(temp)
+
+    draw_sashimi_plot(
+        output_file_path=output,
+        settings=sashimi_plot_settings,
+        average_depths_dict=reads_depth,
+        splice_region=splice_region.copy(),
+        no_bam=False,
+        show_gene=not no_gene,
+        dpi=dpi,
+        logtrans=log,
+        distance_ratio=distance_ratio,
+        title=title,
+        stack=stack,
+        show_side = show_side,
+        side_strand_choice = {"+": "plus", "-": "minus"}.get(side_strand)
+    )
+
 
 
 @click.command()
@@ -38,7 +173,21 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     Or a tab separated text file, \b 
     - first column is path to BAM file, \b
-    - second column is BAM file alias(optional)
+    - second column is BAM file alias(optional) \b
+    \b
+    Path to tab separated list file\b
+    1. the column use to plot sashimi, identical with count table column names \b
+    2. optional, the alias of 1st column \b
+    3. additional columns \b
+    """
+)
+@click.option(
+    "-c",
+    "--count-table",
+    type=click.Path(),
+    help="""
+    Path to input count table file. \b
+    To make sashimi plot without bam
     """
 )
 @click.option(
@@ -259,7 +408,7 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
      \b
     """
 )
-def normal(
+def plot(
         bam, event, gtf, output,
         config, threshold, indicator_lines,
         share_y, no_gene, color_factor,
@@ -268,7 +417,7 @@ def normal(
         remove_empty_gene, distance_ratio,
         title, genome, save_depth, stack,
         threshold_of_reads, barcode, barcode_tag,
-        reads, show_side, side_strand
+        reads, show_side, side_strand, count_table
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -320,11 +469,6 @@ def normal(
 
     colors = sashimi_plot_settings["colors"]
 
-    bam_list, shared_y = prepare_bam_list(bam, color_factor, colors, share_y_by, barcodes=barcode)
-
-    if sort_by_color:
-        bam_list = sorted(bam_list, key=lambda x: x.color)
-  
     splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
 
     splice_region = read_transcripts(
@@ -336,60 +480,37 @@ def normal(
     if remove_empty_gene:
         splice_region.remove_empty_transcripts()
 
-    reads_depth = read_reads_depth_from_bam(
-        bam_list=bam_list,
-        splice_region=splice_region.copy(),
-        threshold=threshold,
-        threshold_of_reads=threshold_of_reads,
-        log=log,
-        n_jobs=process,
-        reads=reads,
-        barcode_tag=barcode_tag
-    )
 
-    if save_depth:
-        with open(output, "w+") as w:
-            for key, value in reads_depth.items():
-                for val in value:
-                    w.write("{},{}\n".format(key.to_csv(), val))
-        exit(0)
-
-    # set shared y
-    if share_y:
-        assign_max_y(shared_y.values(), reads_depth)
-
-    # read customized junctions
-    if customized_junction and os.path.exists(customized_junction):
-        customized_junction = read_reads_depth_from_count_table(
-            customized_junction,
-            splice_region=splice_region,
-            required=None,
-            colors=colors
+    if count_table:
+        darw_without_bam(
+            bam,
+            count_table,
+            splice_region, 
+            colors, 
+            color_factor,
+            threshold, 
+            output, 
+            sashimi_plot_settings, 
+            no_gene, 
+            dpi,
+            distance_ratio,
+            title
         )
-
-        temp_customized_junction = {k.alias: v for k, v in customized_junction.items()}
-
-        for key, value in reads_depth.items():
-            temp = temp_customized_junction.get(
-                key.alias,
-                customized_junction.get(os.path.basename(key.path), None)
-            )
-
-            if temp:
-                value.add_customized_junctions(temp)
-
-    draw_sashimi_plot(
-        output_file_path=output,
-        settings=sashimi_plot_settings,
-        average_depths_dict=reads_depth,
-        splice_region=splice_region.copy(),
-        no_bam=False,
-        show_gene=not no_gene,
-        dpi=dpi,
-        logtrans=log,
-        distance_ratio=distance_ratio,
-        title=title,
-        stack=stack,
-        show_side = show_side,
-        side_strand_choice = {"+": "plus", "-": "minus"}.get(side_strand)
-    )
+    else:
+        draw_default(
+            bam, splice_region, 
+            color_factor, colors, 
+            share_y, share_y_by, 
+            barcode,
+            sort_by_color,
+            threshold, threshold_of_reads, 
+            log, process, reads, 
+            barcode_tag, save_depth,
+            output, 
+            customized_junction,
+            sashimi_plot_settings,
+            no_gene, dpi, 
+            distance_ratio,
+            title, show_side,
+            stack, side_strand
+        )

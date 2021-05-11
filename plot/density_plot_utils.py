@@ -6,9 +6,9 @@ Created by Zhang at 2021.03.16
 Seperate the  single density plot from sashimi_plot_utils
 """
 
-import numpy
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import numpy
 from matplotlib import pylab
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
@@ -18,15 +18,12 @@ from plot.utils import *
 
 def plot_density_single(
         read_depth_object,
-        chromosome,
-        strand,
         graph_coords,
         ax_var,
         sample_info,
         distance_between_label_axis,
         number_junctions=True,
         show_ylabel = True,
-        nx_ticks=4,
         ny_ticks=4,
         font_size=6,
         numbering_font_size=6,

@@ -11,7 +11,7 @@ import re
 from collections import OrderedDict
 from multiprocessing import Pool
 
-from tqdm import tqdm
+from rich.progress import track
 from fire import Fire
 
 
@@ -69,7 +69,7 @@ def read_gtf(path: str, label: str = None) -> list:
     data = []
 
     with open(path) as r:
-        for line in tqdm(r):
+        for line in track(r):
             if line.startswith("#"):
                 continue
 
@@ -103,7 +103,7 @@ def main(reference, output, label=None):
     # reference += read_gtf(e14, "E14")
 
     with open(output, "w+") as w:
-        for lines in tqdm(reference):
+        for lines in track(reference):
             w.write("{}\n".format(lines))
 
 

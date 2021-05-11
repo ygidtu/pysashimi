@@ -6,17 +6,15 @@ Created by ygidtu@gmail.com at 2018.12.16
 
 Main function to plot sashimi plot
 """
-import click
-
 from multiprocessing import cpu_count
 
+import click
 from conf.plot_settings import parse_settings
-from ioutils.reading_input import index_gtf
-from ioutils.reading_input import read_reads_depth_from_bam
-from ioutils.reading_input import read_transcripts
+from ioutils.reading_input import (index_gtf, read_reads_depth_from_bam,
+                                   read_transcripts)
 from ioutils.utils import *
-from plot.line_plot_utils import draw_line_plot
 
+from plot.line_plot_utils import draw_line_plot
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

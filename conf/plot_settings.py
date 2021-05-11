@@ -5,7 +5,7 @@ import ast
 import configparser
 import sys
 
-from loguru import logger
+from src.logger import logger
 
 from conf.drawing import RGB
 

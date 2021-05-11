@@ -5,88 +5,15 @@ Created at 2019.11.20
 
 Make line
 """
-import numpy
-
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import numpy
 from matplotlib import pylab
-from loguru import logger
-
+from src.logger import logger
 from src.SpliceRegion import SpliceRegion
+
 from plot.transcripts_plot_utils import plot_transcripts
-
-
-def __get_limited_index__(num, length):
-    u"""
-    Created by Zhang yimint at 2018.12.19
-    Due to the original author didn't draw any element out of provided range
-    So the scripts will through a lot of IndexError
-    This function is used to scale that index into the reasonable range
-    :param num: current index
-    :param length: the list or numpy array length
-    :return: (int, bool), 0 <= num <= length - 1, and modified or not
-    """
-    if num < 0:
-        return 0, True
-
-    if num >= length:
-        return length - 1, True
-
-    return num, False
-
-
-def cubic_bezier(pts, t):
-    """
-    Get points in a cubic bezier.
-    """
-    p0, p1, p2, p3 = pts
-    p0 = pylab.array(p0)
-    p1 = pylab.array(p1)
-    p2 = pylab.array(p2)
-    p3 = pylab.array(p3)
-    return p0 * (1 - t) ** 3 + 3 * t * p1 * (1 - t) ** 2 + \
-           3 * t ** 2 * (1 - t) * p2 + t ** 3 * p3
-
-
-def get_scaling(
-        tx_start,
-        tx_end,
-        strand,
-        exon_starts,
-        exon_ends,
-        intron_scale,
-        exon_scale,
-        reverse_minus
-):
-    """
-    Compute the scaling factor across various genetic regions.
-    """
-    exon_coords = pylab.zeros((tx_end - tx_start + 1))
-    for i in range(len(exon_starts)):
-        exon_coords[exon_starts[i] - tx_start: exon_ends[i] - tx_start] = 1
-
-    graph_to_gene = {}
-    graph_coords = pylab.zeros((tx_end - tx_start + 1), dtype='f')
-
-    x = 0
-    if strand == '+' or not reverse_minus:
-        for i in range(tx_end - tx_start + 1):
-            graph_coords[i] = x
-            graph_to_gene[int(x)] = i + tx_start
-            if exon_coords[i] == 1:
-                x += 1. / exon_scale
-            else:
-                x += 1. / intron_scale
-    else:
-        for i in range(tx_end - tx_start + 1):
-            graph_coords[-(i + 1)] = x
-            graph_to_gene[int(x)] = tx_end - i + 1
-            if exon_coords[-(i + 1)] == 1:
-                x += 1. / exon_scale
-            else:
-                x += 1. / intron_scale
-
-    return graph_coords, graph_to_gene
+from plot.utils import get_scaling
 
 
 def plot_density_single(
@@ -94,7 +21,6 @@ def plot_density_single(
         chromosome,
         strand,
         graph_coords,
-        graph_to_gene,
         ax_var,
         show_x_axis=True,
         nx_ticks=4,
@@ -218,7 +144,7 @@ def plot_density(
     strand = splice_region.strand
 
     # Get the right scalings
-    graph_coords, graph_to_gene = get_scaling(
+    graph_coords = get_scaling(
         tx_start,
         tx_end,
         strand,
@@ -279,7 +205,6 @@ def plot_density(
             chromosome=chromosome,
             strand=strand,
             graph_coords=graph_coords,
-            graph_to_gene=graph_to_gene,
             ax_var=curr_ax,
             show_x_axis=show_x_axis,
             nx_ticks=nxticks,
@@ -434,10 +359,7 @@ def draw_line_plot(
         height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts) // 2)
 
     plt.figure(
-        figsize=[
-            settings['width'],
-            height
-        ],
+        figsize=[settings['width'], height],
         dpi=dpi
     )
 

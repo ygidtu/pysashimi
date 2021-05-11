@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 import math
+
 from matplotlib import pylab
-from tqdm import tqdm
 
 from plot.utils import set_indicator_lines
 

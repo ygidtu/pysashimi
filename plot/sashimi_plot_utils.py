@@ -14,13 +14,12 @@ Migrated from SplicePlot sashimi_plot_utils
 9. add parameter to decide whether use shared y axis
 10. fix transcripts display issues
 """
-import numpy
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib import pylab
-from loguru import logger
-
+from src.logger import logger
 from src.SpliceRegion import SpliceRegion
+
 from plot.density_plot_utils import plot_density_single
 from plot.sideplot_utils import plot_sideplot
 from plot.transcripts_plot_utils import plot_transcripts
@@ -139,13 +138,10 @@ def plot_density(
         # Read sample label
         plot_density_single(
             read_depth_object=average_read_depth,
-            chromosome=chromosome,
-            strand=strand,
             graph_coords=graph_coords,
             ax_var=curr_ax,
             sample_info=sample_info,
             number_junctions=number_junctions,
-            nx_ticks=nxticks,
             ny_ticks=nyticks,
             font_size=font_size,
             numbering_font_size=numbering_font_size,
@@ -169,8 +165,6 @@ def plot_density(
                 curr_ax,
                 font_size=font_size,
                 logtrans=logtrans,
-                show_ylabel=show_ylabel,
-                distance_between_label_axis = distance_between_label_axis,
                 sites = splice_region.sites,
                 strand_choice = side_strand_choice
             )

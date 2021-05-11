@@ -1,15 +1,12 @@
-import re
-import os
 import gzip
+import os
+import re
 
-import pysam
 import filetype
-
-from openpyxl import load_workbook
+import pysam
 from matplotlib.colors import is_color_like
-
-from loguru import logger
 from src.BamInfo import BamInfo
+from src.logger import logger
 from src.SpliceRegion import SpliceRegion
 
 
@@ -80,7 +77,7 @@ def is_bam(infile):
                 os.remove(infile + ".bai")
                 create = True
             except PermissionError as err:
-                logger.warning(err)
+                logger.warn(err)
                 create = False
         else:
             try:
@@ -188,82 +185,6 @@ def get_merged_event(events, span, indicator_lines):
     return coords
 
 
-def read_info_from_xlsx(xlsx, color_factor, colors):
-    u"""
-    Created by ygidtu at 2018.12.25
-    read info from input xlsx
-    :param xlsx: path to input xlsx file
-    :param color_factor: 1-based index, to assign colors to different BAM file
-    :param colors: list of colors
-    :return:
-        - data: {splice region: {header: value}}
-        - bam_list: list of bam_info
-    """
-    wb = load_workbook(filename=xlsx)
-
-    data = {}
-    header = None
-    for row in wb.worksheets[0].rows:
-        if not header:
-            header = {i: j.value for i, j in enumerate(row)}
-
-            if not header:
-                header = True
-        else:
-            if not row[0].value:
-                continue
-            tmp = {}
-            for i, j in enumerate(row[1:]):
-                tmp[str(header[i + 1]).strip()] = j.value
-
-            data[str(row[0].value).strip()] = tmp
-
-    tmp_color = {}
-    color_index = 0
-    bam_list = []
-    header = None
-    for i in wb.worksheets[1].rows:
-        if not header:
-            header = True
-            continue
-
-        if i[2].value is not None:
-            path = i[2].value.strip()
-
-            # if not os.path.exists(path):
-            #     raise ValueError("%s not exist" % path)
-            # elif not is_bam(path):
-            #     raise ValueError("%s is not a BAM" % path)
-        else:
-            continue
-
-        try:
-            color_label = i[color_factor - 1].value
-        except IndexError as err:
-            logger.error(err)
-            logger.error("Wrong color factor")
-            exit(err)
-
-        if color_label not in tmp_color.keys():
-            tmp_color[color_label] = colors[color_index % len(colors)]
-            color_index += 1
-
-        tmp = BamInfo(
-            alias=str(i[1].value) if i[1].value is not None else "",
-            title=str(str(i[0].value).strip()) if i[0].value is not None else "",
-            path=path,
-            label=None,
-            color=tmp_color[color_label]
-        )
-
-        bam_list.append(tmp)
-
-    if not bam_list:
-        raise ValueError("No BAM in xlsx")
-
-    return data, bam_list
-
-
 def assign_max_y(shared_y, reads_depth, batch = False):
     u"""
     assign max y for input files
@@ -339,7 +260,7 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
             lines = re.split(r"\t| {2,}", line.strip())
 
             if not os.path.exists(lines[0]) and not os.path.isfile(lines[0]):
-                logger.warninging("wrong input path or input list sep by blank, it should be '\\t'")
+                logger.warn("wrong input path or input list sep by blank, it should be '\\t'")
                 continue
 
             try:

@@ -4,15 +4,15 @@ u"""
 Created by ygidtu@gmail.com at 2019.12.06
 """
 from typing import List, Optional
-from src.Transcript import Transcript
+
 import numpy as np
 import pysam
-
-from loguru import logger
 from scipy.stats import zscore
 
 from src.GenomicLoci import GenomicLoci
 from src.Junction import Junction
+from src.logger import logger
+from src.Transcript import Transcript
 
 
 class ReadDepth(GenomicLoci):

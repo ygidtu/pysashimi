@@ -5,6 +5,7 @@ Created by ygidtu@gmail.com at 2019.12.06
 """
 
 from copy import deepcopy
+
 from src.GenomicLoci import GenomicLoci
 from src.Transcript import Transcript
 

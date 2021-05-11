@@ -5,8 +5,8 @@ Created at 2021.03.16
 
 basic func
 """
-from loguru import logger
 from matplotlib import pylab
+from src.logger import logger
 
 
 def get_limited_index(num, length):

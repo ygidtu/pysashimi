@@ -8,20 +8,17 @@ Inspired by SplicePlot -> mRNAObjects
 import os
 import re
 import traceback
-
 from collections import OrderedDict
 from multiprocessing import Pool
 
 import pysam
-
-from loguru import logger
-from tqdm import tqdm
-
-
+from rich.progress import track
 from src.BamInfo import BamInfo
 from src.GenomicLoci import GenomicLoci
+from src.logger import logger
 from src.ReadDepth import ReadDepth
 from src.SpliceRegion import SpliceRegion
+
 from ioutils.utils import clean_star_filename, is_gtf
 
 
@@ -78,7 +75,7 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
             exit(1)
 
         with open(old_input_gtf) as r:
-            for line in tqdm(r):
+            for line in track(r):
                 if line.startswith("#"):
                     w.write(line)
                     continue

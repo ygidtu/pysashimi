@@ -7,7 +7,6 @@ This is migrated from Zhou's code
 """
 import numpy as np
 import scipy.stats as sts
-
 from matplotlib import pylab
 
 from plot.utils import *
@@ -18,12 +17,9 @@ def plot_sideplot(
     sample_info,
     graph_coords,
     ax_var,
-    distance_between_label_axis,
-    nxticks=4,
     font_size=8,
     logtrans=None,
     strand_choice: str =  None,
-    show_ylabel = True,
     sites = None
 ):
     """

@@ -4,17 +4,16 @@ u"""
 Created at 2019.12.27
 """
 import click
+from src.logger import init_logger
 
-from cli.no_bam import no_bam
-from cli.normal import normal
-from cli.pipeline import pipeline
 from cli.line import line
+from cli.plot import plot
 
-
-VERSION = "1.4.4"
+VERSION = "1.5.0-alpha"
 LABEL = "pySashimi"
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
+init_logger("INFO")
 
 @click.group(
     context_settings=CONTEXT_SETTINGS,
@@ -35,7 +34,5 @@ def cli():
     pass
 
 
-cli.add_command(normal)
-cli.add_command(no_bam)
-cli.add_command(pipeline)
+cli.add_command(plot)
 cli.add_command(line)
