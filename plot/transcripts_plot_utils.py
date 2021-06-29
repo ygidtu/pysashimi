@@ -72,7 +72,7 @@ def plot_transcripts(
                 else:
                     pylab.text(
                         x=-1 * distance,
-                        y=y_loc + 0.25,
+                        y=y_loc,
                         s=transcript.gene + " | " + transcript.transcript,
                         fontsize=font_size
                     )

@@ -12,7 +12,10 @@ class BamInfo(object):
         self.label = label
         self.path = [path]
         self.color = color
-        self.barcodes = barcodes if not barcodes else []
+        self.barcodes = barcodes
+
+        if self.barcodes is None:
+            self.barcodes = []
 
     def __hash__(self):
         return hash(self.alias)
@@ -43,7 +46,9 @@ class BamInfo(object):
 
     def __add__(self, other):
         self.path += other.path
-        self.barcodes += other.barcodes
+        temp = list(self.barcodes)
+        temp += list(other.barcodes)
+        self.barcodes = temp
 
         return self
 

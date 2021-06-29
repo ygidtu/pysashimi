@@ -264,9 +264,9 @@ def draw_default(
 )
 @click.option(
     "--color-factor",
-    type=click.Path(),
+    type=str,
     help="""
-    The path to color settings, 2 columns are required, first if key of bam or cell group, second column is color
+    The index of specific column in --bam or path to color settings, 2 columns are required, first if key of bam or cell group, second column is color
     """,
     show_default=True
 )

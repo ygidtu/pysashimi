@@ -79,6 +79,10 @@ class ReadDepth(GenomicLoci):
         :param reads1: None -> all reads, True -> only R1 kept; False -> only R2 kept
         """
         reads = {}
+        filtered_reads = set()
+        filtered_junctions = {}
+        depth_vector = np.zeros(end_coord - start_coord + 1, dtype='f')
+        spanned_junctions = {}
         plus, minus = np.zeros(end_coord - start_coord + 1, dtype="f"), np.zeros(end_coord - start_coord + 1, dtype="f")
         try:
             for bam_file_path in bam_file_paths:
@@ -102,9 +106,6 @@ class ReadDepth(GenomicLoci):
                                 chrm = "chr{}".format(chrm)
                             relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
                     
-                    depth_vector = np.zeros(end_coord - start_coord + 1, dtype='f')
-                    spanned_junctions = {}
-
                     # tqdm()
                     for read in relevant_reads:
                         # make sure that the read can be used
@@ -205,7 +206,6 @@ class ReadDepth(GenomicLoci):
                         else:
                             minus[t.end - start_coord] += 1
                         
-                filtered_junctions = {}
                 for k, v in spanned_junctions.items():
                     if v >= threshold:
                         filtered_junctions[k] = v
@@ -217,7 +217,6 @@ class ReadDepth(GenomicLoci):
                 elif log == "zscore":
                     depth_vector = zscore(depth_vector)
 
-                filtered_reads = set()
                 for k, v in reads.items():
                     if v >= threshold_of_reads:
                         filtered_reads.add(k)

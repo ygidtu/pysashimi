@@ -241,7 +241,10 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
 
     res = {}
 
-    if color_factor:
+    if re.search("^\\d+$", color_factor):
+        color_factor = int(color_factor) - 1
+
+    if color_factor and not isinstance(color_factor, int):
         with open(color_factor) as r:
             for line in r:
                 line = line.strip().split()
@@ -253,7 +256,15 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
             key = line[1] if len(line) > 1 else clean_star_filename(line[0])
 
             if key not in res.keys():
-                res[key] = colors[idx % len(colors)]
+                if not isinstance(color_factor, int):
+                    res[key] = colors[idx % len(colors)]
+                else:
+                    if len(line) <= color_factor:
+                        logger.error("--color-factor must <= number of columns from " + bam)
+                        exit(1)
+                    res[key] = line[color_factor]
+                    if "|" in res[key]:
+                        res[key] = res[key].split("|")[1]
 
     if barcodes:
         temp = set()
@@ -319,7 +330,7 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                     color=colors[alias],
                     barcodes=set(barcode) if barcode else None
                 )
-                
+       
                 if alias not in bam_list.keys():
                     bam_list[alias] = tmp
                 else:
