@@ -55,19 +55,27 @@ def plot_transcripts(
         # @2018.12.20 add transcript id, based on fixed coordinates
         if transcript.transcript:
             if show_gene and transcript.gene:
-                pylab.text(
-                    x=-1 * distance,
-                    y=y_loc + 0.15,
-                    s=transcript.gene,
-                    fontsize=font_size
-                )
+                if transcript.show_id:
+                    pylab.text(
+                        x=-1 * distance,
+                        y=y_loc + 0.25,
+                        s=transcript.gene_id,
+                        fontsize=font_size
+                    )
 
-                pylab.text(
-                    x=-1 * distance,
-                    y=y_loc - 0.25,
-                    s=transcript.transcript,
-                    fontsize=font_size
-                )
+                    pylab.text(
+                        x=-1 * distance,
+                        y=y_loc - 0.25,
+                        s=transcript.transcript_id,
+                        fontsize=font_size
+                    )
+                else:
+                    pylab.text(
+                        x=-1 * distance,
+                        y=y_loc + 0.25,
+                        s=transcript.gene + " | " + transcript.transcript,
+                        fontsize=font_size
+                    )
             else:
                 pylab.text(
                     x=-1 * distance,

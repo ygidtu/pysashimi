@@ -121,7 +121,7 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
     return output_gtf
 
 
-def read_transcripts(gtf_file, region, genome=None, retry=0):
+def read_transcripts(gtf_file: str, region: SpliceRegion, genome: str=None, retry: int=0, show_id: bool = False):
     u"""
     Read transcripts from tabix indexed gtf files
 
@@ -131,6 +131,7 @@ def read_transcripts(gtf_file, region, genome=None, retry=0):
     :param region: splice region
     :param retry: if the gtf chromosome and input chromosome does not match. eg: chr9:1-100:+ <-> 9:1-100:+
     :param genome: path to genome fasta file
+    :param show_id: whether show gene id or gene name
     :return: SpliceRegion
     """
     if gtf_file is None:
@@ -157,7 +158,7 @@ def read_transcripts(gtf_file, region, genome=None, retry=0):
             # min_exon_start, max_exon_end, exons_list = float("inf"), float("-inf"),  []
             for line in relevant_exons_iterator:
                 try:
-                    region.add_gtf(line)
+                    region.add_gtf(line, show_id = show_id)
                 except IndexError as err:
                     logger.error(err)
 
@@ -193,7 +194,7 @@ def __read_from_bam__(args):
     try:
 
         tmp = ReadDepth.determine_depth(
-            bam_file_path=bam.path,
+            bam_file_paths=bam.path,
             chrm=splice_region.chromosome,
             start_coord=splice_region.start,
             end_coord=splice_region.end,

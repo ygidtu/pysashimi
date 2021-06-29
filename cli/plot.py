@@ -89,7 +89,7 @@ def draw_default(
     no_gene, dpi, 
     distance_ratio,
     title, show_side,
-    stack, side_strand
+    stack, side_strand,
 ):
     bam_list, shared_y = prepare_bam_list(bam, color_factor, colors, share_y_by, barcodes=barcode)
 
@@ -155,7 +155,6 @@ def draw_default(
     )
 
 
-
 @click.command()
 @click.option(
     "-e",
@@ -168,6 +167,7 @@ def draw_default(
     "-b",
     "--bam",
     type=click.Path(exists=True),
+    required=True,
     help="""
     Path to input BAM file. \b
 
@@ -238,14 +238,23 @@ def draw_default(
     "--indicator-lines",
     default=None,
     type=click.STRING,
-    help="Where to plot additional indicator lines, comma separated int"
+    help="""
+    Where to plot additional indicator lines, comma separated int \b
+    Or \b
+    Path to file contains indicator lines, \b
+    1st column is the line site
+    2nd column is transcript id
+    3rd column is the weights
+    """
 )
 @click.option(
     "--share-y",
     default=False,
     is_flag=True,
     type=click.BOOL,
-    help="Whether different sashimi plots shared same y axis"
+    help="""
+    Whether different sashimi plots shared same y axis
+    """
 )
 @click.option(
     "--no-gene",
@@ -255,10 +264,9 @@ def draw_default(
 )
 @click.option(
     "--color-factor",
-    default=1,
-    type=click.IntRange(min=1),
-    help="""Index of column with color levels (1-based); 
-        NOTE: LUAD|red -> LUAD while be labeled in plots and red while be the fill color
+    type=click.Path(),
+    help="""
+    The path to color settings, 2 columns are required, first if key of bam or cell group, second column is color
     """,
     show_default=True
 )
@@ -408,6 +416,14 @@ def draw_default(
      \b
     """
 )
+@click.option(
+    "--show-id",
+    is_flag=True,
+    help="""
+    which show gene id or gene name
+     \b
+    """
+)
 def plot(
         bam, event, gtf, output,
         config, threshold, indicator_lines,
@@ -417,7 +433,8 @@ def plot(
         remove_empty_gene, distance_ratio,
         title, genome, save_depth, stack,
         threshold_of_reads, barcode, barcode_tag,
-        reads, show_side, side_strand, count_table
+        reads, show_side, side_strand, count_table,
+        show_id: bool = False
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -474,7 +491,8 @@ def plot(
     splice_region = read_transcripts(
         gtf_file=index_gtf(input_gtf=gtf),
         genome=genome,
-        region=splice_region
+        region=splice_region,
+        show_id = show_id
     )
 
     if remove_empty_gene:

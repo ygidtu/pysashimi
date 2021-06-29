@@ -16,7 +16,7 @@ def clean_star_filename(x):
     :param x:
     :return:
     """
-    return re.sub("[_.]?(SJ.out.tab|Aligned.sortedByCoord.out?.bam)", "", os.path.basename(x))
+    return re.sub("[_.]?(SJ.out.tab|Aligned.sortedByCoord.out)?.bam", "", os.path.basename(x))
 
 
 def is_gtf(infile):
@@ -215,6 +215,60 @@ def assign_max_y(shared_y, reads_depth, batch = False):
                     reads_depth[j].max = max_
 
 
+def load_barcode(path: str) -> dict:
+    barcodes = {}
+    with open(path) as r:
+        for line in r:
+            lines = re.split(r"\t| {2,}", line.strip())
+
+            lines[0] = clean_star_filename(lines[0])
+
+            if len(lines) >= 3:
+                key = lines[2]
+                temp = barcodes.get(lines[0], {})
+
+                if key not in temp.keys():
+                    temp[key] = [lines[1]]
+                else:
+                    temp[key].append(lines[1])
+
+                barcodes[lines[0]] = temp
+
+    return barcodes
+
+
+def load_colors(bam: str, barcodes: str, color_factor: str, colors):
+
+    res = {}
+
+    if color_factor:
+        with open(color_factor) as r:
+            for line in r:
+                line = line.strip().split()
+                res[line[0]] = line[1]
+
+    with open(bam) as r:
+        for idx, line in enumerate(r):
+            line = line.strip().split()
+            key = line[1] if len(line) > 1 else clean_star_filename(line[0])
+
+            if key not in res.keys():
+                res[key] = colors[idx % len(colors)]
+
+    if barcodes:
+        temp = set()
+        with open(barcodes) as r:
+            for line in r:
+                line = line.strip().split()
+                temp.add(line[-1])
+
+        for idx, group in enumerate(sorted(temp)):
+            if group not in res.keys():
+                res[group] = colors[idx % len(colors)]
+
+    return res
+
+
 def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, barcodes=None):
     u"""
     Prepare bam list
@@ -232,28 +286,13 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
         ], {}
 
     # load barcode groups
-    barcodes_group = {}
-    if barcodes:
-        with open(barcodes) as r:
-            for line in r:
-                lines = re.split(r"\t| {2,}", line.strip())
+    barcodes_group = load_barcode(barcodes) if barcodes else {}
 
-                if len(lines) > 1:
-                    key = f"{lines[0]} ({lines[2]})" if len(lines) == 3 else lines[0]
-                    temp = barcodes_group.get(lines[0], {})
-
-                    if key not in temp.keys():
-                        temp[key] = [lines[1]]
-                    else:
-                        temp[key].append(lines[1])
-
-                    barcodes_group[lines[0]] = temp
-
+    colors = load_colors(bam, barcodes, color_factor, colors)
+     
     # load bam list
     shared_y = {}    # {sample group: [BamInfo...]}
-    tmp_color = {}
-    color_index = 0
-    bam_list = []
+    bam_list = {}
     with open(bam) as r:
         for line in r:
 
@@ -263,83 +302,64 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                 logger.warn("wrong input path or input list sep by blank, it should be '\\t'")
                 continue
 
-            try:
-                color_label = lines[color_factor - 1]
-            except IndexError as err:
-                logger.error(err)
-                logger.error("Wrong color factor")
-                logger.error("Your --color-factor is %d" % color_factor)
-                logger.error("Your error line in %s" % lines)
+            temp_barcodes = barcodes_group.get(clean_star_filename(lines[0]), {})
+            if not is_bam(lines[0]):
+                raise ValueError("%s seem not ba a valid BAM file" % lines[0])
 
-                exit(err)
-
-            # 如果文件中指定的为特定的颜色，则直接使用该颜色
-            if is_color_like(color_label):
-                tmp_color[color_label.split("|")[0]] = color_label
-            elif "|" in color_label and is_color_like(color_label.split("|")[-1]):
-                tmp_color[color_label.split("|")[0]] = color_label.split("|")[-1]
-            elif color_label.split("|")[0] not in tmp_color.keys():
-                tmp_color[color_label.split("|")[0]] = colors[color_index % len(colors)]
-                color_index += 1
-
-            temp_barcodes = {}
-            if len(lines) > 1:
-                if not lines[1] in barcodes_group.keys():
-                    temp_barcodes[lines[1]] = None
-            else:
-                if not is_bam(bam):
-                    raise ValueError("%s seem not ba a valid BAM file" % bam)
-                
-                temp_barcodes = barcodes_group.get(clean_star_filename(bam), None)
-                if not temp_barcodes:
-                    temp_barcodes[clean_star_filename(bam)] = None
+            if not barcodes_group:
+                key = lines[1] if len(lines) > 1 else clean_star_filename(lines[0])
+                temp_barcodes[key] = None
 
             for alias, barcode in temp_barcodes.items():
                 tmp = BamInfo(
                     path=lines[0],
                     alias=alias,
                     title="",
-                    label=None,
-                    color=tmp_color[color_label.split("|")[0]],
+                    label=alias,
+                    color=colors[alias],
                     barcodes=set(barcode) if barcode else None
                 )
-                bam_list.append(tmp)
-
-            if plot_by is not None:
-                bam_list[-1].label = color_label.split("|")[0]
-
-                if plot_by < 0:
-                    tmp = shared_y.get("", [])
-                    tmp.append(bam_list[-1])
-                    shared_y[""] = tmp
+                
+                if alias not in bam_list.keys():
+                    bam_list[alias] = tmp
                 else:
+                    # print(alias, bam_list[alias])
+                    bam_list[alias] += tmp
+
+                if plot_by is not None:
+
+                    if plot_by < 0:
+                        tmp = shared_y.get("", [])
+                        tmp.append(alias)
+                        shared_y[""] = tmp
+                    else:
+                        try:
+                            tmp = shared_y.get(lines[plot_by - 1], [])
+                            tmp.append(alias)
+                            shared_y[lines[plot_by - 1]] = tmp
+                        except IndexError as err:
+                            logger.error(err)
+                            logger.error("Wrong --plot-by index")
+                            logger.error("Your --plot-by is %d" % plot_by)
+                            logger.error("Your error line in %s" % lines)
+
+                            exit(err)
+
+                elif share_y_by > 0:
                     try:
-                        tmp = shared_y.get(lines[plot_by - 1], [])
-                        tmp.append(bam_list[-1])
-                        shared_y[lines[plot_by - 1]] = tmp
+                        tmp = shared_y.get(lines[share_y_by - 1], [])
+                        tmp.append(alias)
+                        shared_y[lines[share_y_by - 1]] = tmp
                     except IndexError as err:
                         logger.error(err)
-                        logger.error("Wrong --plot-by index")
-                        logger.error("Your --plot-by is %d" % plot_by)
+                        logger.error("Wrong --share-y-by index")
+                        logger.error("Your --share-y-by is %d" % share_y_by)
                         logger.error("Your error line in %s" % lines)
 
                         exit(err)
 
-            elif share_y_by > 0:
-                try:
-                    tmp = shared_y.get(lines[share_y_by - 1], [])
-                    tmp.append(bam_list[-1])
-                    shared_y[lines[share_y_by - 1]] = tmp
-                except IndexError as err:
-                    logger.error(err)
-                    logger.error("Wrong --share-y-by index")
-                    logger.error("Your --share-y-by is %d" % share_y_by)
-                    logger.error("Your error line in %s" % lines)
+                if len(bam_list) == 0:
+                    logger.error("Cannot find any input bam file, please check the bam path or the input list")
+                    exit(1)
 
-                    exit(err)
-
-    if len(bam_list) == 0:
-        logger.error("Cannot find any input bam file, please check the bam path or the input list")
-        exit(1)
-
-    return bam_list, shared_y
+    return list(bam_list.values()), {i: [bam_list[k] for k in j] for i, j in shared_y.items()}

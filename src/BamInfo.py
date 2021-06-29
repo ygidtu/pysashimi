@@ -10,9 +10,9 @@ class BamInfo(object):
         self.alias = alias
         self.title = title
         self.label = label
-        self.path = path
+        self.path = [path]
         self.color = color
-        self.barcodes = barcodes
+        self.barcodes = barcodes if not barcodes else []
 
     def __hash__(self):
         return hash(self.alias)
@@ -40,3 +40,13 @@ class BamInfo(object):
             temp.append(str(x))
 
         return ",".join(temp)
+
+    def __add__(self, other):
+        self.path += other.path
+        self.barcodes += other.barcodes
+
+        return self
+
+
+if __name__ == '__main__':
+    pass

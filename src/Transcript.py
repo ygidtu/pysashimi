@@ -15,13 +15,29 @@ class Transcript(GenomicLoci):
     """
 
     __slots__ = [
-        "transcript",
         "gene",
+        "gene_id",
+        "transcript",
+        "transcript_id",
         "exons",
-        "is_reads"
+        "is_reads",
+        "show_id"
     ]
 
-    def __init__(self, chromosome, start, end, strand, transcript_id, gene_id, exons, is_reads=False):
+    def __init__(
+        self, 
+        chromosome: str, 
+        start: int, 
+        end: int,
+        strand: int, 
+        exons: list, 
+        gene: str = "",
+        gene_id: str = "", 
+        transcript: str = "",
+        transcript_id: str = "", 
+        is_reads: bool=False, 
+        show_id: bool = False
+    ):
         u"""
         init this class
         :param chromosome: str
@@ -39,10 +55,13 @@ class Transcript(GenomicLoci):
             end=end,
             strand=strand
         )
-        self.transcript = transcript_id
-        self.gene = gene_id
+        self.transcript = transcript
+        self.transcript_id = transcript_id
+        self.gene = gene
+        self.gene_id = gene_id
         self.exons = exons
         self.is_reads = is_reads
+        self.show_id = show_id
 
     def __str__(self):
         u"""

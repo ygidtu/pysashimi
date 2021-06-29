@@ -139,7 +139,7 @@ class SpliceRegion(GenomicLoci):
             reverse=True
         )
 
-    def add_gtf(self, gtf_line):
+    def add_gtf(self, gtf_line, show_id: bool = False):
         u"""
         add new gtf info to this Transcripts class
         :param gtf_line
@@ -166,7 +166,10 @@ class SpliceRegion(GenomicLoci):
                         strand=gtf_line.strand,
                         transcript_id=gtf_line.transcript_id,
                         gene_id=gtf_line.gene_id,
-                        exons=[]
+                        gene = gtf_line.gene_name,
+                        transcript = gtf_line.transcript_name,
+                        exons=[],
+                        show_id = show_id
                     )
 
             elif gtf_line.feature == "exon":

@@ -49,7 +49,7 @@ class ReadDepth(GenomicLoci):
     @classmethod
     def determine_depth(
         cls,
-        bam_file_path: str,
+        bam_file_paths: List[str],
         chrm: str,
         start_coord: int,
         end_coord: int,
@@ -81,147 +81,146 @@ class ReadDepth(GenomicLoci):
         reads = {}
         plus, minus = np.zeros(end_coord - start_coord + 1, dtype="f"), np.zeros(end_coord - start_coord + 1, dtype="f")
         try:
-            with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
-                try:
-                    relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
-                except ValueError as err:
-                    logger.warning(err)
-                    err = str(err)
-
-                    if "without index" in err:
-                        logger.info("try to create index for %s" % bam_file_path)
-                        pysam.index(bam_file_path)
+            for bam_file_path in bam_file_paths:
+                with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
+                    try:
                         relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
-                    else:
-                        if chrm.startswith("chr"):
-                            logger.info("try without chr")
-                            chrm = chrm.replace("chr", "")
+                    except ValueError as err:
+                        logger.warning(err)
+                        err = str(err)
+
+                        if "without index" in err:
+                            logger.info("try to create index for %s" % bam_file_path)
+                            pysam.index(bam_file_path)
+                            relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
                         else:
-                            logger.info("try with chr")
-                            chrm = "chr{}".format(chrm)
-                        relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
-                
-                depth_vector = np.zeros(end_coord - start_coord + 1, dtype='f')
-                spanned_junctions = {}
-
-                # tqdm()
-                for read in relevant_reads:
-                    # make sure that the read can be used
-                    cigar_string = read.cigartuples
-
-                    # each read must have a cigar string
-                    if cigar_string is None:
-                        continue
+                            if chrm.startswith("chr"):
+                                logger.info("try without chr")
+                                chrm = chrm.replace("chr", "")
+                            else:
+                                logger.info("try with chr")
+                                chrm = "chr{}".format(chrm)
+                            relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
                     
-                    # select R1 or R2
-                    if reads1 is True and not read.is_read1:
-                        continue
+                    depth_vector = np.zeros(end_coord - start_coord + 1, dtype='f')
+                    spanned_junctions = {}
 
-                    if reads1 is False and not read.is_read2:
-                        continue
-                    
-                    # filter reads by 10x barcodes
-                    if barcodes is not None and barcodes:
-                        if not read.has_tag(barcode_tag) or not read.get_tag(barcode_tag) not in barcodes:
+                    # tqdm()
+                    for read in relevant_reads:
+                        # make sure that the read can be used
+                        cigar_string = read.cigartuples
+
+                        # each read must have a cigar string
+                        if cigar_string is None:
+                            continue
+                        
+                        # select R1 or R2
+                        if reads1 is True and not read.is_read1:
                             continue
 
-                    start = read.reference_start
-
-                    """
-                    M	BAM_CMATCH	0
-                    I	BAM_CINS	1
-                    D	BAM_CDEL	2
-                    N	BAM_CREF_SKIP	3
-                    S	BAM_CSOFT_CLIP	4
-                    H	BAM_CHARD_CLIP	5
-                    P	BAM_CPAD	6
-                    =	BAM_CEQUAL	7
-                    X	BAM_CDIFF	8
-                    B	BAM_CBACK	9
-                    """
-                    exons_in_read = []
-                    for cigar, length in cigar_string:
-                        cur_start = start + 1
-                        cur_end = start + length + 1
-
-                        if cigar == 0: # M
-                            for i in range(length):
-                                if start_coord <= start + i + 1 <= end_coord:
-                                    try:
-                                        depth_vector[start + i + 1 - start_coord] += 1
-                                    except IndexError as err:
-                                        print(start_coord, end_coord)
-                                        print(cigar_string)
-                                        print(start, i)
-                                        exit(err)
-
-                            if cur_start < end_coord and cur_end > start_coord:
-                                exons_in_read.append(GenomicLoci(
-                                    chromosome=read.reference_name,
-                                    start=cur_start if cur_start > start_coord else start_coord,
-                                    end=cur_end if cur_end <= end_coord else end_coord,
-                                    strand="+",
-                                ))
-
-                        if cigar not in (1, 2, 4, 5):  # I, D, S, H
-                            start += length
-
-                        if cigar == 3: # N
-                            try:
-                                junction_name = Junction(
-                                    chrm,
-                                    cur_start,
-                                    cur_end
-                                )
-
-                                if junction_name not in spanned_junctions:
-                                    spanned_junctions[junction_name] = 0
-
-                                spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
-                            except ValueError as err:
-                                logger.warning(err)
+                        if reads1 is False and not read.is_read2:
+                            continue
+                        
+                        # filter reads by 10x barcodes
+                        if barcodes is not None and barcodes:
+                            if not read.has_tag(barcode_tag) or not read.get_tag(barcode_tag) not in barcodes:
                                 continue
 
+                        start = read.reference_start
 
-                    strand = "+"
-                    if read.is_reverse:
-                        strand = "+" if read.is_read1 else "-"
-                    else:
-                        strand = "+" if not read.is_read1 else "-"
+                        """
+                        M	BAM_CMATCH	0
+                        I	BAM_CINS	1
+                        D	BAM_CDEL	2
+                        N	BAM_CREF_SKIP	3
+                        S	BAM_CSOFT_CLIP	4
+                        H	BAM_CHARD_CLIP	5
+                        P	BAM_CPAD	6
+                        =	BAM_CEQUAL	7
+                        X	BAM_CDIFF	8
+                        B	BAM_CBACK	9
+                        """
+                        exons_in_read = []
+                        for cigar, length in cigar_string:
+                            cur_start = start + 1
+                            cur_end = start + length + 1
 
-                    t = Transcript(
-                        chromosome=read.reference_name,
-                        start=read.reference_start + 1 if read.reference_start + 1 > start_coord else start_coord,
-                        end=read.reference_end + 1 if read.reference_end + 1 < end_coord else end_coord,
-                        strand=strand,
-                        transcript_id="",
-                        gene_id="",
-                        exons=exons_in_read,
-                        is_reads=True
-                    )
-                    reads[t] = reads.get(t, 0) + 1
+                            if cigar == 0: # M
+                                for i in range(length):
+                                    if start_coord <= start + i + 1 <= end_coord:
+                                        try:
+                                            depth_vector[start + i + 1 - start_coord] += 1
+                                        except IndexError as err:
+                                            print(start_coord, end_coord)
+                                            print(cigar_string)
+                                            print(start, i)
+                                            exit(err)
 
-                    if t.strand == "+":
-                        plus[t.start - start_coord] += 1
-                    else:
-                        minus[t.end - start_coord] += 1
-                    
-            filtered_junctions = {}
-            for k, v in spanned_junctions.items():
-                if v >= threshold:
-                    filtered_junctions[k] = v
+                                if cur_start < end_coord and cur_end > start_coord:
+                                    exons_in_read.append(GenomicLoci(
+                                        chromosome=read.reference_name,
+                                        start=cur_start if cur_start > start_coord else start_coord,
+                                        end=cur_end if cur_end <= end_coord else end_coord,
+                                        strand="+",
+                                    ))
 
-            if log == 10:
-                depth_vector = np.log10(depth_vector + 1)
-            elif log == 2:
-                depth_vector = np.log2(depth_vector + 1)
-            elif log == "zscore":
-                depth_vector = zscore(depth_vector)
+                            if cigar not in (1, 2, 4, 5):  # I, D, S, H
+                                start += length
 
-            filtered_reads = set()
-            for k, v in reads.items():
-                if v >= threshold_of_reads:
-                    filtered_reads.add(k)
+                            if cigar == 3: # N
+                                try:
+                                    junction_name = Junction(
+                                        chrm,
+                                        cur_start,
+                                        cur_end
+                                    )
+
+                                    if junction_name not in spanned_junctions:
+                                        spanned_junctions[junction_name] = 0
+
+                                    spanned_junctions[junction_name] = spanned_junctions[junction_name] + 1
+                                except ValueError as err:
+                                    logger.warning(err)
+                                    continue
+
+
+                        strand = "+"
+                        if read.is_reverse:
+                            strand = "+" if read.is_read1 else "-"
+                        else:
+                            strand = "+" if not read.is_read1 else "-"
+
+                        t = Transcript(
+                            chromosome=read.reference_name,
+                            start=read.reference_start + 1 if read.reference_start + 1 > start_coord else start_coord,
+                            end=read.reference_end + 1 if read.reference_end + 1 < end_coord else end_coord,
+                            strand=strand,
+                            exons=exons_in_read,
+                            is_reads=True
+                        )
+                        reads[t] = reads.get(t, 0) + 1
+
+                        if t.strand == "+":
+                            plus[t.start - start_coord] += 1
+                        else:
+                            minus[t.end - start_coord] += 1
+                        
+                filtered_junctions = {}
+                for k, v in spanned_junctions.items():
+                    if v >= threshold:
+                        filtered_junctions[k] = v
+
+                if log == 10:
+                    depth_vector = np.log10(depth_vector + 1)
+                elif log == 2:
+                    depth_vector = np.log2(depth_vector + 1)
+                elif log == "zscore":
+                    depth_vector = zscore(depth_vector)
+
+                filtered_reads = set()
+                for k, v in reads.items():
+                    if v >= threshold_of_reads:
+                        filtered_reads.add(k)
 
             return cls(
                 chromosome=chrm,
