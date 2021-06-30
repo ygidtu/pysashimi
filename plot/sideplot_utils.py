@@ -85,10 +85,9 @@ def plot_sideplot(
     for label in universal_yticks:
         curr_yticklabels.append("{}".format(int(label)))
 
-    ax_var.set_yticklabels(curr_yticklabels,
-                        fontsize=font_size)
-    ax_var.spines["left"].set_bounds(ymin, ymax)
     ax_var.set_yticks(universal_yticks)
+    ax_var.set_yticklabels(curr_yticklabels, fontsize=font_size)
+    ax_var.spines["left"].set_bounds(ymin, ymax)
     ax_var.yaxis.set_ticks_position('left')
     ax_var.spines["right"].set_visible(False)
 

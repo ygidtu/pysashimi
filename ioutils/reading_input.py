@@ -194,7 +194,7 @@ def __read_from_bam__(args):
     try:
 
         tmp = ReadDepth.determine_depth(
-            bam_file_paths=bam.path,
+            bam=bam,
             chrm=splice_region.chromosome,
             start_coord=splice_region.start,
             end_coord=splice_region.end,
@@ -202,7 +202,6 @@ def __read_from_bam__(args):
             threshold_of_reads=threshold_of_reads,
             log=log,
             reads1=reads,
-            barcodes=bam.barcodes,
             barcode_tag=barcode_tag
         )
 

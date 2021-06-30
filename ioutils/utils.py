@@ -247,7 +247,7 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
     if color_factor and not isinstance(color_factor, int):
         with open(color_factor) as r:
             for line in r:
-                line = line.strip().split()
+                line = line.strip().split("\t")
                 res[line[0]] = line[1]
 
     with open(bam) as r:
@@ -262,7 +262,7 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
                     if len(line) <= color_factor:
                         logger.error("--color-factor must <= number of columns from " + bam)
                         exit(1)
-                    res[key] = line[color_factor]
+                    res[key] = line[color_factor].upper()
                     if "|" in res[key]:
                         res[key] = res[key].split("|")[1]
 

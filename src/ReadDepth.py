@@ -13,6 +13,7 @@ from src.GenomicLoci import GenomicLoci
 from src.Junction import Junction
 from src.logger import logger
 from src.Transcript import Transcript
+from src.BamInfo import BamInfo
 
 
 class ReadDepth(GenomicLoci):
@@ -49,14 +50,13 @@ class ReadDepth(GenomicLoci):
     @classmethod
     def determine_depth(
         cls,
-        bam_file_paths: List[str],
+        bam: BamInfo,
         chrm: str,
         start_coord: int,
         end_coord: int,
         threshold: int,
         threshold_of_reads: int,
         log,
-        barcodes: Optional[List[str]] = None,
         reads1: Optional[bool] = None,
         barcode_tag: str = "CB"
     ):
@@ -85,7 +85,7 @@ class ReadDepth(GenomicLoci):
         spanned_junctions = {}
         plus, minus = np.zeros(end_coord - start_coord + 1, dtype="f"), np.zeros(end_coord - start_coord + 1, dtype="f")
         try:
-            for bam_file_path in bam_file_paths:
+            for bam_file_path in bam.path:
                 with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
                     try:
                         relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
@@ -123,8 +123,8 @@ class ReadDepth(GenomicLoci):
                             continue
                         
                         # filter reads by 10x barcodes
-                        if barcodes is not None and barcodes:
-                            if not read.has_tag(barcode_tag) or not read.get_tag(barcode_tag) not in barcodes:
+                        if not bam.empty_barcode():
+                            if not read.has_tag(barcode_tag) or not bam.has_barcode(read.get_tag(barcode_tag)):
                                 continue
 
                         start = read.reference_start

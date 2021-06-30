@@ -37,8 +37,8 @@ def plot_density(
         logtrans=None,
         distance_ratio=0.3,
         stack=False,
-        show_side = True,
-        side_strand_choice = None
+        show_side=True,
+        side_strand_choice=None
 ):
     u"""
     Several modifications were taken
@@ -102,20 +102,22 @@ def plot_density(
     )
 
     # set the number of axis
-    n_files = len(read_depths_dict) + ((len(transcripts) // 2) if len(transcripts) > 1 else 1)  + ((len(reads) // 4) if len(reads) > 1 else 1)
+    n_files = len(read_depths_dict) + ((len(transcripts) // 2) if len(transcripts)
+                                       > 1 else 1) + ((len(reads) // 4) if len(reads) > 1 else 1)
 
     number_of_sashimi = len(read_depths_dict)
     if show_side:
         n_files += len(read_depths_dict) * 2
         number_of_sashimi += len(read_depths_dict) * 2
-    
+
     gs = gridspec.GridSpec(n_files, 1)
 
     """
     @2019.01.07
     calculate the distance between ylabel and y axis
     """
-    distance_between_label_axis = max([len(x) if isinstance(x, str) else len(x.alias) for x in read_depths_dict.keys()]) * 2.5
+    distance_between_label_axis = max([len(x) if isinstance(
+        x, str) else len(x.alias) for x in read_depths_dict.keys()]) * 2.5
 
     u"""
     @2018.12.19
@@ -147,9 +149,9 @@ def plot_density(
             numbering_font_size=numbering_font_size,
             no_bam=no_bam,
             logtrans=logtrans,
-            show_ylabel = show_ylabel,
-            distance_between_label_axis = distance_between_label_axis,
-            sites = splice_region.sites
+            show_ylabel=show_ylabel,
+            distance_between_label_axis=distance_between_label_axis,
+            sites=splice_region.sites
         )
 
         """
@@ -165,24 +167,24 @@ def plot_density(
                 curr_ax,
                 font_size=font_size,
                 logtrans=logtrans,
-                sites = splice_region.sites,
-                strand_choice = side_strand_choice
+                sites=splice_region.sites,
+                strand_choice=side_strand_choice
             )
 
         i += 3 if show_side else 1
         if i == number_of_sashimi:
             # curr_ax = plt.subplot(gs[number_of_sashimi - 1, :])
             set_x_ticks(
-                average_read_depth, curr_ax, 
-                graph_coords, chromosome, strand, 
-                logtrans = logtrans, nx_ticks = nxticks, 
+                average_read_depth, curr_ax,
+                graph_coords, chromosome, strand,
+                logtrans=logtrans, nx_ticks=nxticks,
                 font_size=font_size
             )
-        
 
    # Draw reads
     if len(reads) > 0:
-        plt.subplot(gs[number_of_sashimi:len(reads) // 4 + len(read_depths_dict), :])
+        plt.subplot(gs[number_of_sashimi:len(reads) //
+                    4 + len(read_depths_dict), :])
         plot_transcripts(
             tx_start=tx_start,
             transcripts=reads,
@@ -199,7 +201,8 @@ def plot_density(
     add more subplots, based on the number of transcripts
     """
     if len(transcripts) > 0:
-        plt.subplot(gs[number_of_sashimi + len(reads) // 4:, :]) # + 1 if splice_region.sequence else len(read_depths_dict)
+        # + 1 if splice_region.sequence else len(read_depths_dict)
+        plt.subplot(gs[number_of_sashimi + len(reads) // 4:, :])
 
         plot_transcripts(
             tx_start=tx_start,
@@ -210,7 +213,7 @@ def plot_density(
             show_gene=show_gene,
             distance_ratio=distance_ratio,
             ymax=len(transcripts) - .5,
-            sites = splice_region.sites
+            sites=splice_region.sites
         )
 
     pylab.subplots_adjust(hspace=.15, wspace=.7)
@@ -228,10 +231,9 @@ def draw_sashimi_plot(
         distance_ratio=0.3,
         title=None,
         stack=False,
-        show_side = False,
-        side_strand_choice = None
+        show_side=False,
+        side_strand_choice=None
 ):
-
     """
         draw_sashimi_plot draws the complete sashimi plot
 
@@ -254,14 +256,16 @@ def draw_sashimi_plot(
 
     """
 
-    assert isinstance(splice_region, SpliceRegion), "splice_region should be SpliceRegion, not %s" % type(splice_region)
+    assert isinstance(
+        splice_region, SpliceRegion), "splice_region should be SpliceRegion, not %s" % type(splice_region)
 
     u"""
     @2019.01.04
     If there is no bam, reduce the height of figure
     """
     if no_bam:
-        height = settings['height'] * (len(average_depths_dict) + len(splice_region.transcripts)) // 2
+        height = settings['height'] * \
+            (len(average_depths_dict) + len(splice_region.transcripts)) // 2
     elif stack:
         num_reads = 0
         for val in average_depths_dict.values():
@@ -276,7 +280,8 @@ def draw_sashimi_plot(
         if splice_region.sequence:
             height += (settings["height"] * .2 if temp_num > 5 else .4)
     else:
-        temp_num = (len(average_depths_dict) + len(splice_region.transcripts) // 2)
+        temp_num = (len(average_depths_dict) +
+                    len(splice_region.transcripts) // 2)
 
         height = settings['height'] * temp_num
 
@@ -295,8 +300,8 @@ def draw_sashimi_plot(
         distance_ratio=distance_ratio,
         title=title,
         stack=stack,
-        show_side = show_side,
-        side_strand_choice = side_strand_choice
+        show_side=show_side,
+        side_strand_choice=side_strand_choice
     )
 
     logger.info("save to %s" % output_file_path)
@@ -305,4 +310,3 @@ def draw_sashimi_plot(
         transparent=True,
         bbox_inches='tight'
     )
-

@@ -48,7 +48,7 @@ class SpliceRegion(GenomicLoci):
             end=end,
             strand=strand,
         )
-        self.sites = set(sites) if sites else set()
+        self.sites = self.set_sites(sites)
         self.events = events
         self.chromosome = chromosome
         self.start = int(start)
@@ -59,6 +59,17 @@ class SpliceRegion(GenomicLoci):
         self.sequence = None
 
         self.__uniq_transcripts__ = set()
+
+    def set_sites(self, sites):
+        res = {}
+
+        if sites:
+            for s in sites:
+                if s not in res.keys():
+                    res[s] = "blue"
+                else:
+                    res[s] = "red"
+        return res
 
     def __str__(self):
         return '{0}:{1}-{2},{3}'.format(
@@ -220,10 +231,12 @@ class SpliceRegion(GenomicLoci):
             start=self.start,
             end=self.end,
             strand=self.strand,
-            sites=self.sites,
+            sites=None,
             events=self.events,
             ori=self.ori
         )
+
+        temp.sites = self.sites
 
         temp.__transcripts__ = self.__transcripts__
         temp.sequence = self.sequence

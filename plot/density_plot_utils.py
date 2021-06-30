@@ -6,9 +6,7 @@ Created by Zhang at 2021.03.16
 Seperate the  single density plot from sashimi_plot_utils
 """
 
-import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
-import numpy
 from matplotlib import pylab
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path

@@ -3,6 +3,7 @@
 u"""
 Created by ygidtu@gmail.com at 2019.12.06
 """
+from typing import Dict, List, Optional
 
 
 class BamInfo(object):
@@ -12,15 +13,60 @@ class BamInfo(object):
         self.label = label
         self.path = [path]
         self.color = color
-        self.barcodes = barcodes
+        self.barcodes = self.set_barcodes(barcodes)
 
-        if self.barcodes is None:
-            self.barcodes = []
+    def set_barcodes(self, barcodes: Optional[List[str]]) -> Dict:
+        u"""
+        seperate barcodes by it's first character to reduce set size
+        :params barcodes: list or set of barcodes
+        """
+        res = {}
+
+        if barcodes is not None:
+            for b in barcodes:
+                if b:
+                    f = b[:min(3, len(b))]
+
+                    if f not in res.keys():
+                        res[f] = set()
+
+                    res[f].add(b)
+
+        return res
+
+    def has_barcode(self, barcode: str) -> bool:
+        u"""
+        check whether contains barcodes
+        :param barcode: barcode string
+        """
+        if barcode:
+            f = barcode[:min(3, len(barcode))]
+
+            temp = self.barcodes.get(f, set())
+
+            return barcode in temp
+        return False
+
+    def empty_barcode(self) -> bool:
+        u"""
+        check whether this bam do not contains any barcodes
+        
+        """
+        count = 0
+
+        for i in self.barcodes.values():
+            count += len(i)
+
+            if count > 0:
+                return False
+
+        return True
+
 
     def __hash__(self):
         return hash(self.alias)
 
-    def __str__(self):
+    def __str__(self) -> str:
 
         temp = []
 
@@ -31,10 +77,10 @@ class BamInfo(object):
 
         return "\t".join(temp)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return self.__hash__() == other.__hash__()
 
-    def to_csv(self):
+    def to_csv(self) -> str:
         temp = []
 
         for x in [self.alias, self.title, self.label, self.path, self.color]:
@@ -46,9 +92,12 @@ class BamInfo(object):
 
     def __add__(self, other):
         self.path += other.path
-        temp = list(self.barcodes)
-        temp += list(other.barcodes)
-        self.barcodes = temp
+        
+        for i, j in other.barcodes.items():
+            if i not in self.barcodes.keys():
+                self.barcodes[i] = j
+            else:
+                self.barcodes[i] |= j
 
         return self
 

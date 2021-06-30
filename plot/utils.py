@@ -203,13 +203,13 @@ def set_indicator_lines(read_depth_object, ax_var, graph_coords, sites, ymax=Non
     if ax_var is None:
         ax_var = pylab
 
-    for site in sites:
+    for site, color in sites.items():
         try:
             ax_var.vlines(
                 x=graph_coords[site - read_depth_object],
                 ymin=0,
                 ymax=ymax,
-                color="blue",
+                color=color,
                 linestyles="dashed",
                 lw=0.5
             )

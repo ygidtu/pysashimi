@@ -22,13 +22,13 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def darw_without_bam(
     bam,
     count_table,
-    splice_region, 
-    colors, 
+    splice_region,
+    colors,
     color_factor,
-    threshold, 
-    output, 
-    sashimi_plot_settings, 
-    no_gene, 
+    threshold,
+    output,
+    sashimi_plot_settings,
+    no_gene,
     dpi,
     distance_ratio,
     title
@@ -50,7 +50,8 @@ def darw_without_bam(
                     required_cols[lines[0]] = clean_star_filename(lines[0])
 
                 if lines[color_factor - 1] not in tmp_color.keys():
-                    tmp_color[required_cols[lines[0]]] = colors[color_index % len(colors)]
+                    tmp_color[required_cols[lines[0]]
+                              ] = colors[color_index % len(colors)]
                     color_index += 1
 
     reads_depth = read_reads_depth_from_count_table(
@@ -75,23 +76,24 @@ def darw_without_bam(
 
 
 def draw_default(
-    bam, splice_region, 
-    color_factor, colors, 
-    share_y, share_y_by, 
+    bam, splice_region,
+    color_factor, colors,
+    share_y, share_y_by,
     barcode,
     sort_by_color,
-    threshold, threshold_of_reads, 
-    log, process, reads, 
+    threshold, threshold_of_reads,
+    log, process, reads,
     barcode_tag, save_depth,
-    output, 
+    output,
     customized_junction,
     sashimi_plot_settings,
-    no_gene, dpi, 
+    no_gene, dpi,
     distance_ratio,
     title, show_side,
     stack, side_strand,
 ):
-    bam_list, shared_y = prepare_bam_list(bam, color_factor, colors, share_y_by, barcodes=barcode)
+    bam_list, shared_y = prepare_bam_list(
+        bam, color_factor, colors, share_y_by, barcodes=barcode)
 
     if sort_by_color:
         bam_list = sorted(bam_list, key=lambda x: x.color)
@@ -127,7 +129,8 @@ def draw_default(
             colors=colors
         )
 
-        temp_customized_junction = {k.alias: v for k, v in customized_junction.items()}
+        temp_customized_junction = {
+            k.alias: v for k, v in customized_junction.items()}
 
         for key, value in reads_depth.items():
             temp = temp_customized_junction.get(
@@ -150,8 +153,8 @@ def draw_default(
         distance_ratio=distance_ratio,
         title=title,
         stack=stack,
-        show_side = show_side,
-        side_strand_choice = {"+": "plus", "-": "minus"}.get(side_strand)
+        show_side=show_side,
+        side_strand_choice={"+": "plus", "-": "minus"}.get(side_strand)
     )
 
 
@@ -239,7 +242,7 @@ def draw_default(
     default=None,
     type=click.STRING,
     help="""
-    Where to plot additional indicator lines, comma separated int \b
+    Where to plot additional indicator lines, comma separated int, sites occured multiple times will highlight in red \b
     Or \b
     Path to file contains indicator lines, \b
     1st column is the line site
@@ -287,7 +290,7 @@ def draw_default(
 @click.option(
     "-p",
     "--process",
-    type=click.IntRange(min=1, max = cpu_count()),
+    type=click.IntRange(min=1, max=cpu_count()),
     default=1,
     help="""
     How many cpu to use \b
@@ -366,7 +369,7 @@ def draw_default(
     help="""
     Path to barcode list file, 
     At list  three columns were required,
-    1st The alias of bam file; 2nd the barcode;
+    1st The name of bam file; 2nd the barcode;
     3rd The group label
      \b
     """
@@ -399,15 +402,6 @@ def draw_default(
     """
 )
 @click.option(
-    "--show-side",
-    is_flag=True,
-    type=click.BOOL,
-    help="""
-    Whether to draw additional side plot, 
-     \b
-    """
-)
-@click.option(
     "--side-strand",
     type=click.Choice(["All", "+", "-"]),
     default="All",
@@ -421,19 +415,19 @@ def draw_default(
     is_flag=True,
     help="""
     which show gene id or gene name
-     \b
+    \b
     """
 )
 def plot(
-        bam, event, gtf, output,
-        config, threshold, indicator_lines,
-        share_y, no_gene, color_factor,
-        dpi, log, customized_junction,
-        process, sort_by_color, share_y_by,
-        remove_empty_gene, distance_ratio,
-        title, genome, save_depth, stack,
-        threshold_of_reads, barcode, barcode_tag,
-        reads, show_side, side_strand, count_table,
+        bam: str, event: str, gtf: str, output: str,
+        config: str, threshold: int, indicator_lines: str,
+        share_y: bool, no_gene: bool, color_factor: str,
+        dpi: int, log: str, customized_junction: str,
+        process: int, sort_by_color: bool, share_y_by: int,
+        remove_empty_gene: bool, distance_ratio: float,
+        title: str, genome: str, save_depth: str, stack: bool,
+        threshold_of_reads: int, barcode: str, barcode_tag: str,
+        reads: str, show_side: bool, side_strand: str, count_table: str,
         show_id: bool = False
 ):
     u"""
@@ -486,49 +480,53 @@ def plot(
 
     colors = sashimi_plot_settings["colors"]
 
-    splice_region = get_sites_from_splice_id(event, indicator_lines=indicator_lines)
+    splice_region = get_sites_from_splice_id(
+        event, indicator_lines=indicator_lines)
 
     splice_region = read_transcripts(
         gtf_file=index_gtf(input_gtf=gtf),
         genome=genome,
         region=splice_region,
-        show_id = show_id
+        show_id=show_id
     )
 
     if remove_empty_gene:
         splice_region.remove_empty_transcripts()
 
-
     if count_table:
         darw_without_bam(
             bam,
             count_table,
-            splice_region, 
-            colors, 
+            splice_region,
+            colors,
             color_factor,
-            threshold, 
-            output, 
-            sashimi_plot_settings, 
-            no_gene, 
+            threshold,
+            output,
+            sashimi_plot_settings,
+            no_gene,
             dpi,
             distance_ratio,
             title
         )
     else:
         draw_default(
-            bam, splice_region, 
-            color_factor, colors, 
-            share_y, share_y_by, 
+            bam, splice_region,
+            color_factor, colors,
+            share_y, share_y_by,
             barcode,
             sort_by_color,
-            threshold, threshold_of_reads, 
-            log, process, reads, 
+            threshold, threshold_of_reads,
+            log, process, reads,
             barcode_tag, save_depth,
-            output, 
+            output,
             customized_junction,
             sashimi_plot_settings,
-            no_gene, dpi, 
+            no_gene, dpi,
             distance_ratio,
             title, show_side,
             stack, side_strand
         )
+
+
+if __name__ == '__main__':
+    pass
