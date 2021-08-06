@@ -91,6 +91,7 @@ def draw_default(
     distance_ratio,
     title, show_side,
     stack, side_strand,
+    strandness
 ):
     bam_list, shared_y = prepare_bam_list(
         bam, color_factor, colors, share_y_by, barcodes=barcode)
@@ -106,7 +107,8 @@ def draw_default(
         log=log,
         n_jobs=process,
         reads=reads,
-        barcode_tag=barcode_tag
+        barcode_tag=barcode_tag,
+        strandness=strandness
     )
 
     if save_depth:
@@ -325,7 +327,7 @@ def draw_default(
     type=click.INT,
     default=-1,
     help="""
-    Index of column with share y axis (1-based), Need --share-y\. 
+    Index of column with share y axis (1-based), Need --share-y. 
     For example, first 3 bam files use same y axis, and the rest use another
     """,
     show_default=True
@@ -418,6 +420,14 @@ def draw_default(
     \b
     """
 )
+@click.option(
+    "-S", "--strand-specific",
+    is_flag=True,
+    help="""
+    only show transcripts and reads of input region
+    \b
+    """
+)
 def plot(
         bam: str, event: str, gtf: str, output: str,
         config: str, threshold: int, indicator_lines: str,
@@ -427,7 +437,7 @@ def plot(
         remove_empty_gene: bool, distance_ratio: float,
         title: str, genome: str, save_depth: str, stack: bool,
         threshold_of_reads: int, barcode: str, barcode_tag: str,
-        reads: str, show_side: bool, side_strand: str, count_table: str,
+        reads: str, show_side: bool, side_strand: str, count_table: str, strand_specific: bool,
         show_id: bool = False
 ):
     u"""
@@ -487,7 +497,8 @@ def plot(
         gtf_file=index_gtf(input_gtf=gtf),
         genome=genome,
         region=splice_region,
-        show_id=show_id
+        show_id=show_id,
+        strandness=not strand_specific,
     )
 
     if remove_empty_gene:
@@ -524,7 +535,8 @@ def plot(
             no_gene, dpi,
             distance_ratio,
             title, show_side,
-            stack, side_strand
+            stack, side_strand,
+            not strand_specific
         )
 
 

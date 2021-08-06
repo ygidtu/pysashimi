@@ -313,9 +313,13 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                 logger.warn("wrong input path or input list sep by blank, it should be '\\t'")
                 continue
 
-            temp_barcodes = barcodes_group.get(clean_star_filename(lines[0]), {})
             if not is_bam(lines[0]):
                 raise ValueError("%s seem not ba a valid BAM file" % lines[0])
+
+            temp_barcodes = barcodes_group.get(
+                clean_star_filename(lines[0]), 
+                barcodes_group.get(lines[1], {}) if len(lines) > 1 else {}
+            )
 
             if not barcodes_group:
                 key = lines[1] if len(lines) > 1 else clean_star_filename(lines[0])

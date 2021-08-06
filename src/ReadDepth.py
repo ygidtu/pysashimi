@@ -16,6 +16,24 @@ from src.Transcript import Transcript
 from src.BamInfo import BamInfo
 
 
+def __get_strand__(read: pysam.AlignedSegment) -> str:
+    u"""
+    determine the reads strand
+
+    :params read: 
+    """
+
+    if read.is_paired:
+        if read.is_read1 and read.is_reverse:
+            return "-"
+        elif read.is_read2 and not read.is_reverse:
+            return "-"
+
+        return "+"
+
+    return "-" if read.is_reverse else "+"
+
+
 class ReadDepth(GenomicLoci):
     u"""
     Migrated from SplicePlot ReadDepth class
@@ -23,7 +41,7 @@ class ReadDepth(GenomicLoci):
     add a parent class to handle all the position comparision
     """
 
-    def __init__(self, chromosome, start, end, wiggle, junctions_dict, reads, plus = None, minus = None):
+    def __init__(self, chromosome, start, end, wiggle, junctions_dict, reads = None, plus = None, minus = None):
         u"""
         init this class
         :param chromosome: str
@@ -43,9 +61,9 @@ class ReadDepth(GenomicLoci):
         self.sequence = None
         self.chromosome = chromosome
         self.start = start
-        self.__reads__ = reads
+        self.__reads__ = reads if reads is not None else []
         self.plus = plus
-        self.minus = minus * -1
+        self.minus = minus * -1 if minus is not None else minus
 
     @classmethod
     def determine_depth(
@@ -58,7 +76,8 @@ class ReadDepth(GenomicLoci):
         threshold_of_reads: int,
         log,
         reads1: Optional[bool] = None,
-        barcode_tag: str = "CB"
+        barcode_tag: str = "CB",
+        required_strand: Optional[str] = None
     ):
         """
             determine_depth determines the coverage at each base between start_coord and end_coord, inclusive.
@@ -77,6 +96,7 @@ class ReadDepth(GenomicLoci):
         :param log: whether use log transformed numbber of reads in sashimi
         :param barcodes: for 10x single cell
         :param reads1: None -> all reads, True -> only R1 kept; False -> only R2 kept
+        :param required_strand: None -> all reads, else reads on specific strand
         """
         reads = {}
         filtered_reads = set()
@@ -84,8 +104,9 @@ class ReadDepth(GenomicLoci):
         depth_vector = np.zeros(end_coord - start_coord + 1, dtype='f')
         spanned_junctions = {}
         plus, minus = np.zeros(end_coord - start_coord + 1, dtype="f"), np.zeros(end_coord - start_coord + 1, dtype="f")
-        try:
-            for bam_file_path in bam.path:
+        
+        for bam_file_path in bam.path:
+            try:
                 with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
                     try:
                         relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
@@ -128,6 +149,10 @@ class ReadDepth(GenomicLoci):
                                 continue
 
                         start = read.reference_start
+                        strand = __get_strand__(read)
+
+                        if required_strand and strand != required_strand:
+                            continue
 
                         """
                         M	BAM_CMATCH	0
@@ -184,13 +209,6 @@ class ReadDepth(GenomicLoci):
                                     logger.warning(err)
                                     continue
 
-
-                        strand = "+"
-                        if read.is_reverse:
-                            strand = "+" if read.is_read1 else "-"
-                        else:
-                            strand = "+" if not read.is_read1 else "-"
-
                         t = Transcript(
                             chromosome=read.reference_name,
                             start=read.reference_start + 1 if read.reference_start + 1 > start_coord else start_coord,
@@ -201,7 +219,7 @@ class ReadDepth(GenomicLoci):
                         )
                         reads[t] = reads.get(t, 0) + 1
 
-                        if t.strand == "+":
+                        if strand == "+":
                             plus[t.start - start_coord] += 1
                         else:
                             minus[t.end - start_coord] += 1
@@ -220,6 +238,12 @@ class ReadDepth(GenomicLoci):
                 for k, v in reads.items():
                     if v >= threshold_of_reads:
                         filtered_reads.add(k)
+            except IOError as err:
+                logger.error('There is no .bam file at {0}'.format(bam_file_path))
+                logger.error(err)
+            except ValueError as err:
+                logger.error(bam_file_path)
+                logger.error(err)
 
             return cls(
                 chromosome=chrm,
@@ -231,13 +255,7 @@ class ReadDepth(GenomicLoci):
                 plus = plus,
                 minus = minus
             )
-        except IOError as err:
-            logger.error('There is no .bam file at {0}'.format(bam_file_path))
-            raise err
-        except ValueError as err:
-            logger.error(bam_file_path)
-            logger.error(err)
-            # exit(err)
+
 
     @classmethod
     def create_depth(cls, data, splice_region, depth=10):

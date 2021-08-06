@@ -144,6 +144,7 @@ class SpliceRegion(GenomicLoci):
 
         :return: [[{transcript: id, gene: id, exon: []}, {}, {}], [{}]]
         """
+        transcripts = [v for v in self.__transcripts__.values() if len(v.exons) > 0]
         return sorted(
             self.__transcripts__.values(),
             key=lambda x: (x.start, x.end, len(x.exons)),
@@ -154,6 +155,7 @@ class SpliceRegion(GenomicLoci):
         u"""
         add new gtf info to this Transcripts class
         :param gtf_line
+        :param show_id: draw gene id and transcript id instead of gene name and transcript name
         :return:
         """
         if isinstance(gtf_line, Transcript):

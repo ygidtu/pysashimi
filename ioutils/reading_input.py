@@ -12,7 +12,6 @@ from collections import OrderedDict
 from multiprocessing import Pool
 
 import pysam
-from rich.progress import track
 from src.BamInfo import BamInfo
 from src.GenomicLoci import GenomicLoci
 from src.logger import logger
@@ -75,7 +74,7 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
             exit(1)
 
         with open(old_input_gtf) as r:
-            for line in track(r):
+            for line in r:
                 if line.startswith("#"):
                     w.write(line)
                     continue
@@ -121,7 +120,7 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
     return output_gtf
 
 
-def read_transcripts(gtf_file: str, region: SpliceRegion, genome: str=None, retry: int=0, show_id: bool = False):
+def read_transcripts(gtf_file: str, region: SpliceRegion, genome: str=None, retry: int=0, show_id: bool = False, strandness: bool = True):
     u"""
     Read transcripts from tabix indexed gtf files
 
@@ -132,6 +131,7 @@ def read_transcripts(gtf_file: str, region: SpliceRegion, genome: str=None, retr
     :param retry: if the gtf chromosome and input chromosome does not match. eg: chr9:1-100:+ <-> 9:1-100:+
     :param genome: path to genome fasta file
     :param show_id: whether show gene id or gene name
+    :param strandness: True -> show both + and - transcripts; False only show + or -
     :return: SpliceRegion
     """
     if gtf_file is None:
@@ -158,6 +158,10 @@ def read_transcripts(gtf_file: str, region: SpliceRegion, genome: str=None, retr
             # min_exon_start, max_exon_end, exons_list = float("inf"), float("-inf"),  []
             for line in relevant_exons_iterator:
                 try:
+
+                    if not strandness and line.strand != region.strand:
+                        continue
+
                     region.add_gtf(line, show_id = show_id)
                 except IndexError as err:
                     logger.error(err)
@@ -188,6 +192,7 @@ def __read_from_bam__(args):
     idx = args["idx"]
     reads = args["reads"]
     barcode_tag = args["barcode_tag"]
+    strandness = args["strandness"]
 
     if not splice_region:
         return None
@@ -202,7 +207,8 @@ def __read_from_bam__(args):
             threshold_of_reads=threshold_of_reads,
             log=log,
             reads1=reads,
-            barcode_tag=barcode_tag
+            barcode_tag=barcode_tag,
+            required_strand=splice_region.strand if not strandness else None
         )
 
         tmp.sequence = splice_region.sequence
@@ -223,7 +229,8 @@ def __read_from_bam__(args):
 def read_reads_depth_from_bam(
     bam_list, splice_region, 
     threshold=0, threshold_of_reads=0, log=None, n_jobs=1,
-    reads=None, barcode_tag="CB"
+    reads=None, barcode_tag="CB",
+    strandness: bool = True
 ):
     u"""
     read reads coverage info from all bams
@@ -250,7 +257,8 @@ def read_reads_depth_from_bam(
             "log": log, 
             "idx": idx, 
             "reads": reads,
-            "barcode_tag": barcode_tag
+            "barcode_tag": barcode_tag,
+            "strandness": strandness
         })
 
     try:
