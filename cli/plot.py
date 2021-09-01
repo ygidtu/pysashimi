@@ -91,10 +91,14 @@ def draw_default(
     distance_ratio,
     title, show_side,
     stack, side_strand,
-    strandness
+    strandness,
+    is_atac
 ):
     bam_list, shared_y = prepare_bam_list(
-        bam, color_factor, colors, share_y_by, barcodes=barcode)
+        bam, color_factor, colors, 
+        share_y_by, barcodes=barcode,
+        is_atac = is_atac
+    )
 
     if sort_by_color:
         bam_list = sorted(bam_list, key=lambda x: x.color)
@@ -108,7 +112,8 @@ def draw_default(
         n_jobs=process,
         reads=reads,
         barcode_tag=barcode_tag,
-        strandness=strandness
+        strandness=strandness,
+        is_atac = is_atac
     )
 
     if save_depth:
@@ -428,6 +433,15 @@ def draw_default(
     \b
     """
 )
+@click.option(
+    "--sc-atac",
+    is_flag=True,
+    type=click.BOOL,
+    help="""
+    Whether input file is fragments of scATAC-seq
+     \b
+    """
+)
 def plot(
         bam: str, event: str, gtf: str, output: str,
         config: str, threshold: int, indicator_lines: str,
@@ -438,7 +452,7 @@ def plot(
         title: str, genome: str, save_depth: str, stack: bool,
         threshold_of_reads: int, barcode: str, barcode_tag: str,
         reads: str, show_side: bool, side_strand: str, count_table: str, strand_specific: bool,
-        show_id: bool = False
+        show_id: bool = False, sc_atac: bool = False
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -536,7 +550,8 @@ def plot(
             distance_ratio,
             title, show_side,
             stack, side_strand,
-            not strand_specific
+            not strand_specific,
+            is_atac = sc_atac
         )
 
 

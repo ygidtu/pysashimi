@@ -193,25 +193,35 @@ def __read_from_bam__(args):
     reads = args["reads"]
     barcode_tag = args["barcode_tag"]
     strandness = args["strandness"]
+    is_atac = args.get("is_atac", False)
 
     if not splice_region:
         return None
     try:
 
-        tmp = ReadDepth.determine_depth(
-            bam=bam,
-            chrm=splice_region.chromosome,
-            start_coord=splice_region.start,
-            end_coord=splice_region.end,
-            threshold=threshold,
-            threshold_of_reads=threshold_of_reads,
-            log=log,
-            reads1=reads,
-            barcode_tag=barcode_tag,
-            required_strand=splice_region.strand if not strandness else None
-        )
+        if is_atac:
+            tmp = ReadDepth.determin_depth_by_fragments(
+                bam=bam,
+                chrm=splice_region.chromosome,
+                start_coord=splice_region.start,
+                end_coord=splice_region.end,
+                log=log
+            )
+        else:
+            tmp = ReadDepth.determine_depth(
+                bam=bam,
+                chrm=splice_region.chromosome,
+                start_coord=splice_region.start,
+                end_coord=splice_region.end,
+                threshold=threshold,
+                threshold_of_reads=threshold_of_reads,
+                log=log,
+                reads1=reads,
+                barcode_tag=barcode_tag,
+                required_strand=splice_region.strand if not strandness else None
+            )
 
-        tmp.sequence = splice_region.sequence
+            tmp.sequence = splice_region.sequence
 
         if tmp is None:
             return None
@@ -230,7 +240,8 @@ def read_reads_depth_from_bam(
     bam_list, splice_region, 
     threshold=0, threshold_of_reads=0, log=None, n_jobs=1,
     reads=None, barcode_tag="CB",
-    strandness: bool = True
+    strandness: bool = True,
+    is_atac: bool = False
 ):
     u"""
     read reads coverage info from all bams
@@ -258,7 +269,8 @@ def read_reads_depth_from_bam(
             "idx": idx, 
             "reads": reads,
             "barcode_tag": barcode_tag,
-            "strandness": strandness
+            "strandness": strandness,
+            "is_atac": is_atac
         })
 
     try:

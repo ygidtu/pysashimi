@@ -4,7 +4,7 @@ setup(
     name='pySashimi',
     author='ChenlinLab',
     author_email='ygidtu@gmail.com',
-    version='1.5.0-beta',
+    version='1.5.0',
     long_description=__doc__,
     packages=find_packages(),
     include_package_data=True,

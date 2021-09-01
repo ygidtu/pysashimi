@@ -9,7 +9,7 @@ from src.logger import init_logger
 from cli.line import line
 from cli.plot import plot
 
-VERSION = "1.5.0-alpha"
+VERSION = "1.5.0"
 LABEL = "pySashimi"
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 

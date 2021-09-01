@@ -245,17 +245,77 @@ class ReadDepth(GenomicLoci):
                 logger.error(bam_file_path)
                 logger.error(err)
 
-            return cls(
-                chromosome=chrm,
-                start=start_coord,
-                end=end_coord,
-                wiggle=depth_vector,
-                junctions_dict=filtered_junctions,
-                reads = filtered_reads,
-                plus = plus,
-                minus = minus
-            )
+        return cls(
+            chromosome=chrm,
+            start=start_coord,
+            end=end_coord,
+            wiggle=depth_vector,
+            junctions_dict=filtered_junctions,
+            reads = filtered_reads,
+            plus = plus,
+            minus = minus
+        )
 
+    @classmethod
+    def determin_depth_by_fragments(
+        cls, bam: BamInfo,
+        chrm: str,
+        start_coord: int,
+        end_coord: int,
+        log,
+        **kwargs
+    ):
+        filtered_reads = set()
+        filtered_junctions = {}
+        depth_vector = np.zeros(end_coord - start_coord + 1, dtype='f')
+        plus, minus = np.zeros(end_coord - start_coord + 1, dtype="f"), np.zeros(end_coord - start_coord + 1, dtype="f")
+
+        for bam_file_path in bam.path:
+            with pysam.TabixFile(bam_file_path) as tbx:
+                try:
+                    r = tbx.fetch(chrm, start_coord, end_coord, parser=pysam.asTuple())
+                except ValueError as err:
+                    logger.warning(err)
+                    err = str(err)
+
+                    if chrm.startswith("chr"):
+                        logger.info("try without chr")
+                        chrm = chrm.replace("chr", "")
+                    else:
+                        logger.info("try with chr")
+                        chrm = "chr{}".format(chrm)
+
+                    r = tbx.fetch(chrm, start_coord, end_coord, parser=pysam.asTuple())
+                
+                for _, start, end, barcode, count in r:
+                    # filter reads by 10x barcodes
+                    if not bam.empty_barcode():
+                        if not bam.has_barcode(barcode):
+                            continue
+                    
+                    start, end, count = int(start),  int(end), int(count)
+                    for i in range(max(start, start_coord), min(end, end_coord)):
+                        depth_vector[i -  start_coord] += count
+                        plus[i - start_coord] += count
+                        minus[i - end_coord] += count
+
+        if log == 10:
+            depth_vector = np.log10(depth_vector + 1)
+        elif log == 2:
+            depth_vector = np.log2(depth_vector + 1)
+        elif log == "zscore":
+            depth_vector = zscore(depth_vector)
+        
+        return cls(
+            chromosome=chrm,
+            start=start_coord,
+            end=end_coord,
+            wiggle=depth_vector,
+            junctions_dict=filtered_junctions,
+            reads = filtered_reads,
+            plus = plus,
+            minus = minus
+        )
 
     @classmethod
     def create_depth(cls, data, splice_region, depth=10):

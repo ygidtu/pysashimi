@@ -280,7 +280,7 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
     return res
 
 
-def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, barcodes=None):
+def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, barcodes=None, is_atac = False):
     u"""
     Prepare bam list
     :return:
@@ -313,7 +313,7 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                 logger.warn("wrong input path or input list sep by blank, it should be '\\t'")
                 continue
 
-            if not is_bam(lines[0]):
+            if not is_atac and not is_bam(lines[0]):
                 raise ValueError("%s seem not ba a valid BAM file" % lines[0])
 
             temp_barcodes = barcodes_group.get(
