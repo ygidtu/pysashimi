@@ -241,7 +241,7 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
 
     res = {}
 
-    if re.search("^\\d+$", color_factor):
+    if color_factor and re.search("^\\d+$", color_factor):
         color_factor = int(color_factor) - 1
 
     if color_factor and not isinstance(color_factor, int):

@@ -219,9 +219,9 @@ class ReadDepth(GenomicLoci):
                         )
                         reads[t] = reads.get(t, 0) + 1
 
-                        if strand == "+":
+                        if strand == "+" and read.reference_start >= start_coord:
                             plus[t.start - start_coord] += 1
-                        else:
+                        elif strand == "-" and  read.reference_end <= end_coord:
                             minus[t.end - start_coord] += 1
                         
                 for k, v in spanned_junctions.items():
