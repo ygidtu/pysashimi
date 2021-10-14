@@ -250,21 +250,25 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
                 line = line.strip().split("\t")
                 res[line[0]] = line[1]
 
-    with open(bam) as r:
-        for idx, line in enumerate(r):
-            line = line.strip().split()
-            key = line[1] if len(line) > 1 else clean_star_filename(line[0])
+    try:
+        with open(bam) as r:
+            for idx, line in enumerate(r):
+                line = line.strip().split()
+                key = line[1] if len(line) > 1 else clean_star_filename(line[0])
 
-            if key not in res.keys():
-                if not isinstance(color_factor, int):
-                    res[key] = colors[idx % len(colors)]
-                else:
-                    if len(line) <= color_factor:
-                        logger.error("--color-factor must <= number of columns from " + bam)
-                        exit(1)
-                    res[key] = line[color_factor].upper()
-                    if "|" in res[key]:
-                        res[key] = res[key].split("|")[1]
+                if key not in res.keys():
+                    if not isinstance(color_factor, int):
+                        res[key] = colors[idx % len(colors)]
+                    else:
+                        if len(line) <= color_factor:
+                            logger.error("--color-factor must <= number of columns from " + bam)
+                            exit(1)
+                        res[key] = line[color_factor].upper()
+                        if "|" in res[key]:
+                            res[key] = res[key].split("|")[1]
+    except Exception as err:
+        logger.error("please check the input file, including: .bai index", err)
+        exit(0)
 
     if barcodes:
         temp = set()
@@ -326,6 +330,7 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                 temp_barcodes[key] = None
 
             for alias, barcode in temp_barcodes.items():
+                print(alias)
                 tmp = BamInfo(
                     path=lines[0],
                     alias=alias,
@@ -373,8 +378,8 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
 
                         exit(err)
 
-                if len(bam_list) == 0:
-                    logger.error("Cannot find any input bam file, please check the bam path or the input list")
-                    exit(1)
+    if len(bam_list) == 0:
+        logger.error("Cannot find any input bam file, please check the bam path or the input list")
+        exit(1)
 
     return list(bam_list.values()), {i: [bam_list[k] for k in j] for i, j in shared_y.items()}
