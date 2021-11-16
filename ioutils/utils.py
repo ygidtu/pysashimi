@@ -330,7 +330,6 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                 temp_barcodes[key] = None
 
             for alias, barcode in temp_barcodes.items():
-                print(alias)
                 tmp = BamInfo(
                     path=lines[0],
                     alias=alias,
@@ -343,7 +342,6 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                 if alias not in bam_list.keys():
                     bam_list[alias] = tmp
                 else:
-                    # print(alias, bam_list[alias])
                     bam_list[alias] += tmp
 
                 if plot_by is not None:

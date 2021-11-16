@@ -113,7 +113,8 @@ def draw_default(
         reads=reads,
         barcode_tag=barcode_tag,
         strandness=strandness,
-        is_atac = is_atac
+        is_atac = is_atac,
+        stack = stack
     )
 
     if save_depth:

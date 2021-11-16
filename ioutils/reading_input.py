@@ -205,6 +205,8 @@ def __read_from_bam__(args):
                 chrm=splice_region.chromosome,
                 start_coord=splice_region.start,
                 end_coord=splice_region.end,
+                strand=splice_region.strand,
+                strandness = strandness,
                 log=log
             )
         else:
@@ -218,7 +220,8 @@ def __read_from_bam__(args):
                 log=log,
                 reads1=reads,
                 barcode_tag=barcode_tag,
-                required_strand=splice_region.strand if not strandness else None
+                required_strand=splice_region.strand if not strandness else None,
+                stack=args.get("stack", False)
             )
 
             tmp.sequence = splice_region.sequence
@@ -241,7 +244,8 @@ def read_reads_depth_from_bam(
     threshold=0, threshold_of_reads=0, log=None, n_jobs=1,
     reads=None, barcode_tag="CB",
     strandness: bool = True,
-    is_atac: bool = False
+    is_atac: bool = False, 
+    stack: bool = False
 ):
     u"""
     read reads coverage info from all bams
@@ -270,7 +274,8 @@ def read_reads_depth_from_bam(
             "reads": reads,
             "barcode_tag": barcode_tag,
             "strandness": strandness,
-            "is_atac": is_atac
+            "is_atac": is_atac,
+            "stack": stack
         })
 
     try:

@@ -77,7 +77,8 @@ class ReadDepth(GenomicLoci):
         log,
         reads1: Optional[bool] = None,
         barcode_tag: str = "CB",
-        required_strand: Optional[str] = None
+        required_strand: Optional[str] = None,
+        stack: bool = False
     ):
         """
             determine_depth determines the coverage at each base between start_coord and end_coord, inclusive.
@@ -97,6 +98,7 @@ class ReadDepth(GenomicLoci):
         :param barcodes: for 10x single cell
         :param reads1: None -> all reads, True -> only R1 kept; False -> only R2 kept
         :param required_strand: None -> all reads, else reads on specific strand
+        :param stack: whether to kept reads info for stack plot
         """
         reads = {}
         filtered_reads = set()
@@ -208,7 +210,7 @@ class ReadDepth(GenomicLoci):
                                 except ValueError as err:
                                     logger.warning(err)
                                     continue
-
+                        
                         t = Transcript(
                             chromosome=read.reference_name,
                             start=read.reference_start + 1 if read.reference_start + 1 > start_coord else start_coord,
@@ -217,7 +219,9 @@ class ReadDepth(GenomicLoci):
                             exons=exons_in_read,
                             is_reads=True
                         )
-                        reads[t] = reads.get(t, 0) + 1
+
+                        if stack:
+                            reads[t] = reads.get(t, 0) + 1
 
                         if strand == "+" and read.reference_start >= start_coord:
                             plus[t.start - start_coord] += 1
@@ -262,13 +266,14 @@ class ReadDepth(GenomicLoci):
         chrm: str,
         start_coord: int,
         end_coord: int,
+        strand: str,
+        strandness: bool,
         log,
         **kwargs
     ):
         filtered_reads = set()
         filtered_junctions = {}
         depth_vector = np.zeros(end_coord - start_coord + 1, dtype='f')
-        plus, minus = np.zeros(end_coord - start_coord + 1, dtype="f"), np.zeros(end_coord - start_coord + 1, dtype="f")
 
         for bam_file_path in bam.path:
             with pysam.TabixFile(bam_file_path) as tbx:
@@ -296,8 +301,6 @@ class ReadDepth(GenomicLoci):
                     start, end, count = int(start),  int(end), int(count)
                     for i in range(max(start, start_coord), min(end, end_coord)):
                         depth_vector[i -  start_coord] += count
-                        plus[i - start_coord] += count
-                        minus[i - end_coord] += count
 
         if log == 10:
             depth_vector = np.log10(depth_vector + 1)
@@ -313,8 +316,8 @@ class ReadDepth(GenomicLoci):
             wiggle=depth_vector,
             junctions_dict=filtered_junctions,
             reads = filtered_reads,
-            plus = plus,
-            minus = minus
+            plus = depth_vector if strandness or strand == "+" else None,
+            minus = depth_vector if strandness or strand == "-" else None,
         )
 
     @classmethod
