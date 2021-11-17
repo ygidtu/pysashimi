@@ -76,10 +76,8 @@ Software requirements
 
 There are three different mode in this suite of scripts
 
-1. **normal** -> quite like ggsashimi
-2. **pipeline** -> specific format of meta info is required
-3. **no-bam** -> draw sashimi plot without BAM, use exons to replace BAM density
-4. **line** -> draw a line plot which a used to viz ATAC-seq
+1. **plot** -> draw sashimi plot
+2. **line** -> draw a line plot which a used to viz ATAC-seq
 
 This suite of scripts will automatically check the index of BAM files and gtf files.
 
@@ -87,7 +85,6 @@ This suite of scripts will automatically check the index of BAM files and gtf fi
 
 ```bash
 > python main.py    # docker run -it chenlinlab/sashimi
-
 
 Usage: main.py [OPTIONS] COMMAND [ARGS]...
 
@@ -100,31 +97,15 @@ Options:
   -h, --help  Show this message and exit.
 
 Commands:
-  no-bam    This function is used to plot sashimi without BAM file
-  normal    This function is used to plot single sashimi plotting
-  pipeline  This function is used to plot sashimi based on specific meta...
+  line  This function is used to plot single sashimi plotting
+  plot  This function is used to plot single sashimi plotting
 ```
 
-### Common parameters between three modes
-
-- -e/--event: The region you want to plot, support chr1:100-200:+ or chr1:100-200:+@chr1:100-300:+.
-- -g/--gtf: for now only gtf is supported, gff3 is also in the plan (quite easy though). This suite of scripts will try to create .tbi index for gtf file to increase the I/O speed first time. Therefore write permission of the directory of gtf file may required.
-- -o/--output:
-    - **For normal and no-bam**: path to the output file, support common formats like pdf, png, svg, jpg, tif (may face compression issues, due to linux system do not install libtiff normally) and so on. 
-    - **For pipelin**: path to the output directory, all the figures will saved as pdf
-- --indicator-lines:
-    - **For normal and no-bam**: add additional vertical dash lines in figure, to show the splice site or some else. eg: 150,170. 
-    - **For pipeline**: this only is a flag, no comma separated integers required
-- --share-y: see samples
-- --dpi: the resolution of output figure 
-- -t/--threshold: threshold to filter low abundance junctions, means will not draw any low expression juncitons
-- --no-gene: flag, default this plot will add gene id above transcript id. If this is set, will only draw transcript id
-- --color-factor: three modes support different kind of meta info, use this parameter to specify which column in meta info is used to assign colors
-
-#### 1. normal
+### 1. plot
 
 ```bash
-Usage: main.py normal [OPTIONS]
+> python main.py plot --help
+Usage: main.py plot [OPTIONS]
 
   This function is used to plot single sashimi plotting
 
@@ -134,7 +115,15 @@ Options:
                                   
                                   Or a tab separated text file,  - first
                                   column is path to BAM file, - second
-                                  column is BAM file alias(optional)
+                                  column is BAM file alias(optional) Path
+                                  to tab separated list fil 1. the column
+                                  use to plot sashimi, identical with count
+                                  table column names 2. optional, the alias
+                                  of 1st column 3. additional columns 
+                                  [required]
+
+  -c, --count-table PATH          Path to input count table file. To make
+                                  sashimi plot without bam
 
   -g, --gtf PATH                  Path to gtf file, both transcript and exon
                                   tags are necessary
@@ -156,16 +145,20 @@ Options:
                                   300]
 
   --indicator-lines TEXT          Where to plot additional indicator lines,
-                                  comma separated int
+                                  comma separated int, sites occured multiple
+                                  times will highlight in red Or Path to
+                                  file contains indicator lines, 1st column
+                                  is the line site 2nd column is transcript id
+                                  3rd column is the weights
 
   --share-y                       Whether different sashimi plots shared same
                                   y axis
 
   --no-gene                       Do not show gene id next to transcript id
-  --color-factor INTEGER RANGE    Index of column with color levels (1-based);
-                                  NOTE: LUAD|red -> LUAD while be labeled in
-                                  plots and red while be the fill color
-                                  [default: 1]
+  --color-factor TEXT             The index of specific column in --bam or
+                                  path to color settings, 2 columns are
+                                  required, first if key of bam or cell group,
+                                  second column is color
 
   --log [0|2|10|zscore]           y axis log transformed, 0 -> not log
                                   transform; 2 -> log2; 10 -> log10
@@ -180,7 +173,7 @@ Options:
 
   --stack                         Whether to draw stacked reads
   --share-y-by INTEGER            Index of column with share y axis (1-based),
-                                  Need --share-y\.  For example, first 3 bam
+                                  Need --share-y.  For example, first 3 bam
                                   files use same y axis, and the rest use
                                   another  [default: -1]
 
@@ -195,15 +188,22 @@ Options:
                                   times for joyplot in R  
 
   --barcode PATH                  Path to barcode list file,  At list  three
-                                  columns were required, 1st The alias of bam
+                                  columns were required, 1st The name of bam
                                   file; 2nd the barcode; 3rd The group label
                                   
+
   --barcode-tag TEXT              The default cell barcode tag label  
   --reads [All|R1|R2]             Whether filter R1 or R2  
   --show-side                     Whether to draw additional side plot,   
-  --show-side                     Whether to draw additional side plot,   
   --side-strand [All|+|-]         which strand kept for side plot, default use
                                   all  
+
+  --show-id                       which show gene id or gene name 
+  -S, --strand-specific           only show transcripts and reads of input
+                                  region 
+
+  --sc-atac                       Whether input file is fragments of scATAC-
+                                  seq  
 
   -h, --help                      Show this message and exit.
 ```
@@ -231,96 +231,56 @@ Options:
 
 - `--log`: zscore is used `scipy.stats.zscore` to convert density to zscore, just for test usage, please no use it in final plots.
 
-#### 2. pipeline
+### 2. line
 
 ```bash
->> python main.py pipeline -h
-Usage: main.py pipeline [OPTIONS]
+>python main.py line --help
+Usage: main.py line [OPTIONS]
 
-  This function is used to plot sashimi based on specific meta info
-
-  required a specific format of input file
-
-  This function is used to test the function of sashimi plotting
+  This function is used to plot single sashimi plotting
 
 Options:
-  -i, --input PATH               Path to the meta info [xlsx]  [required]
-  -s, --span TEXT                To span the input region,
-                                 int -> span
-                                 corresponding bp
-                                 float -> span by
-                                 percentage of input region  [default: 100]
-  -g, --gtf PATH                 Path to gtf file, both transcript and exon
-                                 tags are necessary
-  -o, --output PATH              Path to output directory
-  --config PATH                  Path to config file, contains graph settings
-                                 of sashimi plot  [default: /Users/zhangyiming
-                                 /Code/pysashimi/settings.ini]
-  -t, --threshold INTEGER RANGE  Threshold to filter low abundance junctions
-                                 [default: 0]
-  -d, --dpi INTEGER RANGE        The resolution of output file  [default: 300]
-  --indicator-lines              Where to plot additional indicator lines
-  --share-y                      Whether different sashimi plots shared same y
-                                 axis
-  --no-gene                      Do not show gene id next to transcript id
-  --color-factor INTEGER RANGE   Index of column with color levels (1-based)
-                                 [default: 1]
-  --log [0|2|10|zscore]          y axis log transformed, 0 -> not log
-                                 transform; 2 -> log2; 10 -> log10
-  --customized-junction TEXT     Path to junction table column name needs to
-                                 be bam name or bam alias.
-  -p, --process INTEGER RANGE    How many cpu to use
-  --sort-by-color                Whether sort input bam order, for better
-                                 looking
-  -h, --help                     Show this message and exit.
+  -e, --event TEXT              Event range eg: chr1:100-200:+  [required]
+  -b, --bam PATH                a tab separated text file,  - 1st column is
+                                path to BAM file, - 2nd column is BAM file
+                                alias(optional)
+
+  -g, --gtf PATH                Path to gtf file, both transcript and exon
+                                tags are necessary
+
+  -o, --output PATH             Path to output graph file
+  --config PATH                 Path to config file, contains graph settings
+                                of sashimi plot  [default: /mnt/raid61/Persona
+                                l_data/zhangyiming/code/pysashimi/settings.ini
+                                ]
+
+  -d, --dpi INTEGER RANGE       The resolution of output file  [default: 300]
+  --indicator-lines TEXT        Where to plot additional indicator lines,
+                                comma separated int
+
+  --share-y                     Whether different sashimi plots shared same y
+                                axis
+
+  --no-gene                     Do not show gene id next to transcript id
+  --color-factor INTEGER RANGE  Index of column with color levels (1-based);
+                                NOTE: LUAD|red -> LUAD while be labeled in
+                                plots and red while be the fill color
+                                [default: 1]
+
+  --log [0|2|10|zscore]         y axis log transformed, 0 -> not log
+                                transform; 2 -> log2; 10 -> log10
+
+  -p, --process INTEGER RANGE   How many cpu to use 
+  --plot-by INTEGER             Index of column with same plot (1-based)
+                                [default: -1]
+
+  --sep-by-color                whether to plot colors in different plot
+                                [default: False]
+
+  --remove-empty-gene           Whether to plot empty transcript 
+  --title TEXT                  Title
+  --distance-ratio FLOAT        distance between transcript label and
+                                transcript line  [default: 0.3]
+
+  -h, --help                    Show this message and exit.
 ```
-
-- -i/--input: path to a two sheet xlsx file, see [docs/sample.xlsx](./docs/sample.xlsx), the value (if is not empty) in first sheet will added to the top-right of each sashimi
-- -s/--span:
-    - Int: will extand the input region by bp before drawing
-    - Float: will extand the input region by percentage of exist region length before drawing
-- --indicator-lines: will extract the splice sites from the input splice event ids
-
-#### 3.no_bam
-
-```bash
->> python main.py no-bam -h
-
-Usage: main.py no-bam [OPTIONS]
-
-  This function is used to plot sashimi without BAM file
-
-Options:
-  -e, --event TEXT               Event range eg: chr1:100-200:+  [required]
-  -i, --input PATH               Path to junctions count table  [required]
-  --required PATH                Path to tab separated list file
-                                 1. the
-                                 column use to plot sashimi, identical with
-                                 count table column names
-                                 2. optional, the
-                                 alias of 1st column
-                                 3. additional columns
-  -g, --gtf PATH                 Path to gtf file, both transcript and exon
-                                 tags are necessary
-  -o, --output PATH              Path to output graph file
-  --config PATH                  Path to config file, contains graph settings
-                                 of sashimi plot  [default: /Users/zhangyiming
-                                 /Code/pysashimi/settings.ini]
-  -t, --threshold INTEGER RANGE  Threshold to filter low abundance junctions
-                                 [default: 0]
-  -d, --dpi INTEGER RANGE        The resolution of output file  [default: 300]
-  --indicator-lines TEXT         Where to plot additional indicator lines,
-                                 comma separated int
-  --share-y                      Whether different sashimi plots shared same y
-                                 axis
-  --no-gene                      Do not show gene id next to transcript id
-  --color-factor INTEGER RANGE   Index of column with color levels (1-based)
-                                 [default: 1]
-  -h, --help                     Show this message and exit.
-```
-
-- -i/--input: path to extracted count table
-- --required: path to a list, quite like bam list in normal mode
-    - First column is the sample names used for plotting, corresponding to the column names of count table
-    - Second column is the alias names
-    - Additional columns
