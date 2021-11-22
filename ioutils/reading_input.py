@@ -189,7 +189,6 @@ def __read_from_bam__(args):
     threshold = args["threshold"]
     threshold_of_reads = args["threshold_of_reads"]
     log = args["log"]
-    idx = args["idx"]
     reads = args["reads"]
     barcode_tag = args["barcode_tag"]
     strandness = args["strandness"]
@@ -234,7 +233,7 @@ def __read_from_bam__(args):
             new_high=splice_region.end
         )
 
-        return [{bam: tmp}, idx]
+        return {bam: tmp}
     except (OSError, IOError):
         return None
 
@@ -263,14 +262,13 @@ def read_reads_depth_from_bam(
     res = OrderedDict()
 
     cmds = []
-    for idx, bam in enumerate(bam_list):
+    for bam in bam_list:
         cmds.append({
             "splice_region": splice_region, 
             "bam": bam, 
             "threshold": threshold, 
             "threshold_of_reads": threshold_of_reads, 
             "log": log, 
-            "idx": idx, 
             "reads": reads,
             "barcode_tag": barcode_tag,
             "strandness": strandness,
@@ -279,20 +277,20 @@ def read_reads_depth_from_bam(
         })
 
     try:
+        temp = [{} for _ in range(len(bam_list))]
         # not using multiprocessing when only single process, in case the data size limitation of pickle issue
         if n_jobs == 1:
             for i in cmds:
-                res.update(__read_from_bam__(i)[0])
+                i = __read_from_bam__(i)
+                if i is not None:
+                    res.update(i)
         else:
             with Pool(min(n_jobs, len(bam_list))) as p:
                 temp = p.map(__read_from_bam__, cmds)
 
-                temp = [x for x in temp if x is not None]
-                temp = sorted(temp, key=lambda x: x[1])
-                for i in temp:
-                    if i is None:
-                        continue
-                    res.update(i[0])
+                for x in temp:
+                    if x is not None:
+                        res.update(x)
     except Exception as err:
         logger.error(err)
         traceback.print_exc()
@@ -302,7 +300,7 @@ def read_reads_depth_from_bam(
         logger.error("Error reading files, cannot read anything")
         exit(1)
 
-    return res
+    return {b: res[b] for b in bam_list if b in res.keys()}
 
 
 def read_reads_depth_from_count_table(

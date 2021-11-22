@@ -2,9 +2,10 @@ import gzip
 import os
 import re
 
+from collections import OrderedDict
+
 import filetype
 import pysam
-from matplotlib.colors import is_color_like
 from src.BamInfo import BamInfo
 from src.logger import logger
 from src.SpliceRegion import SpliceRegion
@@ -239,7 +240,7 @@ def load_barcode(path: str) -> dict:
 
 def load_colors(bam: str, barcodes: str, color_factor: str, colors):
 
-    res = {}
+    res = OrderedDict()
 
     if color_factor and re.search("^\\d+$", color_factor):
         color_factor = int(color_factor) - 1
@@ -248,7 +249,10 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
         with open(color_factor) as r:
             for line in r:
                 line = line.strip().split("\t")
-                res[line[0]] = line[1]
+                if len(line) > 1:
+                    res[line[0]] = line[1]
+                else:
+                    logger.error("the input color is not seperate by \\t, {}".format(line))
 
     try:
         with open(bam) as r:
@@ -307,7 +311,7 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
      
     # load bam list
     shared_y = {}    # {sample group: [BamInfo...]}
-    bam_list = {}
+    bam_list = OrderedDict()
     with open(bam) as r:
         for line in r:
 
@@ -380,4 +384,6 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
         logger.error("Cannot find any input bam file, please check the bam path or the input list")
         exit(1)
 
-    return list(bam_list.values()), {i: [bam_list[k] for k in j] for i, j in shared_y.items()}
+    if not barcodes:
+        return list(bam_list.values()), {i: [bam_list[k] for k in j] for i, j in shared_y.items()}
+    return [bam_list[x] for x in colors.keys() if x in bam_list.keys()], {i: [bam_list[k] for k in j] for i, j in shared_y.items()}
