@@ -50,7 +50,7 @@ class BamInfo(object):
     def empty_barcode(self) -> bool:
         u"""
         check whether this bam do not contains any barcodes
-        
+
         """
         count = 0
 
@@ -86,13 +86,15 @@ class BamInfo(object):
         for x in [self.alias, self.title, self.label, self.path, self.color]:
             if x is None or x == "":
                 x = "None"
+            if isinstance(x, list):
+                x = ";".join(x)
             temp.append(str(x))
 
         return ",".join(temp)
 
     def __add__(self, other):
         self.path += other.path
-        
+
         for i, j in other.barcodes.items():
             if i not in self.barcodes.keys():
                 self.barcodes[i] = j
