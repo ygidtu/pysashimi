@@ -5,42 +5,27 @@ Created by ygidtu@gmail.com at 2019.12.06
 """
 
 from copy import deepcopy
-
+import numpy as np
 from src.GenomicLoci import GenomicLoci
 from src.Transcript import Transcript
 
 
 class SpliceRegion(GenomicLoci):
     u"""
-    [original description]
-
-    mRNAsObject represents a set of possible mRNA segments
-
-        chrm is the chromosome number
-        strand is the strand
-        low is the lowest possible coordinate in the set of possible mRNAs
-        high is the highest possible coordinate in the set of possible mRNAs
-        mRNAs is a list containing possible mRNAs. Each possible mRNA is represented by a list of exons, and
-            each exon is represented by a list containing its lowest coordinate and its highest coordinate
-
-    [Now]
-
-    Mainly kept the original functions and structure
-
-    But replace mRNAs[[exon sites], [exon sites]] with SpliceRegion class
-
+    SpliceRegion represents a set of possible genomic segments
     this class is used to collect all the information about the exons and transcripts inside this region
     """
 
-    def __init__(self, chromosome, start, strand, end, sites=None, events=None, ori=None):
+    def __init__(self, chromosome, start, strand, end, sites=None, events=None, ori=None, focus=None):
         u"""
         init this class
         :param chromosome:  str, chromosome of these
         :param strand: str
         :param start: the very first site of list of exons
         :param end: the very last site of list of exons
-        :param sites: list of int, all of the splice sites
+        :param sites: list of int, all the splice sites
         :param events: the source splice events id
+        :param focus: str -> 100-200:300-400, contains the focused regions
         """
         super().__init__(
             chromosome=chromosome,
@@ -49,16 +34,22 @@ class SpliceRegion(GenomicLoci):
             strand=strand,
         )
         self.sites = self.set_sites(sites)
+        self.focus = self.set_focus(focus)
         self.events = events
         self.chromosome = chromosome
         self.start = int(start)
         self.end = int(end)
         self.strand = strand
-        self.__transcripts__ = {}  # {transcript_id: namedtuple(gtf proxy of transcript, [gtf proxy of exons])}
+
+        # {transcript_id: namedtuple(gtf proxy of transcript, [gtf proxy of exons])}
+        self.__transcripts__ = {}
         self.ori = ori
         self.sequence = None
 
         self.__uniq_transcripts__ = set()
+
+        # relative coords for plot
+        self.graph_coords = None
 
     def set_sites(self, sites):
         res = {}
@@ -66,10 +57,18 @@ class SpliceRegion(GenomicLoci):
         if sites:
             for s in sites:
                 if s not in res.keys():
-                    res[s] = "blue"
+                    res[s - self.start] = "blue"
                 else:
-                    res[s] = "red"
+                    res[s - self.start] = "red"
         return res
+
+    def set_focus(self, focus):
+        focus_sites = {}
+        if focus:
+            for site in focus.split(":"):
+                site = [int(x) - self.start for x in site.split("-")]
+                focus_sites[site[0]] = max(site[1], focus_sites.get(site[0], -1))
+        return focus_sites
 
     def __str__(self):
         return '{0}:{1}-{2},{3}'.format(
@@ -86,7 +85,6 @@ class SpliceRegion(GenomicLoci):
         :return:
         """
         if self.is_overlap(other):
-
             return SpliceRegion(
                 chromosome=self.chromosome,
                 start=min(self.start, other.start),
@@ -94,6 +92,9 @@ class SpliceRegion(GenomicLoci):
                 strand=self.strand,
                 sites=self.sites | other.sites
             )
+
+    def __len__(self) -> int:
+        return self.end - self.start + 1
 
     @property
     def exon_starts(self):
@@ -144,12 +145,21 @@ class SpliceRegion(GenomicLoci):
 
         :return: [[{transcript: id, gene: id, exon: []}, {}, {}], [{}]]
         """
-        transcripts = [v for v in self.__transcripts__.values() if len(v.exons) > 0]
         return sorted(
-            self.__transcripts__.values(),
+            [v for v in self.__transcripts__.values() if len(v.exons) > 0],
             key=lambda x: (x.start, x.end, len(x.exons)),
             reverse=True
         )
+
+    def x_label(self, logtrans=None) -> str:
+        label = 'Genomic coordinate (%s), "%s" strand' % (
+            self.chromosome,
+            self.strand
+        )
+
+        if logtrans is not None:
+            label = label + ", y axis is log%d transformed" % logtrans
+        return label
 
     def add_gtf(self, gtf_line, show_id: bool = False):
         u"""
@@ -179,10 +189,10 @@ class SpliceRegion(GenomicLoci):
                         strand=gtf_line.strand,
                         transcript_id=gtf_line.transcript_id,
                         gene_id=gtf_line.gene_id,
-                        gene = gtf_line.gene_name,
-                        transcript = gtf_line.transcript_name,
+                        gene=gtf_line.gene_name,
+                        transcript=gtf_line.transcript_name,
                         exons=[],
-                        show_id = show_id
+                        show_id=show_id
                     )
 
             elif gtf_line.feature == "exon":
@@ -224,10 +234,6 @@ class SpliceRegion(GenomicLoci):
         return tmp
 
     def copy(self):
-        u"""
-
-        :return:
-        """
         temp = SpliceRegion(
             chromosome=self.chromosome,
             start=self.start,
@@ -239,6 +245,8 @@ class SpliceRegion(GenomicLoci):
         )
 
         temp.sites = self.sites
+        temp.focus = self.focus
+        temp.graph_coords = self.graph_coords
 
         temp.__transcripts__ = self.__transcripts__
         temp.sequence = self.sequence
@@ -256,3 +264,42 @@ class SpliceRegion(GenomicLoci):
 
         self.__transcripts__ = res
 
+    def init_graph_coords(self, read_depths_dict=None, intron_scale: float = 1, exon_scale: float = 1,
+                          reverse_minus: bool = False):
+        exon_starts = self.exon_starts
+        exon_ends = self.exon_ends
+
+        # modify information of reads
+        if read_depths_dict:
+            for key, val in read_depths_dict.items():
+                for i in val.reads:
+                    i.transcript = key.alias
+
+                exon_starts += val.exon_starts
+                exon_ends += val.exon_ends
+
+        exon_coords = np.zeros(len(self))
+        for i in range(len(exon_starts)):
+            exon_coords[exon_starts[i] - self.start: exon_ends[i] - self.start] = 1
+
+        graph_coords = np.zeros(len(self), dtype='f')
+
+        x = 0
+        for i in range(0, len(self)):
+            graph_coords[i] = x
+
+            if exon_coords[i if self.strand == '+' or not reverse_minus else -(i + 1)] == 1:
+                x += 1. / exon_scale
+            else:
+                x += 1. / intron_scale
+
+        self.graph_coords = graph_coords
+
+    def get_relative(self, site: int) -> int:
+        if self.graph_coords is None:
+            raise ValueError("Please init graph_coords first")
+        return self.graph_coords[site - self.start]
+
+
+if __name__ == '__main__':
+    pass

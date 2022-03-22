@@ -12,6 +12,8 @@ from collections import OrderedDict
 from multiprocessing import Pool
 
 import pysam
+from typing import Dict
+
 from src.BamInfo import BamInfo
 from src.GenomicLoci import GenomicLoci
 from src.logger import logger
@@ -30,8 +32,11 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
     :param input_gtf: path to input gtf file
     :param sort_gtf: Boolean value, whether to sort gtf file first
     :param retry: only try to sort gtf once
-    :return path to compressed and indexed bgzipped gtf file
+    :return path to compressed and indexed b-gzipped gtf file
     """
+    if input_gtf.endswith(".gz") and os.path.exists(input_gtf + ".tbi"):
+        return input_gtf
+
     if input_gtf is None:
         return None
     gtf = is_gtf(input_gtf)
@@ -60,19 +65,14 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
         logger.info("Sorting %s" % input_gtf)
 
         old_input_gtf = input_gtf
-        input_gtf = re.sub("\.gtf$", "", input_gtf) + ".sorted.gtf"
+        input_gtf = re.sub(r"\.gtf$", "", input_gtf) + ".sorted.gtf"
 
         output_gtf = input_gtf + ".gz"
 
         if os.path.exists(input_gtf) and os.path.exists(output_gtf):
             return output_gtf
 
-        try:
-            w = open(input_gtf, "w+")
-        except IOError as err:
-            logger.error("could not sort gtf")
-            exit(1)
-
+        w = open(input_gtf, "w+")
         with open(old_input_gtf) as r:
             for line in r:
                 if line.startswith("#"):
@@ -120,7 +120,11 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
     return output_gtf
 
 
-def read_transcripts(gtf_file: str, region: SpliceRegion, genome: str=None, retry: int=0, show_id: bool = False, strandness: bool = True):
+def read_transcripts(
+        gtf_file: str, region: SpliceRegion,
+        genome: str = None, retry: int = 0,
+        show_id: bool = False, strandless: bool = True
+):
     u"""
     Read transcripts from tabix indexed gtf files
 
@@ -131,7 +135,8 @@ def read_transcripts(gtf_file: str, region: SpliceRegion, genome: str=None, retr
     :param retry: if the gtf chromosome and input chromosome does not match. eg: chr9:1-100:+ <-> 9:1-100:+
     :param genome: path to genome fasta file
     :param show_id: whether show gene id or gene name
-    :param strandness: True -> show both + and - transcripts; False only show + or -
+    :param strandless: True -> show both + and - transcripts;
+                        False only show + or -
     :return: SpliceRegion
     """
     if gtf_file is None:
@@ -159,10 +164,10 @@ def read_transcripts(gtf_file: str, region: SpliceRegion, genome: str=None, retr
             for line in relevant_exons_iterator:
                 try:
 
-                    if not strandness and line.strand != region.strand:
+                    if not strandless and line.strand != region.strand:
                         continue
 
-                    region.add_gtf(line, show_id = show_id)
+                    region.add_gtf(line, show_id=show_id)
                 except IndexError as err:
                     logger.error(err)
 
@@ -191,7 +196,7 @@ def __read_from_bam__(args):
     log = args["log"]
     reads = args["reads"]
     barcode_tag = args["barcode_tag"]
-    strandness = args["strandness"]
+    strandless = args["strandless"]
     is_atac = args.get("is_atac", False)
 
     if not splice_region:
@@ -199,19 +204,19 @@ def __read_from_bam__(args):
     try:
 
         if is_atac:
-            tmp = ReadDepth.determin_depth_by_fragments(
+            tmp = ReadDepth.determine_depth_by_fragments(
                 bam=bam,
-                chrm=splice_region.chromosome,
+                chrom=splice_region.chromosome,
                 start_coord=splice_region.start,
                 end_coord=splice_region.end,
                 strand=splice_region.strand,
-                strandness = strandness,
-                log=log
+                strandless=strandless,
+                log=log,
             )
         else:
             tmp = ReadDepth.determine_depth(
                 bam=bam,
-                chrm=splice_region.chromosome,
+                chrom=splice_region.chromosome,
                 start_coord=splice_region.start,
                 end_coord=splice_region.end,
                 threshold=threshold,
@@ -219,8 +224,8 @@ def __read_from_bam__(args):
                 log=log,
                 reads1=reads,
                 barcode_tag=barcode_tag,
-                required_strand=splice_region.strand if not strandness else None,
-                stack=args.get("stack", False)
+                required_strand=splice_region.strand if not strandless else None,
+                stack=args.get("stack", False),
             )
 
             tmp.sequence = splice_region.sequence
@@ -242,22 +247,27 @@ def read_reads_depth_from_bam(
     bam_list, splice_region, 
     threshold=0, threshold_of_reads=0, log=None, n_jobs=1,
     reads=None, barcode_tag="CB",
-    strandness: bool = True,
+    strandless: bool = True,
     is_atac: bool = False, 
     stack: bool = False
-):
+) -> Dict[BamInfo, ReadDepth]:
     u"""
-    read reads coverage info from all bams
+    read records coverage info from all bam files
+    :param strandless:
+    :param threshold_of_reads:
+    :param stack:
+    :param is_atac:
+    :param barcode_tag:
     :param bam_list: namedtuple (alias, title, path, label)
     :param splice_region: SpliceRegion
     :param threshold: filter low abundance junctions
     :param log
     :param n_jobs
-    :param reads: whether to fitler out R1/R2
+    :param reads: whether to filter out R1/R2
     :return: dict {alias, ReadDepth}
     """
     logger.info("Reading from bam files")
-    assert isinstance(splice_region, SpliceRegion), "splice_region should be SplcieRegion, not %s" % type(splice_region)
+    assert isinstance(splice_region, SpliceRegion), "splice_region should be Splice Region, not %s" % type(splice_region)
 
     res = OrderedDict()
 
@@ -271,13 +281,12 @@ def read_reads_depth_from_bam(
             "log": log, 
             "reads": reads,
             "barcode_tag": barcode_tag,
-            "strandness": strandness,
+            "strandless": strandless,
             "is_atac": is_atac,
             "stack": stack
         })
 
     try:
-        temp = [{} for _ in range(len(bam_list))]
         # not using multiprocessing when only single process, in case the data size limitation of pickle issue
         if n_jobs == 1:
             for i in cmds:
@@ -304,12 +313,9 @@ def read_reads_depth_from_bam(
 
 
 def read_reads_depth_from_count_table(
-        count_table,
-        splice_region,
-        required,
-        colors,
-        threshold=0
-):
+        count_table, splice_region, required,
+        colors, threshold=0
+) -> Dict[BamInfo, ReadDepth]:
     u"""
     Read junction counts from count_table
     :param count_table: path to count table
@@ -330,7 +336,7 @@ def read_reads_depth_from_count_table(
                 for i, j in enumerate(lines):
                     header[i] = clean_star_filename(j)
             else:
-                # check file header, to avoide file format error
+                # check file header, to avoid file format error
                 if len(header) == len(lines) - 1:
                     logger.info("Change header index due to: Number of headers == number of columns - 1")
                     new_header = {k + 1: v for k, v in header.items()}

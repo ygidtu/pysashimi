@@ -10,7 +10,7 @@ class Junction(object):
     Created by ygidtu at 2018.12.19
 
     This is used to collect information of single junction
-    And provide relative position comparision
+    And provide relative position comparison
     """
 
     __slots__ = [
@@ -138,3 +138,6 @@ class Junction(object):
 
         return self.start > other.end
 
+
+if __name__ == '__main__':
+    pass

@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-#-*- utf-8 -*-
+# -*- utf-8 -*-
 u"""
 Created at 2021.03.16
 
 basic func
 """
+import numpy as np
 from matplotlib import pylab
+
+from src.ReadDepth import ReadDepth
+from src.SpliceRegion import SpliceRegion
 from src.logger import logger
 
 
 def get_limited_index(num, length):
     u"""
-    Created by Zhang yiming at 2018.12.19
+    Created by ygidtu at 2018.12.19
 
     Due to the original author didn't draw any element out of provided range
     So the scripts will through a lot of IndexError
@@ -32,7 +36,7 @@ def get_limited_index(num, length):
 
 
 def cubic_bezier(pts, t):
-    """
+    u"""
     Get points in a cubic bezier.
     """
     p0, p1, p2, p3 = pts
@@ -40,47 +44,16 @@ def cubic_bezier(pts, t):
     p1 = pylab.array(p1)
     p2 = pylab.array(p2)
     p3 = pylab.array(p3)
-    return p0 * (1 - t)**3 + 3 * t * p1 * (1 - t) ** 2 + \
-        3 * t**2 * (1 - t) * p2 + t**3 * p3
+    return p0 * (1 - t) ** 3 + 3 * t * p1 * (1 - t) ** 2 + 3 * t ** 2 * (1 - t) * p2 + t ** 3 * p3
 
 
-def get_scaling(
-        tx_start,
-        tx_end,
-        strand,
-        exon_starts,
-        exon_ends,
-        intron_scale,
-        exon_scale,
-        reverse_minus
-):
-    """
-    Compute the scaling factor across various genetic regions.
-    """
-    exon_coords = pylab.zeros((tx_end - tx_start + 1))
-    for i in range(len(exon_starts)):
-        exon_coords[exon_starts[i] - tx_start: exon_ends[i] - tx_start] = 1
-
-    graph_coords = pylab.zeros((tx_end - tx_start + 1), dtype='f')
-
-    x = 0
-    for i in range(0, tx_end - tx_start + 1):
-        graph_coords[i] = x
-
-        if exon_coords[i if strand == '+' or not reverse_minus else -(i + 1)] == 1:
-            x += 1. / exon_scale
-        else:
-            x += 1. / intron_scale
-
-    return graph_coords
-
-
-def set_x_ticks(read_depth_object, ax_var, graph_coords, chromosome, strand, logtrans = None, nx_ticks = 4, font_size = 4):
+def set_x_ticks(read_depth_object: ReadDepth, ax_var, region: SpliceRegion, logtrans=None,
+                nx_ticks=4, font_size=4):
     ax_var.xaxis.set_ticks_position('bottom')
 
     # @2018.12.19 unnecessary text in figure
 
-    xlabel = 'Genomic coordinate (%s), "%s" strand' % (chromosome, strand)
+    xlabel = 'Genomic coordinate (%s), "%s" strand' % (region.chromosome, region.strand)
 
     if logtrans in (2, 10):
         xlabel = xlabel + ", y axis is log%d transformed" % logtrans
@@ -89,11 +62,11 @@ def set_x_ticks(read_depth_object, ax_var, graph_coords, chromosome, strand, log
 
     bk = 1
     if not read_depth_object.sequence:
-        bk = len(graph_coords) // nx_ticks
+        bk = len(region) // nx_ticks
 
     linspace, ticks = [], []
-    for i in range(0, len(graph_coords), bk):
-        linspace.append(graph_coords[i])
+    for i in range(0, len(region), bk):
+        linspace.append(region.graph_coords[i])
 
         temp_txs = read_depth_object.start + i
         if read_depth_object.sequence:
@@ -111,7 +84,8 @@ def set_x_ticks(read_depth_object, ax_var, graph_coords, chromosome, strand, log
     pylab.xticks(linspace, ticks, fontsize=font_size)
 
 
-def set_y_ticks(ax_var, sample_info, universal_y_ticks, distance_between_label_axis, font_size = 5, logtrans = None, show_ylabel = True, no_bam = False):
+def set_y_ticks(ax_var, sample_info, universal_y_ticks, distance_between_label_axis, font_size=5, logtrans=None,
+                show_ylabel=True, no_bam=False):
     u"""
     The y ticks are formatted here
     @2019.03.31 add little check here to make sure the y axis shows the real value
@@ -120,7 +94,7 @@ def set_y_ticks(ax_var, sample_info, universal_y_ticks, distance_between_label_a
 
     for label in universal_y_ticks:
         if logtrans in (2, 10):
-            label = numpy.power(logtrans, label)
+            label = np.power(logtrans, label)
 
         if label <= 0:
             # Exclude label for 0
@@ -151,7 +125,7 @@ def set_y_ticks(ax_var, sample_info, universal_y_ticks, distance_between_label_a
 
     @2019.01.04 change the standards of distance between ylabel and y-axis
     """
-    if show_ylabel: 
+    if show_ylabel:
         ax_var.set_ylabel(
             sample_info.alias,
             fontsize=font_size,
@@ -189,29 +163,36 @@ def set_label(ax_var, sample_info, graph_coords, ymax, font_size=5):
     t.set_bbox(dict(alpha=0))
 
 
-def set_indicator_lines(read_depth_object, ax_var, graph_coords, sites, ymax=None):
-
-    if sites is None:
+def add_additional_background(region: SpliceRegion):
+    if region.sites is None:
         return
+    _, _, y1, y2 = pylab.axis()
 
-    if not ymax:
-        ymax = read_depth_object.max
-
-    if not isinstance(read_depth_object, int):
-        read_depth_object = read_depth_object.start
-
-    if ax_var is None:
-        ax_var = pylab
-
-    for site, color in sites.items():
+    for site, color in region.sites.items():
         try:
-            ax_var.vlines(
-                x=graph_coords[site - read_depth_object],
-                ymin=0,
-                ymax=ymax,
+            pylab.vlines(
+                x=site,
+                ymin=y1,
+                ymax=y2,
                 color=color,
                 linestyles="dashed",
                 lw=0.5
             )
         except IndexError as err:
             logger.warning("Indicator line is out of bound: " + str(err))
+
+    if region.focus is not None:
+        for left, right in region.focus.items():
+            try:
+                fill_x = [left, right, right, left]
+
+                _, _, y1, y2 = pylab.axis()
+                fill_y = [y1, y1, y2, y2]
+
+                pylab.fill(fill_x, fill_y, alpha=0.1, color='grey')
+            except IndexError as err:
+                logger.warning("focus region is out of bound: " + str(err))
+
+
+if __name__ == '__main__':
+    pass

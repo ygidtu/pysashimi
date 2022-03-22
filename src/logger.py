@@ -4,20 +4,19 @@ u"""
 Created at 2021.05.11 by Zhang
 """
 
-
 import logging
 
 from rich.logging import RichHandler
 
-logger = logging.getLogger(("rich"))
+logger = logging.getLogger("rich")
 
-def init_logger(level = "NOTSET"):
-    FORMAT = "%(message)s"
+
+def init_logger(level="NOTSET"):
     logging.basicConfig(
-        level=level, format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
+        level=level, format="%(message)s", datefmt="[%X]", handlers=[RichHandler()]
     )
     global logger
-    logger = logging.getLogger(("rich"))
+    logger = logging.getLogger("rich")
 
 
 if __name__ == '__main__':

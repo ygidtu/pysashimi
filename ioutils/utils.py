@@ -29,37 +29,37 @@ def is_gtf(infile):
     if infile is None:
         return False
 
-    is_gtf = 0
+    gtf = 0
     try:
         if filetype.guess_mime(infile) == "application/gzip":
-            is_gtf += 10
+            gtf += 10
             r = gzip.open(infile, "rt")
         else:
             r = open(infile)
+
+        for line in r:
+            if line.startswith("#"):
+                continue
+
+            lines = re.split(r"\s+", line)
+
+            if len(lines) < 8:
+                break
+
+            if re.search(
+                    r"([\w-]+ \"[\w.\s\-%,:]+\";? ?)+",
+                    " ".join(lines[8:])
+            ):
+                gtf += 1
+
+            break
+
+        r.close()
     except TypeError as err:
         logger.error("failed to open %s", infile)
         exit(err)
 
-    for line in r:
-        if line.startswith("#"):
-            continue
-
-        lines = re.split(r"\s+", line)
-
-        if len(lines) < 8:
-            break
-
-        if re.search(
-            r"([\w-]+ \"[\w.\s\-%,:]+\";? ?)+",
-            " ".join(lines[8:])
-        ):
-            is_gtf += 1
-
-        break
-
-    r.close()
-
-    return is_gtf
+    return gtf
 
 
 def is_bam(infile):
@@ -96,13 +96,11 @@ def is_bam(infile):
         return False
 
 
-def get_sites_from_splice_id(string, span=0, indicator_lines=None):
+def get_sites_from_splice_id(string, span=0, **kwargs):
     u"""
     get splice range from splice id
     :param string: splice id
-    :param sep: the separator between different junctions
     :param span: the range to span the splice region, int -> bp; float -> percentage
-    :param indicator_lines: bool
     :return: chromosome, start, end, strand
     """
 
@@ -113,6 +111,7 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
         raise ValueError("Invalid region %s" % string)
 
     sites = []
+    chromosome, strand = "", ""
     try:
         for i in split:
             if re.search(r"[\w.]:(\d+-?){2,}:[+-]", i):
@@ -149,6 +148,7 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
             logger.error("Invalid format of span, %s" % str(span))
             exit(err)
 
+    indicator_lines = kwargs.get("indicator_lines", "")
     if indicator_lines is True:
         indicator_lines = {x: 'k' for x in sites}
     elif indicator_lines:
@@ -161,7 +161,8 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
         strand=strand,
         events=string,
         sites=indicator_lines,
-        ori=str(string)
+        ori=str(string),
+        focus=kwargs.get("focus", "")
     )
 
 
@@ -186,10 +187,11 @@ def get_merged_event(events, span, indicator_lines):
     return coords
 
 
-def assign_max_y(shared_y, reads_depth, batch = False):
+def assign_max_y(shared_y, reads_depth, batch: bool = False):
     u"""
     assign max y for input files
 
+    :param batch:
     :param shared_y: [[group1], [group2]]
     :param reads_depth: output from read_reads_depth_from_bam
     :return:
@@ -206,9 +208,7 @@ def assign_max_y(shared_y, reads_depth, batch = False):
         for j in shared_y:
             reads_depth[j].max = max_
     else:
-
         for i in shared_y:
-
             max_ = max([reads_depth[x].max for x in i if x in reads_depth.keys()])
 
             for j in i:
@@ -239,7 +239,6 @@ def load_barcode(path: str) -> dict:
 
 
 def load_colors(bam: str, barcodes: str, color_factor: str, colors):
-
     res = OrderedDict()
 
     if color_factor and re.search("^\\d+$", color_factor):
@@ -252,7 +251,7 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
                 if len(line) > 1:
                     res[line[0]] = line[1]
                 else:
-                    logger.error("the input color is not seperate by \\t, {}".format(line))
+                    logger.error("the input color is not separate by \\t, {}".format(line))
 
     try:
         with open(bam) as r:
@@ -269,7 +268,7 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
                             exit(1)
                         res[key] = line[color_factor].upper()
                         if "|" in res[key]:
-                            res[key] = res[key].split("|")[1]
+                            res[key] = res.get(key, "").split("|")[1]
     except Exception as err:
         logger.error("please check the input file, including: .bai index", err)
         exit(0)
@@ -288,29 +287,33 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
     return res
 
 
-def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, barcodes=None, is_atac = False):
+def prepare_bam_list(
+        bam, color_factor, colors, share_y_by=-1,
+        plot_by=None, barcodes=None, is_atac: bool = False,
+        show_mean: bool = False
+):
     u"""
     Prepare bam list
-    :return:
+    :return: [list of bam files, dict recorded the share y details]
     """
     if is_bam(bam):
         return [
-            BamInfo(
-                path=bam,
-                alias=clean_star_filename(bam),
-                title=None,
-                label=None,
-                color=colors[0]
-            )
-        ], {}
+                   BamInfo(
+                       path=bam,
+                       alias=clean_star_filename(bam),
+                       title=None,
+                       label=None,
+                       color=colors[0]
+                   )
+               ], {}
 
     # load barcode groups
     barcodes_group = load_barcode(barcodes) if barcodes else {}
 
     colors = load_colors(bam, barcodes, color_factor, colors)
-     
+
     # load bam list
-    shared_y = {}    # {sample group: [BamInfo...]}
+    shared_y = {}  # {sample group: [BamInfo...]}
     bam_list = OrderedDict()
     with open(bam) as r:
         for line in r:
@@ -325,7 +328,7 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                 raise ValueError("%s seem not ba a valid BAM file" % lines[0])
 
             temp_barcodes = barcodes_group.get(
-                clean_star_filename(lines[0]), 
+                clean_star_filename(lines[0]),
                 barcodes_group.get(lines[1], {}) if len(lines) > 1 else {}
             )
 
@@ -342,7 +345,8 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                     color=colors[alias],
                     barcodes=set(barcode) if barcode else None
                 )
-       
+                tmp.show_mean = show_mean
+
                 if alias not in bam_list.keys():
                     bam_list[alias] = tmp
                 else:
@@ -386,4 +390,6 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
 
     if not barcodes:
         return list(bam_list.values()), {i: [bam_list[k] for k in j] for i, j in shared_y.items()}
-    return [bam_list[x] for x in colors.keys() if x in bam_list.keys()], {i: [bam_list[k] for k in j] for i, j in shared_y.items()}
+
+    return [bam_list[x] for x in colors.keys() if x in bam_list.keys()], {i: [bam_list[k] for k in j] for i, j in
+                                                                          shared_y.items()}

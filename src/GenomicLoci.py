@@ -64,7 +64,7 @@ class GenomicLoci(object):
 
     def __gt__(self, other):
         u"""
-        whether this loci is downstream of other
+        if other downstream of other
 
         Note:
             make sure the wider range is upstream of narrower
@@ -83,7 +83,7 @@ class GenomicLoci(object):
 
     def __lt__(self, other):
         u"""
-        whether this loci is upstream of other
+        if other is upstream of other
 
         Note:
             make sure the wider range is downstream of narrower
@@ -102,7 +102,7 @@ class GenomicLoci(object):
 
     def __eq__(self, other):
         u"""
-        whether two loci is the same
+        if two objects are the same
         :param other:
         :return:
         """
@@ -168,3 +168,6 @@ class GenomicLoci(object):
 
         return cls(chromosome, start, end, strand)
 
+
+if __name__ == "__main__":
+    pass

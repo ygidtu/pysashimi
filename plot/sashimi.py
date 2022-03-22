@@ -11,26 +11,27 @@ Migrated from SplicePlot sashimi_plot_utils
 6. display chromosome and strand; DONE
 7. Junctions count的过滤筛选; DONE
 8. add title, remove title from setting files; DONE
-9. add parameter to decide whether use shared y axis
+9. add parameter to decide if plot by shared y axis
 10. fix transcripts display issues
 """
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
-from matplotlib import pylab
-from src.logger import logger
-from src.SpliceRegion import SpliceRegion
-
-from plot.density_plot_utils import plot_density_single
-from plot.sideplot_utils import plot_sideplot
-from plot.transcripts_plot_utils import plot_transcripts
+from typing import Dict
+from plot.density import plot_density_single
+from plot.sideplot import plot_sideplot
+from plot.transcripts import plot_transcripts
 from plot.utils import *
+from plot.line import plot_line_single
+from src.BamInfo import BamInfo
+from src.ReadDepth import ReadDepth
+from src.SpliceRegion import SpliceRegion
 
 
 # Plot density for a series of bam files.
-def plot_density(
+def plot(
         settings,
-        read_depths_dict,
-        splice_region,
+        read_depths_dict: Dict[BamInfo, ReadDepth],
+        splice_region: SpliceRegion,
         show_gene=False,
         title=None,
         no_bam=False,
@@ -38,7 +39,8 @@ def plot_density(
         distance_ratio=0.3,
         stack=False,
         show_side=True,
-        side_strand_choice=None
+        side_strand_choice=None,
+        draw_line: bool = False
 ):
     u"""
     Several modifications were taken
@@ -47,6 +49,8 @@ def plot_density(
     2. ordered_genotypes_list used to plot the different allele specific situation,
         for now, I changed this to plot multiple BAM files
 
+    :param draw_line: draw multiple lines in single plot
+    :param side_strand_choice:
     :param settings:
     :param read_depths_dict:
     :param splice_region:
@@ -56,7 +60,7 @@ def plot_density(
     :param no_bam:
     :param logtrans: y ticks log transformation or not, 2 -> log2; 10 -> log10，
                 do not use `set_yscale` here, because there are junction under the x axis,
-                and there coords do not convert into log by matplotlib, so it will cause a lot troubles
+                and there coords do not convert into log by matplotlib, so it will cause lot troubles
     :param distance_ratio: distance between transcript label and transcript line
     :param stack: whether to make stacked reads
     :param show_side: whether to show side plot
@@ -75,38 +79,28 @@ def plot_density(
     numbering_font_size = settings["numbering_font_size"]
 
     # parse mRNA_object to get strand, exon_starts, exon_ends, tx_start, tx_end, chrom
-    chromosome = splice_region.chromosome
-    exon_starts = splice_region.exon_starts
-    exon_ends = splice_region.exon_ends
-    tx_start = splice_region.start
-    tx_end = splice_region.end
     transcripts = splice_region.transcripts
-    strand = splice_region.strand
     reads = []
 
-    if stack:   # modify information of reads
+    splice_region.init_graph_coords(read_depths_dict if stack else None, intron_scale, exon_scale, reverse_minus)
+
+    if stack:  # modify information of reads
         for key, val in read_depths_dict.items():
             for i in val.reads:
                 i.transcript = key.alias
                 reads.append(i)
 
-            exon_starts += val.exon_starts
-            exon_ends += val.exon_ends
-
-    # Get the right scalings
-    graph_coords = get_scaling(
-        tx_start, tx_end, strand,
-        exon_starts, exon_ends,
-        intron_scale, exon_scale,
-        reverse_minus
-    )
-
     # set the number of axis
-    n_files = len(read_depths_dict) + ((len(transcripts) // 2) if len(transcripts)
-                                       > 1 else 1) + ((len(reads) // 4) if len(reads) > 1 else 1)
+    number_of_sashimi = 1 if draw_line else len(read_depths_dict)
+    n_files = number_of_sashimi
 
-    number_of_sashimi = len(read_depths_dict)
-    if show_side:
+    if len(transcripts) > 1:
+        n_files += (len(transcripts) // 2)
+
+    if stack:
+        n_files += (len(reads) // 4) if len(reads) > 1 else 1
+
+    if show_side and not draw_line:
         n_files += len(read_depths_dict) * 2
         number_of_sashimi += len(read_depths_dict) * 2
 
@@ -138,36 +132,43 @@ def plot_density(
         @2019.01.07 
         """
         # Read sample label
-        plot_density_single(
-            read_depth_object=average_read_depth,
-            graph_coords=graph_coords,
-            ax_var=curr_ax,
-            sample_info=sample_info,
-            number_junctions=number_junctions,
-            ny_ticks=nyticks,
-            font_size=font_size,
-            numbering_font_size=numbering_font_size,
-            no_bam=no_bam,
-            logtrans=logtrans,
-            show_ylabel=show_ylabel,
-            distance_between_label_axis=distance_between_label_axis,
-            sites=splice_region.sites
-        )
+        if draw_line:
+            plot_line_single(
+                read_depth_dict=read_depths_dict,
+                ax_var=curr_ax,
+                font_size=font_size,
+                logtrans=logtrans,
+                region=splice_region
+            )
+        else:
+            plot_density_single(
+                read_depth_object=average_read_depth,
+                ax_var=curr_ax,
+                sample_info=sample_info,
+                number_junctions=number_junctions,
+                ny_ticks=nyticks,
+                font_size=font_size,
+                numbering_font_size=numbering_font_size,
+                no_bam=no_bam,
+                logtrans=logtrans,
+                show_ylabel=show_ylabel,
+                distance_between_label_axis=distance_between_label_axis,
+                region=splice_region
+            )
 
         """
         Draw side plot
         """
-        if show_side:
+        if show_side and not draw_line:
             curr_ax = plt.subplot(gs[(i + 1):(i + 2), :])
 
             plot_sideplot(
                 average_read_depth,
-                sample_info,
-                graph_coords,
-                curr_ax,
+                region=splice_region,
+                sample_info=sample_info,
+                ax_var=curr_ax,
                 font_size=font_size,
                 logtrans=logtrans,
-                sites=splice_region.sites,
                 strand_choice=side_strand_choice
             )
 
@@ -176,25 +177,24 @@ def plot_density(
             # curr_ax = plt.subplot(gs[number_of_sashimi - 1, :])
             set_x_ticks(
                 average_read_depth, curr_ax,
-                graph_coords, chromosome, strand,
+                region=splice_region,
                 logtrans=logtrans, nx_ticks=nxticks,
                 font_size=font_size
             )
 
-   # Draw reads
+    # Draw reads
     if len(reads) > 0:
-        plt.subplot(gs[number_of_sashimi:len(reads) //
-                    4 + len(read_depths_dict), :])
+        plt.subplot(gs[number_of_sashimi:len(reads) // 4 + len(read_depths_dict), :])
         plot_transcripts(
-            tx_start=tx_start,
             transcripts=reads,
-            graph_coords=graph_coords,
             reverse_minus=reverse_minus,
             font_size=font_size,
             show_gene=show_gene,
             distance_ratio=distance_ratio,
-            color="darkgrey"
+            color="darkgrey",
+            region=splice_region
         )
+
     # Draw gene structure
     """
     @2018.12.26
@@ -205,21 +205,18 @@ def plot_density(
         plt.subplot(gs[number_of_sashimi + len(reads) // 4:, :])
 
         plot_transcripts(
-            tx_start=tx_start,
             transcripts=transcripts,
-            graph_coords=graph_coords,
             reverse_minus=reverse_minus,
             font_size=font_size,
             show_gene=show_gene,
             distance_ratio=distance_ratio,
-            ymax=len(transcripts) - .5,
-            sites=splice_region.sites
+            region=splice_region
         )
 
     pylab.subplots_adjust(hspace=.15, wspace=.7)
 
 
-def draw_sashimi_plot(
+def save_fig(
         output_file_path,
         settings,
         average_depths_dict,
@@ -232,7 +229,8 @@ def draw_sashimi_plot(
         title=None,
         stack=False,
         show_side=False,
-        side_strand_choice=None
+        side_strand_choice=None,
+        draw_line: bool = False
 ):
     """
         draw_sashimi_plot draws the complete sashimi plot
@@ -265,15 +263,13 @@ def draw_sashimi_plot(
     """
     if no_bam:
         height = settings['height'] * \
-            (len(average_depths_dict) + len(splice_region.transcripts)) // 2
+                 (len(average_depths_dict) + len(splice_region.transcripts)) // 2
     elif stack:
         num_reads = 0
         for val in average_depths_dict.values():
             num_reads += len(val.reads)
 
-        temp_num = len(average_depths_dict) + \
-            len(splice_region.transcripts) // 2 + \
-            num_reads // 4
+        temp_num = len(average_depths_dict) + len(splice_region.transcripts) // 2 + num_reads // 4
 
         height = settings['height'] * temp_num
 
@@ -290,18 +286,19 @@ def draw_sashimi_plot(
 
     plt.figure(figsize=[settings['width'], height], dpi=dpi)
 
-    plot_density(
-        settings,                               # plot settings, untouched
-        read_depths_dict=average_depths_dict,   # reads coverage
-        splice_region=splice_region,            # Exon and transcript information
-        show_gene=show_gene,                    # decide whether display gene id in this plot
+    plot(
+        settings,  # plot settings, untouched
+        read_depths_dict=average_depths_dict,  # reads coverage
+        splice_region=splice_region,  # Exon and transcript information
+        show_gene=show_gene,  # decide whether display gene id in this plot
         no_bam=no_bam,
         logtrans=logtrans,
         distance_ratio=distance_ratio,
         title=title,
         stack=stack,
         show_side=show_side,
-        side_strand_choice=side_strand_choice
+        side_strand_choice=side_strand_choice,
+        draw_line=draw_line
     )
 
     logger.info("save to %s" % output_file_path)
@@ -310,3 +307,7 @@ def draw_sashimi_plot(
         transparent=True,
         bbox_inches='tight'
     )
+
+
+if __name__ == '__main__':
+    pass
