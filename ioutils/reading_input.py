@@ -10,17 +10,16 @@ import re
 import traceback
 from collections import OrderedDict
 from multiprocessing import Pool
-
-import pysam
 from typing import Dict
 
-from src.BamInfo import BamInfo
-from src.GenomicLoci import GenomicLoci
-from src.logger import logger
-from src.ReadDepth import ReadDepth
-from src.SpliceRegion import SpliceRegion
+import pysam
 
 from ioutils.utils import clean_star_filename, is_gtf
+from src.BamInfo import BamInfo
+from src.GenomicLoci import GenomicLoci
+from src.ReadDepth import ReadDepth
+from src.SpliceRegion import SpliceRegion
+from src.logger import logger
 
 
 def index_gtf(input_gtf, sort_gtf=True, retry=0):
@@ -197,13 +196,12 @@ def __read_from_bam__(args):
     reads = args["reads"]
     barcode_tag = args["barcode_tag"]
     strandless = args["strandless"]
-    is_atac = args.get("is_atac", False)
 
     if not splice_region:
         return None
     try:
 
-        if is_atac:
+        if bam.is_atac:
             tmp = ReadDepth.determine_depth_by_fragments(
                 bam=bam,
                 chrom=splice_region.chromosome,
@@ -244,12 +242,11 @@ def __read_from_bam__(args):
 
 
 def read_reads_depth_from_bam(
-    bam_list, splice_region, 
-    threshold=0, threshold_of_reads=0, log=None, n_jobs=1,
-    reads=None, barcode_tag="CB",
-    strandless: bool = True,
-    is_atac: bool = False, 
-    stack: bool = False
+        bam_list, splice_region,
+        threshold=0, threshold_of_reads=0, log=None, n_jobs=1,
+        reads=None, barcode_tag="CB",
+        strandless: bool = True,
+        stack: bool = False
 ) -> Dict[BamInfo, ReadDepth]:
     u"""
     read records coverage info from all bam files
@@ -267,22 +264,22 @@ def read_reads_depth_from_bam(
     :return: dict {alias, ReadDepth}
     """
     logger.info("Reading from bam files")
-    assert isinstance(splice_region, SpliceRegion), "splice_region should be Splice Region, not %s" % type(splice_region)
+    assert isinstance(splice_region, SpliceRegion), "splice_region should be Splice Region, not %s" % type(
+        splice_region)
 
     res = OrderedDict()
 
     cmds = []
     for bam in bam_list:
         cmds.append({
-            "splice_region": splice_region, 
-            "bam": bam, 
-            "threshold": threshold, 
-            "threshold_of_reads": threshold_of_reads, 
-            "log": log, 
+            "splice_region": splice_region,
+            "bam": bam,
+            "threshold": threshold,
+            "threshold_of_reads": threshold_of_reads,
+            "log": log,
             "reads": reads,
             "barcode_tag": barcode_tag,
             "strandless": strandless,
-            "is_atac": is_atac,
             "stack": stack
         })
 

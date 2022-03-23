@@ -10,13 +10,17 @@ from multiprocessing import cpu_count
 import click
 import matplotlib as mpl
 import matplotlib.font_manager
+import numpy as np
 
 from conf.plot_settings import parse_settings
 from ioutils.reading_input import (index_gtf, read_transcripts, read_reads_depth_from_bam,
                                    read_reads_depth_from_count_table)
 from ioutils.utils import *
 from plot.sashimi import save_fig
+from src.Bigwig import __CLUSTERING_METHOD__, __DISTANCE_METRIC__
 from src.logger import init_logger
+
+np.seterr(all="ignore")
 
 mpl.use('Agg')
 mpl.rcParams['pdf.fonttype'] = 42
@@ -106,15 +110,24 @@ def draw_default(
         title, show_side,
         stack, side_strand,
         strandless,
-        is_atac,
+        sc_atac,
         **kwargs
 ):
     bam_list, shared_y = prepare_bam_list(
         bam, color_factor, colors, share_y_by,
-        barcodes=barcode,
-        is_atac=is_atac,
+        barcodes=barcode, is_atac=False,
         show_mean=kwargs.get("show_mean", False)
     )
+
+    # if there is any sc_atac files
+    if sc_atac:
+        sc_atac_list, shared_y_atac = prepare_bam_list(
+            sc_atac, color_factor, colors, share_y_by, barcodes=barcode,
+            is_atac=True, show_mean=kwargs.get("show_mean", False)
+        )
+
+        bam_list += sc_atac_list
+        shared_y.update(shared_y_atac)
 
     if sort_by_color:
         bam_list = sorted(bam_list, key=lambda x: x.color)
@@ -129,7 +142,6 @@ def draw_default(
         reads=reads,
         barcode_tag=barcode_tag,
         strandless=strandless,
-        is_atac=is_atac,
         stack=stack,
     )
 
@@ -153,8 +165,7 @@ def draw_default(
             colors=colors
         )
 
-        temp_customized_junction = {
-            k.alias: v for k, v in customized_junction.items()}
+        temp_customized_junction = {k.alias: v for k, v in customized_junction.items()}
 
         for key, value in reads_depth.items():
             temp = temp_customized_junction.get(
@@ -178,26 +189,19 @@ def draw_default(
         title=title,
         stack=stack,
         show_side=show_side,
-        side_strand_choice={"+": "plus", "-": "minus"}.get(side_strand)
+        side_strand_choice={"+": "plus", "-": "minus"}.get(side_strand),
+        bigwigs=kwargs.get("bigwigs")
     )
 
 
-@click.command(
-    context_settings=CONTEXT_SETTINGS,
-)
+@click.command(context_settings=CONTEXT_SETTINGS, )
 @click.version_option(VERSION, message="Current version %(version)s")
 @click.option(
-    "-e",
-    "--event",
-    type=click.STRING,
-    required=True,
+    "-e", "--event", type=click.STRING, required=True, show_default=True,
     help="Event range eg: chr1:100-200:+"
 )
 @click.option(
-    "-b",
-    "--bam",
-    type=click.Path(exists=True),
-    required=True,
+    "-b", "--bam", type=click.Path(), required=True, show_default=True, default="",
     help="""
     Path to input BAM file. \b
 
@@ -212,62 +216,41 @@ def draw_default(
     """
 )
 @click.option(
-    "-c",
-    "--count-table",
-    type=click.Path(),
-    help="""
-    Path to input count table file. \b
-    To make sashimi plot without bam
-    """
+    "--sc-atac", type=click.Path(), show_default=True, default="",
+    help="The list of scATAC-seq fragments, same format with --bam"
 )
 @click.option(
-    "-g",
-    "--gtf",
-    type=click.Path(exists=True),
+    "--bigwigs", type=click.Path(), show_default=True, default="",
+    help="The list of bigWig files for signal display, same format with --bam"
+)
+@click.option(
+    "-c", "--count-table", type=click.Path(), show_default=True, default="",
+    help="Path to input count table file. To make sashimi plot without bam"
+)
+@click.option(
+    "-g", "--gtf", type=click.Path(exists=True), show_default=True,
     help="Path to gtf file, both transcript and exon tags are necessary"
 )
+@click.option("-o", "--output", type=click.Path(), show_default=True, help="Path to output graph file")
 @click.option(
-    "-o",
-    "--output",
-    type=click.Path(),
-    help="Path to output graph file",
-    show_default=True
+    "--config", default=os.path.join(os.path.dirname(__dir__), "settings.ini"),
+    type=click.Path(), show_default=True,
+    help="Path to config file, contains graph settings of sashimi plot"
 )
 @click.option(
-    "--config",
-    default=os.path.join(__dir__, "settings.ini"),
-    type=click.Path(),
-    help="Path to config file, contains graph settings of sashimi plot",
-    show_default=True
+    "-t", "--threshold", default=0, type=click.IntRange(min=0, clamp=True), show_default=True,
+    help="Threshold to filter low abundance junctions"
 )
 @click.option(
-    "-t",
-    "--threshold",
-    default=0,
-    type=click.IntRange(min=0, clamp=True),
-    help="Threshold to filter low abundance junctions",
-    show_default=True
+    "-T", "--threshold-of-reads", default=0, type=click.IntRange(min=0, clamp=True), show_default=True,
+    help="Threshold to filter low abundance reads for stacked plot"
 )
 @click.option(
-    "-T",
-    "--threshold-of-reads",
-    default=0,
-    type=click.IntRange(min=0, clamp=True),
-    help="Threshold to filter low abundance reads for stacked plot",
-    show_default=True
+    "-d", "--dpi", default=300, type=click.IntRange(min=1, clamp=True), show_default=True,
+    help="The resolution of output file"
 )
 @click.option(
-    "-d",
-    "--dpi",
-    default=300,
-    type=click.IntRange(min=1, clamp=True),
-    help="The resolution of output file",
-    show_default=True
-)
-@click.option(
-    "--indicator-lines",
-    default=None,
-    type=click.STRING,
+    "--indicator-lines", default=None, type=click.STRING, show_default=True,
     help="""
     Where to plot additional indicator lines, comma separated int, sites occurred multiple times will highlight in red\b
     Or \b
@@ -278,208 +261,111 @@ def draw_default(
     """
 )
 @click.option(
-    "--share-y",
-    default=False,
-    is_flag=True,
-    type=click.BOOL,
-    help="""
-    Whether different sashimi plots shared same y axis
-    """
+    "--share-y", default=False, is_flag=True, type=click.BOOL, show_default=True,
+    help="Whether different sashimi plots shared same y axis"
 )
 @click.option(
-    "--no-gene",
-    is_flag=True,
-    type=click.BOOL,
+    "--no-gene", is_flag=True, type=click.BOOL, show_default=True,
     help="Do not show gene id next to transcript id"
 )
 @click.option(
-    "--color-factor",
-    type=str,
+    "--color-factor", type=str, show_default=True,
     help="""
     The index of specific column in --bam or path to color settings, 
     2 columns are required, first if key of bam or cell group, second column is color
-    """,
-    show_default=True
+    """
 )
 @click.option(
-    '--log',
-    type=click.Choice(["0", "2", "10", "zscore"]),
-    default="0",
+    '--log', type=click.Choice(["0", "2", "10", "zscore"]), default="0", show_default=True,
     help="y axis log transformed, 0 -> not log transform; 2 -> log2; 10 -> log10"
 )
 @click.option(
-    "--customized-junction",
-    type=click.STRING,
-    default=None,
-    help="""
-    Path to junction table column name needs to be bam name or bam alias. \b
-    """
+    "--customized-junction", type=click.STRING, default=None, show_default=True,
+    help="Path to junction table column name needs to be bam name or bam alias."
 )
 @click.option(
-    "-p",
-    "--process",
-    type=click.IntRange(min=1, max=cpu_count()),
-    default=1,
-    help="""
-    How many cpu to use \b
-    """
+    "-p", "--process", type=click.IntRange(min=1, max=cpu_count()), default=1, show_default=True,
+    help="How many cpu to use"
+)
+@click.option("-f", "--genome", type=click.Path(), default=None, show_default=True, help="Path to genome fasta")
+@click.option(
+    "--sort-by-color", is_flag=True, type=click.BOOL, show_default=True,
+    help="Whether sort input bam order, for better looking"
 )
 @click.option(
-    "-f",
-    "--genome",
-    type=click.Path(),
-    default=None,
-    help="""
-    Path to genome fasta \b
-    """
-)
-@click.option(
-    "--sort-by-color",
-    is_flag=True,
-    type=click.BOOL,
-    help="""
-    Whether sort input bam order, for better looking \b
-    """
-)
-@click.option(
-    "--stack",
-    default=False,
-    is_flag=True,
-    type=click.BOOL,
+    "--stack", default=False, is_flag=True, type=click.BOOL, show_default=True,
     help="Whether to draw stacked reads"
 )
 @click.option(
-    "--share-y-by",
-    type=click.INT,
-    default=-1,
+    "--share-y-by", type=click.INT, default=-1, show_default=True,
     help="""
-    Index of column with share y axis (1-based), Need --share-y. 
+    Index of column with share y axis (1-based), Need --share-y. \b
     For example, first 3 bam files use same y axis, and the rest use another
-    """,
-    show_default=True
-)
-@click.option(
-    "--remove-empty-gene",
-    is_flag=True,
-    type=click.BOOL,
-    help="""
-    Whether to plot empty transcript \b
     """
 )
 @click.option(
-    "--distance-ratio",
-    type=click.FLOAT,
-    default=0.3,
-    help="distance between transcript label and transcript line",
-    show_default=True
+    "--remove-empty-gene", is_flag=True, type=click.BOOL, show_default=True,
+    help="Whether to plot empty transcript"
 )
 @click.option(
-    "--title",
-    type=click.STRING,
-    default=None,
-    help="Title",
-    show_default=True
+    "--distance-ratio", type=click.FLOAT, default=0.3, show_default=True,
+    help="Distance between transcript label and transcript line"
 )
+@click.option("--title", type=click.STRING, default=None, help="Title", show_default=True)
 @click.option(
-    "--save-depth",
-    is_flag=True,
-    type=click.BOOL,
+    "--save-depth", is_flag=True, type=click.BOOL, show_default=True,
     help="""
-    Whether to save reads depth to file, 
-    the last 3 columns are chrom, position and depth,
+    Whether to save reads depth to file, \b
+    the last 3 columns are chrom, position and depth,\b
     The same pos will repeated multiple times for joyplot in R
-     \b
     """
 )
 @click.option(
-    "--barcode",
-    type=click.Path(),
+    "--barcode", type=click.Path(), show_default=True,
     help="""
-    Path to barcode list file, 
-    At list  three columns were required,
-    1st The name of bam file; 2nd the barcode;
+    Path to barcode list file, \b
+    At list  three columns were required,\b
+    1st The name of bam file; 2nd the barcode;\b
     3rd The group label
-     \b
     """
 )
 @click.option(
-    "--barcode-tag",
-    type=click.STRING,
-    default="CB",
-    help="""
-    The default cell barcode tag label
-     \b
-    """
+    "--barcode-tag", type=click.STRING, default="CB", show_default=True,
+    help="The default cell barcode tag label"
 )
 @click.option(
-    "--reads",
-    type=click.Choice(["All", "R1", "R2"]),
-    default="All",
-    help="""
-    Whether filter R1 or R2
-     \b
-    """
+    "--reads", type=click.Choice(["All", "R1", "R2"]), default="All", show_default=True,
+    help="Whether filter R1 or R2"
 )
 @click.option(
-    "--show-side",
-    is_flag=True,
-    type=click.BOOL,
-    help="""
-    Whether to draw additional side plot, 
-     \b
-    """
+    "--show-side", is_flag=True, type=click.BOOL, show_default=True,
+    help="Whether to draw additional side plot"
 )
 @click.option(
-    "--side-strand",
-    type=click.Choice(["All", "+", "-"]),
-    default="All",
-    help="""
-    which strand kept for side plot, default use all
-     \b
-    """
+    "--side-strand", type=click.Choice(["All", "+", "-"]), default="All", show_default=True,
+    help="Which strand kept for side plot, default use all"
+)
+@click.option("--show-id", is_flag=True, show_default=True, help="Which show gene id or gene name")
+@click.option(
+    "-S", "--strand-specific", is_flag=True, show_default=True,
+    help="Only show transcripts and reads of input region"
+)
+@click.option("--show-mean", is_flag=True, type=click.BOOL, show_default=True, help="Show mean coverage by groups")
+@click.option("--focus", type=click.STRING, show_default=True, help="The highlight regions: 100-200:300-400")
+@click.option(
+    "--stroke", type=click.STRING, show_default=True,
+    help="The stroke regions: start1-end1:start2-end2@color-label, draw a stroke line at bottom, default color is red"
+)
+@click.option("--bigwig-clustering", is_flag=True, show_default=True, help="The clustering the bigwig files")
+@click.option(
+    "--bigwig-clustering-method", type=click.Choice(__CLUSTERING_METHOD__), default="ward", show_default=True,
+    help="The clustering method for the bigwig files"
 )
 @click.option(
-    "--show-id",
-    is_flag=True,
-    help="""
-    which show gene id or gene name
-    \b
-    """
+    "--bigwig-distance-metric", type=click.Choice(__DISTANCE_METRIC__), default="euclidean", show_default=True,
+    help="The clustering method for the bigwig files"
 )
-@click.option(
-    "-S", "--strand-specific",
-    is_flag=True,
-    help="""
-    only show transcripts and reads of input region
-    \b
-    """
-)
-@click.option(
-    "--sc-atac",
-    is_flag=True,
-    type=click.BOOL,
-    help="""
-    Whether input file is fragments of scATAC-seq
-     \b
-    """
-)
-@click.option(
-    "--show-mean",
-    is_flag=True,
-    type=click.BOOL,
-    help="""
-    Whether to show mean coverage by groups
-     \b
-    """
-)
-@click.option(
-    "--focus",
-    type=click.STRING,
-    help="""
-    The highlight regions: [100-200:300-400]
-     \b
-    """
-)
+@click.option("--bigwig-scale", is_flag=True, show_default=True, help="The do scale on bigwigs files")
 def plot(
         bam: str, event: str, gtf: str, output: str,
         config: str, threshold: int, indicator_lines: str,
@@ -491,54 +377,26 @@ def plot(
         threshold_of_reads: int, barcode: str, barcode_tag: str,
         reads: str, show_side: bool, side_strand: str, count_table: str, strand_specific: bool,
         show_id: bool = False, sc_atac: bool = False,
-        show_mean: bool = False, focus: str = ""
+        show_mean: bool = False, focus: str = "",
+        bigwigs: str = "",
+        bigwig_clustering: bool = False,
+        bigwig_clustering_method: str = "ward",
+        bigwig_distance_metric: str = "euclidean",
+        bigwig_scale: bool = False, stroke: str = ""
 ):
     u"""
     This function is used to plot single sashimi plotting
     \f
     Created by ygidtu@gmail.com at 2018.12.19
-    :param focus:
-    :param show_mean:
-    :param sc_atac:
-    :param show_id:
-    :param strand_specific:
-    :param count_table:
-    :param side_strand:
-    :param show_side:
-    :param reads:
-    :param barcode_tag:
-    :param barcode:
-    :param stack:
-    :param save_depth:
-    :param genome:
-    :param threshold_of_reads:
-    :param bam: list of input BAM files
-    :param event: event id, chr:100-200-100-200:+ etc
-    :param bam: list of input BAM files
-    :param gtf: path to gtf file
-    :param output: path to output file
-    :param event: event id, chr:100-200-100-200:+ etc
-    :param config: path to config file, default using settings.ini file under this suite of scripts
-    :param threshold: filter out low abundance junctions
-    :param indicator_lines: draw vertical lines in sashimi to show the spliced sites
-    :param share_y: make different plots use same y axis boundary
-    :param no_gene: do not show gene id
-    :param color_factor: 1-based index, only work with bam list
-    :param dpi: output file resolution
-    :param log: whether to perform y axis log transform
-    :param customized_junction: add customized junction to plot
-    :param process:
-    :param sort_by_color:
-    :param share_y_by:
-    :param remove_empty_gene:
-    :param distance_ratio:
-    :param title
     :return:
     """
     try:
         log = int(log)
     except ValueError:
         pass
+
+    if all([not os.path.exists(x) for x in [bam, sc_atac, bigwigs]]):
+        raise ValueError("At least provide --bam, --sc-atac or --bigwigs")
 
     out_dir = os.path.dirname(os.path.abspath(output))
 
@@ -558,7 +416,7 @@ def plot(
     splice_region = get_sites_from_splice_id(
         event,
         indicator_lines=indicator_lines,
-        focus=focus
+        focus=focus, stroke=stroke
     )
 
     splice_region = read_transcripts(
@@ -571,6 +429,15 @@ def plot(
 
     if remove_empty_gene:
         splice_region.remove_empty_transcripts()
+
+    wigs = prepare_bigwig_list(
+        bigwigs, splice_region,
+        process=process,
+        clustering=bigwig_clustering,
+        clustering_method=bigwig_clustering_method,
+        distance_metric=bigwig_distance_metric,
+        do_scale=bigwig_scale
+    )
 
     if count_table:
         draw_without_bam(
@@ -605,9 +472,10 @@ def plot(
             title, show_side,
             stack, side_strand,
             not strand_specific,
-            is_atac=sc_atac,
+            sc_atac=sc_atac,
             show_mean=show_mean,
-            focus=focus
+            focus=focus,
+            bigwigs=wigs
         )
 
 

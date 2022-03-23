@@ -14,14 +14,18 @@ Migrated from SplicePlot sashimi_plot_utils
 9. add parameter to decide if plot by shared y axis
 10. fix transcripts display issues
 """
+from typing import Dict
+
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
-from typing import Dict
+
 from plot.density import plot_density_single
+from plot.heatmap import plot_heatmap
+from plot.line import plot_line_single
 from plot.sideplot import plot_sideplot
+from plot.stroke import plot_stroke
 from plot.transcripts import plot_transcripts
 from plot.utils import *
-from plot.line import plot_line_single
 from src.BamInfo import BamInfo
 from src.ReadDepth import ReadDepth
 from src.SpliceRegion import SpliceRegion
@@ -40,7 +44,8 @@ def plot(
         stack=False,
         show_side=True,
         side_strand_choice=None,
-        draw_line: bool = False
+        draw_line: bool = False,
+        **kwargs
 ):
     u"""
     Several modifications were taken
@@ -92,6 +97,9 @@ def plot(
 
     # set the number of axis
     number_of_sashimi = 1 if draw_line else len(read_depths_dict)
+    if kwargs.get("bigwigs"):
+        number_of_sashimi += len(kwargs.get("bigwigs"))
+
     n_files = number_of_sashimi
 
     if len(transcripts) > 1:
@@ -104,7 +112,12 @@ def plot(
         n_files += len(read_depths_dict) * 2
         number_of_sashimi += len(read_depths_dict) * 2
 
-    gs = gridspec.GridSpec(n_files, 1)
+    if splice_region.stroke:
+        n_files += 1
+
+    gs = gridspec.GridSpec(n_files, 1, hspace=.15, wspace=.7)
+    if kwargs.get("bigwigs"):
+        gs = gridspec.GridSpec(n_files, 2, width_ratios=(.99, .01), wspace=0.01, hspace=.15)
 
     """
     @2019.01.07
@@ -113,16 +126,26 @@ def plot(
     distance_between_label_axis = max([len(x) if isinstance(
         x, str) else len(x.alias) for x in read_depths_dict.keys()]) * 2.5
 
+    for i, j in enumerate(kwargs.get("bigwigs", [])):
+        plot_heatmap(
+            j,
+            ax_var=plt.subplot(gs[i, 0]),
+            cbar_ax=plt.subplot(gs[i, 1]),
+            font_size=font_size,
+            distance_between_label_axis=distance_between_label_axis
+        )
+
     u"""
     @2018.12.19
 
     This part of code, used to plot different allele specific, but I this to plot multiple BAM files
     """
-    i = 0
+    i = len(kwargs.get("bigwigs", []))
+
     for sample_info in read_depths_dict.keys():
         average_read_depth = read_depths_dict[sample_info]
 
-        curr_ax = plt.subplot(gs[i, :])
+        curr_ax = plt.subplot(gs[i, 0])
 
         if title is not None and i == 0:
             curr_ax.set_title(title, fontsize=10, loc="center")
@@ -160,7 +183,7 @@ def plot(
         Draw side plot
         """
         if show_side and not draw_line:
-            curr_ax = plt.subplot(gs[(i + 1):(i + 2), :])
+            curr_ax = plt.subplot(gs[(i + 1):(i + 2), 0])
 
             plot_sideplot(
                 average_read_depth,
@@ -174,7 +197,6 @@ def plot(
 
         i += 3 if show_side else 1
         if i == number_of_sashimi:
-            # curr_ax = plt.subplot(gs[number_of_sashimi - 1, :])
             set_x_ticks(
                 average_read_depth, curr_ax,
                 region=splice_region,
@@ -182,9 +204,12 @@ def plot(
                 font_size=font_size
             )
 
+    if splice_region.sequence:
+        i += 1
+
     # Draw reads
     if len(reads) > 0:
-        plt.subplot(gs[number_of_sashimi:len(reads) // 4 + len(read_depths_dict), :])
+        plt.subplot(gs[i:len(reads) // 4, 0])
         plot_transcripts(
             transcripts=reads,
             reverse_minus=reverse_minus,
@@ -194,6 +219,7 @@ def plot(
             color="darkgrey",
             region=splice_region
         )
+        i += len(reads) // 4
 
     # Draw gene structure
     """
@@ -202,7 +228,7 @@ def plot(
     """
     if len(transcripts) > 0:
         # + 1 if splice_region.sequence else len(read_depths_dict)
-        plt.subplot(gs[number_of_sashimi + len(reads) // 4:, :])
+        plt.subplot(gs[i:(i + len(transcripts) // 2), 0])
 
         plot_transcripts(
             transcripts=transcripts,
@@ -212,8 +238,11 @@ def plot(
             distance_ratio=distance_ratio,
             region=splice_region
         )
+        i += len(transcripts) // 2
 
-    pylab.subplots_adjust(hspace=.15, wspace=.7)
+    if splice_region.stroke:
+        plt.subplot(gs[i:, 0])
+        plot_stroke(splice_region, font_size=font_size)
 
 
 def save_fig(
@@ -230,7 +259,8 @@ def save_fig(
         stack=False,
         show_side=False,
         side_strand_choice=None,
-        draw_line: bool = False
+        draw_line: bool = False,
+        **kwargs
 ):
     """
         draw_sashimi_plot draws the complete sashimi plot
@@ -261,15 +291,17 @@ def save_fig(
     @2019.01.04
     If there is no bam, reduce the height of figure
     """
+    wigs_num = len(kwargs.get("bigwigs", [])) * 2
+
     if no_bam:
         height = settings['height'] * \
-                 (len(average_depths_dict) + len(splice_region.transcripts)) // 2
+                 (len(average_depths_dict) + len(splice_region.transcripts) + wigs_num) // 2
     elif stack:
         num_reads = 0
         for val in average_depths_dict.values():
             num_reads += len(val.reads)
 
-        temp_num = len(average_depths_dict) + len(splice_region.transcripts) // 2 + num_reads // 4
+        temp_num = len(average_depths_dict) + len(splice_region.transcripts) // 2 + wigs_num + num_reads // 4
 
         height = settings['height'] * temp_num
 
@@ -279,7 +311,7 @@ def save_fig(
         temp_num = (len(average_depths_dict) +
                     len(splice_region.transcripts) // 2)
 
-        height = settings['height'] * temp_num
+        height = settings['height'] * temp_num + wigs_num
 
         if splice_region.sequence:
             height += (settings["height"] * .2 if temp_num > 5 else .4)
@@ -298,7 +330,8 @@ def save_fig(
         stack=stack,
         show_side=show_side,
         side_strand_choice=side_strand_choice,
-        draw_line=draw_line
+        draw_line=draw_line,
+        **kwargs
     )
 
     logger.info("save to %s" % output_file_path)

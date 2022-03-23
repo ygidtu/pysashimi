@@ -200,7 +200,6 @@ def plot_density_single(
     # Format plot
     ax_var.spines['right'].set_color('none')
     ax_var.spines['top'].set_color('none')
-
     ax_var.spines['bottom'].set_color('none')
     pylab.xticks([])
 

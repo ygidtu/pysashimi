@@ -27,7 +27,7 @@ def set_barcodes(barcodes: Optional[List[str]]) -> Dict:
 
 
 class BamInfo(object):
-    def __init__(self, alias, title, label, path, color, barcodes=None):
+    def __init__(self, alias, title, label, path, color, barcodes=None, is_atac: bool = False):
         self.alias = alias
         self.title = title
         self.label = label
@@ -35,6 +35,7 @@ class BamInfo(object):
         self.color = color
         self.barcodes = set_barcodes(barcodes)
         self.show_mean = False
+        self.is_atac = is_atac
 
     def has_barcode(self, barcode: str) -> bool:
         u"""

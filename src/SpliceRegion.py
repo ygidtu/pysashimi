@@ -3,11 +3,26 @@
 u"""
 Created by ygidtu@gmail.com at 2019.12.06
 """
-
+import re
+from typing import List, Optional
 from copy import deepcopy
+
 import numpy as np
+
 from src.GenomicLoci import GenomicLoci
 from src.Transcript import Transcript
+
+
+class Stroke(object):
+    def __init__(self, start: int, end: int, color: str = "red", label: str = ""):
+        self.start = start
+        self.end = end
+        self.color = color
+        self.label = label
+
+    @property
+    def center(self) -> float:
+        return (self.end +  self.start) /  2
 
 
 class SpliceRegion(GenomicLoci):
@@ -16,7 +31,8 @@ class SpliceRegion(GenomicLoci):
     this class is used to collect all the information about the exons and transcripts inside this region
     """
 
-    def __init__(self, chromosome, start, strand, end, sites=None, events=None, ori=None, focus=None):
+    def __init__(self, chromosome, start, end, strand, sites=None, events=None, ori=None, focus: Optional[str] = None,
+                 stroke: Optional[str] = None):
         u"""
         init this class
         :param chromosome:  str, chromosome of these
@@ -33,8 +49,10 @@ class SpliceRegion(GenomicLoci):
             end=end,
             strand=strand,
         )
+
         self.sites = self.set_sites(sites)
         self.focus = self.set_focus(focus)
+        self.stroke = self.set_stroke(stroke)
         self.events = events
         self.chromosome = chromosome
         self.start = int(start)
@@ -62,13 +80,37 @@ class SpliceRegion(GenomicLoci):
                     res[s - self.start] = "red"
         return res
 
-    def set_focus(self, focus):
+    def set_focus(self, focus: str):
         focus_sites = {}
         if focus:
             for site in focus.split(":"):
-                site = [int(x) - self.start for x in site.split("-")]
-                focus_sites[site[0]] = max(site[1], focus_sites.get(site[0], -1))
+                site = sorted([int(x) - self.start for x in site.split("-")])
+                if site[0] >= 0 and site[-1] <= len(self):
+                    focus_sites[site[0]] = max(site[1], focus_sites.get(site[0], -1))
         return focus_sites
+
+    def set_stroke(self, stroke: str) -> List[Stroke]:
+        res = []
+
+        if not stroke:
+            return res
+
+        for i in stroke.split(":"):
+            i = i.split("@")
+            sites = sorted([int(x) - self.start for x in i[0].split("-")])
+            if sites[0] >= 0 and sites[-1] <= len(self):
+                color = "red"
+                label = ""
+                if len(i) > 1:
+                    i = i[-1].split("-")
+                    color = i[0]
+
+                    if len(i) > 1:
+                        label = i[-1]
+
+                res.append(Stroke(sites[0], sites[-1], color, label))
+
+        return res
 
     def __str__(self):
         return '{0}:{1}-{2},{3}'.format(
@@ -247,6 +289,7 @@ class SpliceRegion(GenomicLoci):
         temp.sites = self.sites
         temp.focus = self.focus
         temp.graph_coords = self.graph_coords
+        temp.stroke = self.stroke
 
         temp.__transcripts__ = self.__transcripts__
         temp.sequence = self.sequence

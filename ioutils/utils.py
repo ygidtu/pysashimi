@@ -1,14 +1,20 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import gzip
 import os
 import re
-
 from collections import OrderedDict
+from typing import List
+from multiprocessing import Pool
 
 import filetype
+import pyBigWig
 import pysam
+
 from src.BamInfo import BamInfo
-from src.logger import logger
+from src.Bigwig import Bigwig
 from src.SpliceRegion import SpliceRegion
+from src.logger import logger
 
 
 def clean_star_filename(x):
@@ -20,7 +26,7 @@ def clean_star_filename(x):
     return re.sub("[_.]?(SJ.out.tab|Aligned.sortedByCoord.out)?.bam", "", os.path.basename(x))
 
 
-def is_gtf(infile):
+def is_gtf(infile: str) -> bool:
     u"""
     check if input file is gtf
     :param infile: path to input file
@@ -62,7 +68,7 @@ def is_gtf(infile):
     return gtf
 
 
-def is_bam(infile):
+def is_bam(infile: str) -> bool:
     u"""
     check if input file is bam or sam file
     :param infile: path to input file
@@ -93,6 +99,14 @@ def is_bam(infile):
         return True
 
     except pysam.utils.SamtoolsError:
+        return False
+
+
+def is_bigwig(infile: str) -> bool:
+    try:
+        with pyBigWig.open(infile) as r:
+            return r.isBigWig()
+    except RuntimeError:
         return False
 
 
@@ -162,7 +176,8 @@ def get_sites_from_splice_id(string, span=0, **kwargs):
         events=string,
         sites=indicator_lines,
         ori=str(string),
-        focus=kwargs.get("focus", "")
+        focus=kwargs.get("focus", ""),
+        stroke=kwargs.get("stroke", "")
     )
 
 
@@ -303,7 +318,8 @@ def prepare_bam_list(
                        alias=clean_star_filename(bam),
                        title=None,
                        label=None,
-                       color=colors[0]
+                       color=colors[0],
+                       is_atac=is_atac
                    )
                ], {}
 
@@ -321,7 +337,7 @@ def prepare_bam_list(
             lines = re.split(r"\t| {2,}", line.strip())
 
             if not os.path.exists(lines[0]) and not os.path.isfile(lines[0]):
-                logger.warn("wrong input path or input list sep by blank, it should be '\\t'")
+                logger.warn("wrong input path %s" % lines[0])
                 continue
 
             if not is_atac and not is_bam(lines[0]):
@@ -343,7 +359,8 @@ def prepare_bam_list(
                     title="",
                     label=alias,
                     color=colors[alias],
-                    barcodes=set(barcode) if barcode else None
+                    barcodes=set(barcode) if barcode else None,
+                    is_atac=is_atac
                 )
                 tmp.show_mean = show_mean
 
@@ -393,3 +410,93 @@ def prepare_bam_list(
 
     return [bam_list[x] for x in colors.keys() if x in bam_list.keys()], {i: [bam_list[k] for k in j] for i, j in
                                                                           shared_y.items()}
+
+
+def prepare_bigwig(args):
+    b, region_ = args
+    b.prepare(region_)
+    return b
+
+
+def prepare_bigwig_list(
+        bigwig: str, region, process: int = 1,
+        clustering: bool = False,
+        clustering_method: str = "ward",
+        distance_metric: str = "euclidean",
+        do_scale: bool = False,
+) -> List[Bigwig]:
+    u"""
+    Prepare bam list
+    :return: [list of bam files, dict recorded the share y details]
+    """
+    if not bigwig or not os.path.exists(bigwig):
+        return []
+
+    if is_bigwig(bigwig):
+        return [
+            Bigwig(
+                [bigwig],
+                clustering=clustering,
+                clustering_method=clustering_method,
+                distance_metric=distance_metric,
+                do_scale=do_scale,
+                alias=os.path.basename(bigwig)
+            )
+        ]
+
+    colors = [
+        'viridis', 'plasma', 'inferno', 'magma', 'cividis',
+        'Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds',
+        'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu',
+        'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn',
+        'binary', 'gist_yarg', 'gist_gray', 'gray', 'bone',
+        'pink', 'spring', 'summer', 'autumn', 'winter',
+        'cool', 'Wistia', 'hot', 'afmhot', 'gist_heat',
+        'copper', 'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu',
+        'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic'
+    ]
+
+    # load bam list
+    bigwig_list = OrderedDict()
+    assign_colors = set()
+    with open(bigwig) as r:
+        for line in r:
+
+            lines = re.split(r"\t| {2,}", line.strip())
+
+            if not os.path.exists(lines[0]) and not os.path.isfile(lines[0]):
+                logger.warn("wrong input path %s" % lines[0])
+                continue
+
+            path = lines[0]
+
+            if not is_bigwig(path):
+                continue
+
+            if len(lines) > 1:
+                alias = lines[1]
+            else:
+                alias = lines[0]
+            assign_colors.add(alias)
+
+            if alias not in bigwig_list.keys():
+                bigwig_list[alias] = Bigwig(
+                    [path],
+                    clustering=clustering,
+                    clustering_method=clustering_method,
+                    distance_metric=distance_metric,
+                    do_scale=do_scale,
+                    alias=alias,
+                    color_map=colors[len(assign_colors) - 1 % len(colors)]
+                )
+            else:
+                bigwig_list[alias].files.append(path)
+
+    with Pool(process) as p:
+        res = p.map(prepare_bigwig, [[x, region] for x in bigwig_list.values()])
+
+    return res
+
+
+if __name__ == '__main__':
+    pass
