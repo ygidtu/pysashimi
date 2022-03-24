@@ -10,10 +10,11 @@ from typing import List
 
 import numpy as np
 import pyBigWig
+from scipy.cluster.hierarchy import linkage, dendrogram
+from scipy.stats import zscore
 
 from src.SpliceRegion import SpliceRegion
 from src.logger import logger
-from scipy.cluster.hierarchy import linkage, dendrogram
 
 __DISTANCE_METRIC__ = [
     "braycurtis", "canberra", "chebyshev",
@@ -99,8 +100,10 @@ class Bigwig(object):
             """
             y = (x – mean) / standard_deviation
             """
-            b = (self.data.transpose() - np.mean(self.data, axis=1)) / np.std(self.data, axis=1)
-            self.data = b.transpose()
+            # b = (self.data.transpose() - np.mean(self.data, axis=1)) / np.std(self.data, axis=1)
+            # self.data = b.transpose()
+            self.data = zscore(self.data, axis=1)
+            pass
 
 
 if __name__ == "__main__":

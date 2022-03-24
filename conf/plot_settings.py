@@ -10,6 +10,19 @@ from src.logger import logger
 from conf.drawing import RGB
 
 
+COLOR_MAP = [
+    'Blues', 'Greens', 'Oranges', 'Reds', 'Greys', 'Purples',
+    'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu',
+    'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn',
+    'binary', 'gist_yarg', 'gist_gray', 'gray', 'bone',
+    'viridis', 'plasma', 'inferno', 'magma', 'cividis',
+    'pink', 'spring', 'summer', 'autumn', 'winter',
+    'cool', 'Wistia', 'hot', 'afmhot', 'gist_heat',
+    'copper', 'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu',
+    'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic'
+]
+
+
 def default_hive_settings() -> dict:
     """
     Creates dictionary containing the default hive plot settings

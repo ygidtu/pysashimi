@@ -190,7 +190,8 @@ def draw_default(
         stack=stack,
         show_side=show_side,
         side_strand_choice={"+": "plus", "-": "minus"}.get(side_strand),
-        bigwigs=kwargs.get("bigwigs")
+        bigwigs=kwargs.get("bigwigs"),
+        draw_line=kwargs.get("draw_line", False)
     )
 
 
@@ -267,6 +268,10 @@ def draw_default(
 @click.option(
     "--no-gene", is_flag=True, type=click.BOOL, show_default=True,
     help="Do not show gene id next to transcript id"
+)
+@click.option(
+    "--transcripts-to-show", default="", show_default=True,
+    help="Which transcript to show, transcript name or id in gtf file, eg: transcript1,transcript2"
 )
 @click.option(
     "--color-factor", type=str, show_default=True,
@@ -350,6 +355,10 @@ def draw_default(
     "-S", "--strand-specific", is_flag=True, show_default=True,
     help="Only show transcripts and reads of input region"
 )
+@click.option(
+    "--draw-line", is_flag=True, type=click.BOOL, show_default=True,
+    help="Whether to draw line plot instead of normal sashimi"
+)
 @click.option("--show-mean", is_flag=True, type=click.BOOL, show_default=True, help="Show mean coverage by groups")
 @click.option("--focus", type=click.STRING, show_default=True, help="The highlight regions: 100-200:300-400")
 @click.option(
@@ -382,7 +391,9 @@ def plot(
         bigwig_clustering: bool = False,
         bigwig_clustering_method: str = "ward",
         bigwig_distance_metric: str = "euclidean",
-        bigwig_scale: bool = False, stroke: str = ""
+        bigwig_scale: bool = False, stroke: str = "",
+        transcripts_to_show: str = "",
+        draw_line: bool = False
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -426,6 +437,9 @@ def plot(
         show_id=show_id,
         strandless=not strand_specific,
     )
+
+    if transcripts_to_show:
+        splice_region.filter_transcripts(transcripts_to_show)
 
     if remove_empty_gene:
         splice_region.remove_empty_transcripts()
@@ -475,7 +489,8 @@ def plot(
             sc_atac=sc_atac,
             show_mean=show_mean,
             focus=focus,
-            bigwigs=wigs
+            bigwigs=wigs,
+            draw_line=draw_line
         )
 
 

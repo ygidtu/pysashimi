@@ -15,6 +15,7 @@ from src.BamInfo import BamInfo
 from src.Bigwig import Bigwig
 from src.SpliceRegion import SpliceRegion
 from src.logger import logger
+from conf.plot_settings import COLOR_MAP
 
 
 def clean_star_filename(x):
@@ -432,30 +433,6 @@ def prepare_bigwig_list(
     if not bigwig or not os.path.exists(bigwig):
         return []
 
-    if is_bigwig(bigwig):
-        return [
-            Bigwig(
-                [bigwig],
-                clustering=clustering,
-                clustering_method=clustering_method,
-                distance_metric=distance_metric,
-                do_scale=do_scale,
-                alias=os.path.basename(bigwig)
-            )
-        ]
-
-    colors = [
-        'viridis', 'plasma', 'inferno', 'magma', 'cividis',
-        'Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds',
-        'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu',
-        'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn',
-        'binary', 'gist_yarg', 'gist_gray', 'gray', 'bone',
-        'pink', 'spring', 'summer', 'autumn', 'winter',
-        'cool', 'Wistia', 'hot', 'afmhot', 'gist_heat',
-        'copper', 'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu',
-        'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic'
-    ]
-
     # load bam list
     bigwig_list = OrderedDict()
     assign_colors = set()
@@ -473,11 +450,13 @@ def prepare_bigwig_list(
             if not is_bigwig(path):
                 continue
 
-            if len(lines) > 1:
-                alias = lines[1]
+            alias = lines[1] if len(lines) > 1 else os.path.basename(lines[0])
+
+            if len(lines) > 2 and lines[-1] in COLOR_MAP:
+                col = lines[-1]
             else:
-                alias = lines[0]
-            assign_colors.add(alias)
+                assign_colors.add(alias)
+                col = COLOR_MAP[len(assign_colors) - 1 % len(COLOR_MAP)]
 
             if alias not in bigwig_list.keys():
                 bigwig_list[alias] = Bigwig(
@@ -487,7 +466,7 @@ def prepare_bigwig_list(
                     distance_metric=distance_metric,
                     do_scale=do_scale,
                     alias=alias,
-                    color_map=colors[len(assign_colors) - 1 % len(colors)]
+                    color_map=col
                 )
             else:
                 bigwig_list[alias].files.append(path)

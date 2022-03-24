@@ -85,8 +85,13 @@ class SpliceRegion(GenomicLoci):
         if focus:
             for site in focus.split(":"):
                 site = sorted([int(x) - self.start for x in site.split("-")])
-                if site[0] >= 0 and site[-1] <= len(self):
-                    focus_sites[site[0]] = max(site[1], focus_sites.get(site[0], -1))
+                if site[0] < 0:
+                    site[0] = 0
+
+                if site[-1] > len(self):
+                    site[-1] = len(self)
+
+                focus_sites[site[0]] = max(site[1], focus_sites.get(site[0], -1))
         return focus_sites
 
     def set_stroke(self, stroke: str) -> List[Stroke]:
@@ -98,17 +103,22 @@ class SpliceRegion(GenomicLoci):
         for i in stroke.split(":"):
             i = i.split("@")
             sites = sorted([int(x) - self.start for x in i[0].split("-")])
-            if sites[0] >= 0 and sites[-1] <= len(self):
-                color = "red"
-                label = ""
+            if sites[0] < 0:
+                sites[0] = 0
+
+            if sites[-1] > len(self):
+                sites[-1] = len(self)
+
+            color = "red"
+            label = ""
+            if len(i) > 1:
+                i = i[-1].split("-")
+                color = i[0]
+
                 if len(i) > 1:
-                    i = i[-1].split("-")
-                    color = i[0]
+                    label = i[-1]
 
-                    if len(i) > 1:
-                        label = i[-1]
-
-                res.append(Stroke(sites[0], sites[-1], color, label))
+            res.append(Stroke(sites[0], sites[-1], color, label))
 
         return res
 
@@ -274,6 +284,15 @@ class SpliceRegion(GenomicLoci):
             if i.is_overlap(genomic):
                 tmp.add_gtf(i)
         return tmp
+
+    def filter_transcripts(self, transcripts: str):
+        transcripts = transcripts.split(",")
+
+        res = {}
+        for k, v in self.__transcripts__.items():
+            if v.transcript in transcripts or v.transcript_id in transcripts:
+                res[k] = v
+        self.__transcripts__ = res
 
     def copy(self):
         temp = SpliceRegion(

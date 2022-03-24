@@ -169,7 +169,6 @@ def read_transcripts(
                     region.add_gtf(line, show_id=show_id)
                 except IndexError as err:
                     logger.error(err)
-
     except ValueError as err:
         logger.warning(err)
 

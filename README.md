@@ -10,19 +10,7 @@ Thanks to [ggsashimi](https://github.com/guigolab/ggsashimi), I learned how to e
 
 ---
 
-## Sample
-
-- sashmi plot share y axis
-
-![share-y](./docs/0.png)
-
-- Sahimi do not share y axis
-
-  ![do not share-y](./docs/1.png)
-  
-- Line plot, used to viz ATAC
-
-  ![line plot](./docs/3.png)
+![example](./docs/4.png)
 
 ## Installation
 
@@ -36,24 +24,18 @@ Software requirements
 - kiwisolver = ">=1.1.0"
 - matplotlib = ">=3.0.1"
 - numpy = ">=1.15.4"
-- openpyxl = ">=2.5.9"
 - pyparsing = ">=2.4.2"
 - pysam = ">=0.15.1"
 - python-dateutil = ">=2.8.0"
 - six = ">=1.12.0"
-- tqdm = ">=4.28.1"
+- pybind11 = "*"
 - scipy = "*"
-- logrus = "*"
+- rich = "*"
+- pybigwig = "*"
+- seaborn = "*"
 
-1. from source
 
-    ```bash
-    git clone https://github.com/ygidtu/pysashimi.git
-    cd pysashimi
-    pip install -r requirements.txt
-    ```
-
-2. install as command line tools
+1. install as command line tools
 
     ```bash
     git clone https://github.com/ygidtu/pysashimi.git
@@ -61,78 +43,78 @@ Software requirements
     python setup.py install
     pysashimi --help
     ```
-
-3. using docker image
+   
+2. running from source
 
     ```bash
     git clone https://github.com/ygidtu/pysashimi.git
-
     cd pysashimi
+    pip install -r requirements.txt
+    ```
+   
+3. for `pipenv` users
 
-    docker build --rm -t chenlinlab/sashimi .
+    ```bash
+    git clone https://github.com/ygidtu/pysashimi.git
+    cd pysashimi
+    pipenv install   # create virtualenv and install required packages
+    pipenv shell   # switch to virtualenv
+    python main.py --help
+    ```
+
+4. using docker image
+
+    ```bash
+    git clone https://github.com/ygidtu/pysashimi.git
+    cd pysashimi
+    docker build --rm -t ygidtu/pysashimi .
+    docker run --rm ygditu/pysashimi --help
     ```
 
 ## Usage
 
 There are three different mode in this suite of scripts
 
-1. **plot** -> draw sashimi plot
-2. **line** -> draw a line plot which a used to viz ATAC-seq
-
 This suite of scripts will automatically check the index of BAM files and gtf files.
 
 **If there are lack of any index file (.bai or .tbi), this script will try to create one. Therefore, the write permission may required.**
 
 ```bash
-> python main.py    # docker run -it chenlinlab/sashimi
-
-Usage: main.py [OPTIONS] COMMAND [ARGS]...
-
-  Welcome
-
-  This function is used to test the function of sashimi plotting
-
-Options:
-  --version   Show the version and exit.
-  -h, --help  Show this message and exit.
-
-Commands:
-  line  This function is used to plot single sashimi plotting
-  plot  This function is used to plot single sashimi plotting
-```
-
-### 1. plot
-
-```bash
-> python main.py plot --help
-Usage: main.py plot [OPTIONS]
+❯ python main.py --help
+Usage: main.py [OPTIONS]
 
   This function is used to plot single sashimi plotting
 
 Options:
+  --version                       Show the version and exit.
   -e, --event TEXT                Event range eg: chr1:100-200:+  [required]
-  -b, --bam PATH                  Path to input BAM file. 
-                                  
+  -b, --bam PATH                  Path to input BAM file.
+
                                   Or a tab separated text file,  - first
                                   column is path to BAM file, - second
                                   column is BAM file alias(optional) Path
                                   to tab separated list fil 1. the column
                                   use to plot sashimi, identical with count
                                   table column names 2. optional, the alias
-                                  of 1st column 3. additional columns 
-                                  [required]
+                                  of 1st column 3. additional columns
+                                  [default: ; required]
+
+  --sc-atac PATH                  The list of scATAC-seq fragments, same
+                                  format with --bam  [default: ]
+
+  --bigwigs PATH                  The list of bigWig files for signal display,
+                                  same format with --bam  [default: ]
 
   -c, --count-table PATH          Path to input count table file. To make
-                                  sashimi plot without bam
+                                  sashimi plot without bam  [default: ]
 
   -g, --gtf PATH                  Path to gtf file, both transcript and exon
                                   tags are necessary
 
   -o, --output PATH               Path to output graph file
   --config PATH                   Path to config file, contains graph settings
-                                  of sashimi plot  [default: /mnt/raid61/Perso
-                                  nal_data/zhangyiming/code/pysashimi/settings
-                                  .ini]
+                                  of sashimi plot  [default:
+                                  settings.ini]
 
   -t, --threshold INTEGER RANGE   Threshold to filter low abundance junctions
                                   [default: 0]
@@ -145,65 +127,103 @@ Options:
                                   300]
 
   --indicator-lines TEXT          Where to plot additional indicator lines,
-                                  comma separated int, sites occured multiple
-                                  times will highlight in red Or Path to
+                                  comma separated int, sites occurred multiple
+                                  times will highlight in re Or Path to
                                   file contains indicator lines, 1st column
                                   is the line site 2nd column is transcript id
                                   3rd column is the weights
 
   --share-y                       Whether different sashimi plots shared same
-                                  y axis
+                                  y axis  [default: False]
 
   --no-gene                       Do not show gene id next to transcript id
+                                  [default: False]
+
+  --transcripts-to-show TEXT      Which transcript to show, transcript name or
+                                  id in gtf file, eg: transcript1,transcript2
+                                  [default: ]
+
   --color-factor TEXT             The index of specific column in --bam or
-                                  path to color settings, 2 columns are
+                                  path to color settings,  2 columns are
                                   required, first if key of bam or cell group,
                                   second column is color
 
   --log [0|2|10|zscore]           y axis log transformed, 0 -> not log
-                                  transform; 2 -> log2; 10 -> log10
+                                  transform; 2 -> log2; 10 -> log10  [default:
+                                  0]
 
   --customized-junction TEXT      Path to junction table column name needs to
-                                  be bam name or bam alias. 
+                                  be bam name or bam alias.
 
-  -p, --process INTEGER RANGE     How many cpu to use 
-  -f, --genome PATH               Path to genome fasta 
+  -p, --process INTEGER RANGE     How many cpu to use  [default: 1]
+  -f, --genome PATH               Path to genome fasta
   --sort-by-color                 Whether sort input bam order, for better
-                                  looking 
+                                  looking  [default: False]
 
-  --stack                         Whether to draw stacked reads
+  --stack                         Whether to draw stacked reads  [default:
+                                  False]
+
   --share-y-by INTEGER            Index of column with share y axis (1-based),
-                                  Need --share-y.  For example, first 3 bam
+                                  Need --share-y. For example, first 3 bam
                                   files use same y axis, and the rest use
                                   another  [default: -1]
 
-  --remove-empty-gene             Whether to plot empty transcript 
-  --distance-ratio FLOAT          distance between transcript label and
+  --remove-empty-gene             Whether to plot empty transcript  [default:
+                                  False]
+
+  --distance-ratio FLOAT          Distance between transcript label and
                                   transcript line  [default: 0.3]
 
   --title TEXT                    Title
-  --save-depth                    Whether to save reads depth to file,  the
+  --save-depth                    Whether to save reads depth to file, the
                                   last 3 columns are chrom, position and
-                                  depth, The same pos will repeated multiple
-                                  times for joyplot in R  
+                                  depth The same pos will repeated multiple
+                                  times for joyplot in R  [default: False]
 
-  --barcode PATH                  Path to barcode list file,  At list  three
-                                  columns were required, 1st The name of bam
-                                  file; 2nd the barcode; 3rd The group label
-                                  
+  --barcode PATH                  Path to barcode list file, At list  three
+                                  columns were required 1st The name of bam
+                                  file; 2nd the barcode 3rd The group label
 
-  --barcode-tag TEXT              The default cell barcode tag label  
-  --reads [All|R1|R2]             Whether filter R1 or R2  
-  --show-side                     Whether to draw additional side plot,   
-  --side-strand [All|+|-]         which strand kept for side plot, default use
-                                  all  
+  --barcode-tag TEXT              The default cell barcode tag label
+                                  [default: CB]
 
-  --show-id                       which show gene id or gene name 
-  -S, --strand-specific           only show transcripts and reads of input
-                                  region 
+  --reads [All|R1|R2]             Whether filter R1 or R2  [default: All]
+  --show-side                     Whether to draw additional side plot
+                                  [default: False]
 
-  --sc-atac                       Whether input file is fragments of scATAC-
-                                  seq  
+  --side-strand [All|+|-]         Which strand kept for side plot, default use
+                                  all  [default: All]
+
+  --show-id                       Which show gene id or gene name  [default:
+                                  False]
+
+  -S, --strand-specific           Only show transcripts and reads of input
+                                  region  [default: False]
+
+  --draw-line                     Whether to draw line plot instead of normal
+                                  sashimi  [default: False]
+
+  --show-mean                     Show mean coverage by groups  [default:
+                                  False]
+
+  --focus TEXT                    The highlight regions: 100-200:300-400
+  --stroke TEXT                   The stroke regions:
+                                  start1-end1:start2-end2@color-label, draw a
+                                  stroke line at bottom, default color is red
+
+  --bigwig-clustering             The clustering the bigwig files  [default:
+                                  False]
+
+  --bigwig-clustering-method [single|complete|average|weighted|centroid|median|ward]
+                                  The clustering method for the bigwig files
+                                  [default: ward]
+
+  --bigwig-distance-metric [braycurtis|canberra|chebyshev|cityblock|correlation|cosine|dice|euclidean|hamming|jaccard|jensenshannon|kulsinski|kulczynski1|mahalanobis|matching|minkowski|rogerstanimoto|russellrao|seuclidean|sokalmichener|sokalsneath|sqeuclidean|yule]
+                                  The clustering method for the bigwig files
+                                  [default: euclidean]
+
+  --bigwig-scale                  The do scale on bigwigs files  [default:
+                                  False]
 
   -h, --help                      Show this message and exit.
 ```
@@ -214,15 +234,14 @@ Options:
     - path to a list of BAM files (tab separated), and at least one column in this file
     - path to BAM files
     - The alias of BAM files, due to this list is tab separated, so space in this alias is also fine.
-    - additional colmuns, may used to assign colors and so on
+    - additional columns, may be used to assign colors and so on
 
   for example (do not add any table header in the actual list): 
 
   | first column        | second column | third column |
   | ------------------- | ------------- | ------------ |
   | /home/user/test.bam | Sample 1      | Red          |
-  |                     |               |              |
-  
+
 - If bam list file is used, the order of bam file in this list is used. 
     If the `--sort-by-color` used, then reorder the bam list by colors, 
     to make sure same color bam file will be together.
@@ -231,56 +250,30 @@ Options:
 
 - `--log`: zscore is used `scipy.stats.zscore` to convert density to zscore, just for test usage, please no use it in final plots.
 
-### 2. line
+- supported color map for heatmap
+  ```bash
+    'Blues', 'Greens', 'Oranges', 'Reds', 'Greys', 'Purples',
+    'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu',
+    'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn',
+    'binary', 'gist_yarg', 'gist_gray', 'gray', 'bone',
+    'viridis', 'plasma', 'inferno', 'magma', 'cividis',
+    'pink', 'spring', 'summer', 'autumn', 'winter',
+    'cool', 'Wistia', 'hot', 'afmhot', 'gist_heat',
+    'copper', 'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu',
+    'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic'
+  ```
+ 
 
-```bash
->python main.py line --help
-Usage: main.py line [OPTIONS]
+## Sample
 
-  This function is used to plot single sashimi plotting
+- sashmi plot share y axis
 
-Options:
-  -e, --event TEXT              Event range eg: chr1:100-200:+  [required]
-  -b, --bam PATH                a tab separated text file,  - 1st column is
-                                path to BAM file, - 2nd column is BAM file
-                                alias(optional)
+  ![share-y](./docs/0.png)
 
-  -g, --gtf PATH                Path to gtf file, both transcript and exon
-                                tags are necessary
+- Sahimi do not share y axis
 
-  -o, --output PATH             Path to output graph file
-  --config PATH                 Path to config file, contains graph settings
-                                of sashimi plot  [default: /mnt/raid61/Persona
-                                l_data/zhangyiming/code/pysashimi/settings.ini
-                                ]
+  ![do not share-y](./docs/1.png)
+  
+- Line plot, used to viz ATAC
 
-  -d, --dpi INTEGER RANGE       The resolution of output file  [default: 300]
-  --indicator-lines TEXT        Where to plot additional indicator lines,
-                                comma separated int
-
-  --share-y                     Whether different sashimi plots shared same y
-                                axis
-
-  --no-gene                     Do not show gene id next to transcript id
-  --color-factor INTEGER RANGE  Index of column with color levels (1-based);
-                                NOTE: LUAD|red -> LUAD while be labeled in
-                                plots and red while be the fill color
-                                [default: 1]
-
-  --log [0|2|10|zscore]         y axis log transformed, 0 -> not log
-                                transform; 2 -> log2; 10 -> log10
-
-  -p, --process INTEGER RANGE   How many cpu to use 
-  --plot-by INTEGER             Index of column with same plot (1-based)
-                                [default: -1]
-
-  --sep-by-color                whether to plot colors in different plot
-                                [default: False]
-
-  --remove-empty-gene           Whether to plot empty transcript 
-  --title TEXT                  Title
-  --distance-ratio FLOAT        distance between transcript label and
-                                transcript line  [default: 0.3]
-
-  -h, --help                    Show this message and exit.
-```
+  ![line plot](./docs/3.png)

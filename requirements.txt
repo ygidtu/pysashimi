@@ -5,23 +5,28 @@
 #    pipenv lock --requirements
 #
 
-click==8.0.3
-colorama==0.4.4; python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4'
+-i https://mirrors.aliyun.com/pypi/simple
+click==8.0.4
 commonmark==0.9.1
 cycler==0.11.0
 et-xmlfile==1.1.0
-filetype==1.0.9
-fonttools==4.29.1; python_version >= '3.7'
+filetype==1.0.10
+fonttools==4.31.1; python_version >= '3.7'
 jdcal==1.4.1
-kiwisolver==1.3.2
+kiwisolver==1.4.0
 matplotlib==3.5.1
-numpy==1.22.1
+numpy==1.22.3
 packaging==21.3; python_version >= '3.6'
-pillow==9.0.0; python_version >= '3.7'
+pandas==1.4.1; python_version >= '3.8'
+pillow==9.0.1; python_version >= '3.7'
+pybigwig==0.3.18
+pybind11==2.9.1
 pygments==2.11.2; python_version >= '3.5'
 pyparsing==3.0.7
 pysam==0.18.0
 python-dateutil==2.8.2
-rich==11.1.0
-scipy==1.7.3
+pytz==2022.1
+rich==12.0.0
+scipy==1.8.0
+seaborn==0.11.2
 six==1.16.0
