@@ -40,11 +40,11 @@ class GenomicLoci(object):
         self.gtf_line = gtf_line
 
         if self.end < self.start:
-            raise ValueError("End site should bigger than start site, not %d -> %d" % (self.start, self.end))
+            raise ValueError(f"End site should bigger than start site, not {self.start} -> {self.end}")
         if strand == ".":
             strand = "*"
         if strand not in ("+", "-", "*"):
-            raise ValueError("strand should be + or -, not %s" % strand)
+            raise ValueError(f"strand should be + or -, not {strand}")
 
         self.strand = strand
 
@@ -53,14 +53,7 @@ class GenomicLoci(object):
         convert this to string
         :return:
         """
-        return "{chromosome}:{start}-{end}:{strand}".format(
-            **{
-                "chromosome": self.chromosome,
-                "start": self.start,
-                "end": self.end,
-                "strand": self.strand
-            }
-        )
+        return f"{self.chromosome}:{self.start}-{self.end}:{self.strand}"
 
     def __gt__(self, other):
         u"""

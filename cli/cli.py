@@ -34,7 +34,6 @@ VERSION = "1.6.0"
 LABEL = "pySashimi"
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
-
 init_logger("INFO")
 
 
@@ -97,12 +96,11 @@ def draw_default(
         bam, splice_region,
         color_factor, colors,
         share_y, share_y_by,
-        barcode,
-        sort_by_color,
+        barcode, sort_by_color,
         threshold, threshold_of_reads,
         log, process, reads,
         barcode_tag, save_depth,
-        output,
+        output, depth,
         customized_junction,
         sashimi_plot_settings,
         no_gene, dpi,
@@ -115,7 +113,7 @@ def draw_default(
 ):
     bam_list, shared_y = prepare_bam_list(
         bam, color_factor, colors, share_y_by,
-        barcodes=barcode, is_atac=False,
+        barcodes=barcode, kind="bam",
         show_mean=kwargs.get("show_mean", False)
     )
 
@@ -123,11 +121,20 @@ def draw_default(
     if sc_atac:
         sc_atac_list, shared_y_atac = prepare_bam_list(
             sc_atac, color_factor, colors, share_y_by, barcodes=barcode,
-            is_atac=True, show_mean=kwargs.get("show_mean", False)
+            kind="atac", show_mean=kwargs.get("show_mean", False)
         )
 
         bam_list += sc_atac_list
         shared_y.update(shared_y_atac)
+
+    if depth:
+        depth_list, shared_y_depth = prepare_bam_list(
+            sc_atac, color_factor, colors, share_y_by, barcodes=barcode,
+            kind="depth", show_mean=kwargs.get("show_mean", False)
+        )
+
+        bam_list += depth_list
+        shared_y.update(shared_y_depth)
 
     if sort_by_color:
         bam_list = sorted(bam_list, key=lambda x: x.color)
@@ -143,6 +150,7 @@ def draw_default(
         barcode_tag=barcode_tag,
         strandless=strandless,
         stack=stack,
+        groups=kwargs.get("depth_group", None)
     )
 
     if save_depth:
@@ -221,8 +229,13 @@ def draw_default(
     help="The list of scATAC-seq fragments, same format with --bam"
 )
 @click.option(
-    "--bigwigs", type=click.Path(), show_default=True, default="",
-    help="The list of bigWig files for signal display, same format with --bam"
+    "--heatmap", type=click.Path(), show_default=True, default="",
+    help="The list of bigWig files for heatmap display, same format with --bam"
+)
+@click.option(
+    "--depth", type=click.Path(), show_default=True, default="",
+    help="The list of depth files, same format with --bam \b"
+         "generated using 'samtools depth *.bam | bgzip > depth.gz && tabix indexed tabix -s 1 -b 2 -e 3 depth.gz'"
 )
 @click.option(
     "-c", "--count-table", type=click.Path(), show_default=True, default="",
@@ -233,6 +246,15 @@ def draw_default(
     help="Path to gtf file, both transcript and exon tags are necessary"
 )
 @click.option("-o", "--output", type=click.Path(), show_default=True, help="Path to output graph file")
+@click.option(
+    "-d", "--dpi", default=300, type=click.IntRange(min=1, clamp=True), show_default=True,
+    help="The resolution of output file"
+)
+@click.option(
+    "--raster", is_flag=True, show_default=True,
+    help="The would convert heatmap and side plot to raster image (speed up rendering and produce smaller files), "
+         "only affects pdf, svg and PS "
+)
 @click.option(
     "--config", default=os.path.join(os.path.dirname(__dir__), "settings.ini"),
     type=click.Path(), show_default=True,
@@ -245,10 +267,6 @@ def draw_default(
 @click.option(
     "-T", "--threshold-of-reads", default=0, type=click.IntRange(min=0, clamp=True), show_default=True,
     help="Threshold to filter low abundance reads for stacked plot"
-)
-@click.option(
-    "-d", "--dpi", default=300, type=click.IntRange(min=1, clamp=True), show_default=True,
-    help="The resolution of output file"
 )
 @click.option(
     "--indicator-lines", default=None, type=click.STRING, show_default=True,
@@ -362,19 +380,25 @@ def draw_default(
 @click.option("--show-mean", is_flag=True, type=click.BOOL, show_default=True, help="Show mean coverage by groups")
 @click.option("--focus", type=click.STRING, show_default=True, help="The highlight regions: 100-200:300-400")
 @click.option(
+    "--depth-group", type=click.Path(), show_default=True, default="",
+    help="The list of labels of the values from depth files. \b"
+         "depth.bgz -> chrom\tsite\tval1\tval2\tval3\b"
+         "depth.group -> group1\tgroup1\tgroup2"
+)
+@click.option("--heatmap-clustering", is_flag=True, show_default=True, help="Enable clustering of the heatmap")
+@click.option(
+    "--heatmap-clustering-method", type=click.Choice(__CLUSTERING_METHOD__), default="ward", show_default=True,
+    help="The clustering method for the heatmap files"
+)
+@click.option(
+    "--heatmap-distance-metric", type=click.Choice(__DISTANCE_METRIC__), default="euclidean", show_default=True,
+    help="The clustering method for the heatmap"
+)
+@click.option("--heatmap-scale", is_flag=True, show_default=True, help="The do scale on heatmap files")
+@click.option(
     "--stroke", type=click.STRING, show_default=True,
     help="The stroke regions: start1-end1:start2-end2@color-label, draw a stroke line at bottom, default color is red"
 )
-@click.option("--bigwig-clustering", is_flag=True, show_default=True, help="The clustering the bigwig files")
-@click.option(
-    "--bigwig-clustering-method", type=click.Choice(__CLUSTERING_METHOD__), default="ward", show_default=True,
-    help="The clustering method for the bigwig files"
-)
-@click.option(
-    "--bigwig-distance-metric", type=click.Choice(__DISTANCE_METRIC__), default="euclidean", show_default=True,
-    help="The clustering method for the bigwig files"
-)
-@click.option("--bigwig-scale", is_flag=True, show_default=True, help="The do scale on bigwigs files")
 def plot(
         bam: str, event: str, gtf: str, output: str,
         config: str, threshold: int, indicator_lines: str,
@@ -387,13 +411,14 @@ def plot(
         reads: str, show_side: bool, side_strand: str, count_table: str, strand_specific: bool,
         show_id: bool = False, sc_atac: bool = False,
         show_mean: bool = False, focus: str = "",
-        bigwigs: str = "",
-        bigwig_clustering: bool = False,
-        bigwig_clustering_method: str = "ward",
-        bigwig_distance_metric: str = "euclidean",
-        bigwig_scale: bool = False, stroke: str = "",
+        heatmap: str = "", raster: bool = False,
+        heatmap_clustering: bool = False,
+        heatmap_clustering_method: str = "ward",
+        heatmap_distance_metric: str = "euclidean",
+        heatmap_scale: bool = False, stroke: str = "",
         transcripts_to_show: str = "",
-        draw_line: bool = False
+        draw_line: bool = False,
+        depth: str = "", depth_group: str = ""
 ):
     u"""
     This function is used to plot single sashimi plotting
@@ -406,8 +431,8 @@ def plot(
     except ValueError:
         pass
 
-    if all([not os.path.exists(x) for x in [bam, sc_atac, bigwigs]]):
-        raise ValueError("At least provide --bam, --sc-atac or --bigwigs")
+    if all([not os.path.exists(x) for x in [bam, sc_atac, heatmap, depth]]):
+        raise ValueError("At least provide --bam, --sc-atac, --depth or --heatmap")
 
     out_dir = os.path.dirname(os.path.abspath(output))
 
@@ -418,7 +443,7 @@ def plot(
         os.makedirs(out_dir, exist_ok=True)
     except IOError as err:
         logger.warning(err)
-        logger.error("Create output directory failed, please check %s" % out_dir)
+        logger.error(f"Create output directory failed, please check {out_dir}")
         exit(err)
 
     sashimi_plot_settings = parse_settings(config)
@@ -429,6 +454,7 @@ def plot(
         indicator_lines=indicator_lines,
         focus=focus, stroke=stroke
     )
+    splice_region.raster = raster
 
     splice_region = read_transcripts(
         gtf_file=index_gtf(input_gtf=gtf),
@@ -445,52 +471,29 @@ def plot(
         splice_region.remove_empty_transcripts()
 
     wigs = prepare_bigwig_list(
-        bigwigs, splice_region,
+        heatmap, splice_region,
         process=process,
-        clustering=bigwig_clustering,
-        clustering_method=bigwig_clustering_method,
-        distance_metric=bigwig_distance_metric,
-        do_scale=bigwig_scale
+        clustering=heatmap_clustering,
+        clustering_method=heatmap_clustering_method,
+        distance_metric=heatmap_distance_metric,
+        do_scale=heatmap_scale
     )
 
     if count_table:
         draw_without_bam(
-            bam,
-            count_table,
-            splice_region,
-            colors,
-            color_factor,
-            threshold,
-            output,
-            sashimi_plot_settings,
-            no_gene,
-            dpi,
-            distance_ratio,
-            title
+            bam, count_table, splice_region,  colors, color_factor, threshold, output,
+            sashimi_plot_settings, no_gene, dpi, distance_ratio, title
         )
     else:
         draw_default(
-            bam, splice_region,
-            color_factor, colors,
-            share_y, share_y_by,
-            barcode,
-            sort_by_color,
-            threshold, threshold_of_reads,
-            log, process, reads,
-            barcode_tag, save_depth,
-            output,
-            customized_junction,
-            sashimi_plot_settings,
-            no_gene, dpi,
-            distance_ratio,
-            title, show_side,
-            stack, side_strand,
-            not strand_specific,
-            sc_atac=sc_atac,
-            show_mean=show_mean,
-            focus=focus,
-            bigwigs=wigs,
-            draw_line=draw_line
+            bam, splice_region, color_factor, colors, share_y, share_y_by,
+            barcode, sort_by_color, threshold, threshold_of_reads,
+            log, process, reads, barcode_tag, save_depth,
+            output=output, title=title, stack=stack, customized_junction=customized_junction,
+            sashimi_plot_settings=sashimi_plot_settings, no_gene=no_gene, dpi=dpi, bigwigs=wigs,
+            distance_ratio=distance_ratio, show_side=show_side, side_strand=side_strand,
+            strandless=not strand_specific, depth=depth, sc_atac=sc_atac, show_mean=show_mean, focus=focus,
+            draw_line=draw_line, raster=raster, depth_group=depth_group
         )
 
 

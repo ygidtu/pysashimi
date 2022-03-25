@@ -25,7 +25,7 @@ def locate_packages():
                         version = version.strip('"')
                         if version == "*":
                             version = ""
-                        packages.append("%s %s" % (name, version))
+                        packages.append(f"{name}, {version}")
     return packages
 
 

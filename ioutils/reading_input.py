@@ -20,6 +20,7 @@ from src.GenomicLoci import GenomicLoci
 from src.ReadDepth import ReadDepth
 from src.SpliceRegion import SpliceRegion
 from src.logger import logger
+from rich.progress import track
 
 
 def index_gtf(input_gtf, sort_gtf=True, retry=0):
@@ -57,11 +58,11 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
 
     # 2018.12.21 used to handle gtf not sorted error
     if sort_gtf and retry > 1:
-        raise OSError("Create index for %s failed, and trying to sort it failed too" % input_gtf)
+        raise OSError(f"Create index for {input_gtf} failed, and trying to sort it failed too")
     elif sort_gtf:
         data = []
 
-        logger.info("Sorting %s" % input_gtf)
+        logger.info(f"Sorting {input_gtf}")
 
         old_input_gtf = input_gtf
         input_gtf = re.sub(r"\.gtf$", "", input_gtf) + ".sorted.gtf"
@@ -99,7 +100,7 @@ def index_gtf(input_gtf, sort_gtf=True, retry=0):
         w.close()
 
     if index:
-        logger.info("Create index for %s", input_gtf)
+        logger.info(f"Create index for {input_gtf}")
         try:
             pysam.tabix_index(
                 input_gtf,
@@ -142,10 +143,10 @@ def read_transcripts(
         return region
 
     if not os.path.exists(gtf_file):
-        raise FileNotFoundError("%s not found" % gtf_file)
+        raise FileNotFoundError(f"{gtf_file} not found")
 
     try:
-        logger.info("Reading from %s" % gtf_file)
+        logger.info("Reading from {gtf_file}")
 
         if genome:
             with pysam.FastaFile(genome) as fa:
@@ -199,8 +200,7 @@ def __read_from_bam__(args):
     if not splice_region:
         return None
     try:
-
-        if bam.is_atac:
+        if bam.type == "atac":
             tmp = ReadDepth.determine_depth_by_fragments(
                 bam=bam,
                 chrom=splice_region.chromosome,
@@ -209,6 +209,16 @@ def __read_from_bam__(args):
                 strand=splice_region.strand,
                 strandless=strandless,
                 log=log,
+            )
+        elif bam.type == "depth":
+            tmp = ReadDepth.determine_depth_by_depths(
+                bam=bam,
+                chrom=splice_region.chromosome,
+                start_coord=splice_region.start,
+                end_coord=splice_region.end,
+                strand=splice_region.strand,
+                strandless=strandless,
+                log=log, groups=args.get("groups", [])
             )
         else:
             tmp = ReadDepth.determine_depth(
@@ -245,14 +255,15 @@ def read_reads_depth_from_bam(
         threshold=0, threshold_of_reads=0, log=None, n_jobs=1,
         reads=None, barcode_tag="CB",
         strandless: bool = True,
-        stack: bool = False
+        stack: bool = False,
+        groups: str = ""
 ) -> Dict[BamInfo, ReadDepth]:
     u"""
     read records coverage info from all bam files
+    :param groups:
     :param strandless:
     :param threshold_of_reads:
     :param stack:
-    :param is_atac:
     :param barcode_tag:
     :param bam_list: namedtuple (alias, title, path, label)
     :param splice_region: SpliceRegion
@@ -263,39 +274,44 @@ def read_reads_depth_from_bam(
     :return: dict {alias, ReadDepth}
     """
     logger.info("Reading from bam files")
-    assert isinstance(splice_region, SpliceRegion), "splice_region should be Splice Region, not %s" % type(
-        splice_region)
+    assert isinstance(splice_region, SpliceRegion), f"splice_region should be Splice Region, not {type(splice_region)}"
 
     res = OrderedDict()
 
+    group_dict = {}
+    if groups:
+        with open(groups) as r:
+            for idx, line in enumerate(r):
+                line = line.strip()
+                if line not in group_dict.keys():
+                    group_dict[line] = []
+
+                group_dict[line].append(idx + 2)
+
     cmds = []
     for bam in bam_list:
-        cmds.append({
-            "splice_region": splice_region,
-            "bam": bam,
-            "threshold": threshold,
-            "threshold_of_reads": threshold_of_reads,
-            "log": log,
-            "reads": reads,
-            "barcode_tag": barcode_tag,
-            "strandless": strandless,
-            "stack": stack
-        })
+        for key, groups in group_dict.items():
+            bam.alias = f"{bam.alias}[{key}]" if bam.alias else key
+            cmds.append({
+                "splice_region": splice_region,
+                "bam": bam,
+                "threshold": threshold,
+                "threshold_of_reads": threshold_of_reads,
+                "log": log,
+                "reads": reads,
+                "barcode_tag": barcode_tag,
+                "strandless": strandless,
+                "stack": stack,
+                "groups": groups
+            })
 
     try:
-        # not using multiprocessing when only single process, in case the data size limitation of pickle issue
-        if n_jobs == 1:
-            for i in cmds:
-                i = __read_from_bam__(i)
-                if i is not None:
-                    res.update(i)
-        else:
-            with Pool(min(n_jobs, len(bam_list))) as p:
-                temp = p.map(__read_from_bam__, cmds)
+        with Pool(min(n_jobs, len(bam_list))) as p:
+            temp = list(track(p.imap(__read_from_bam__, cmds), total=len(cmds)))
 
-                for x in temp:
-                    if x is not None:
-                        res.update(x)
+            for x in temp:
+                if x is not None:
+                    res.update(x)
     except Exception as err:
         logger.error(err)
         traceback.print_exc()

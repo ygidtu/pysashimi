@@ -7,7 +7,6 @@ from matplotlib import pylab
 
 
 def plot_stroke(region: SpliceRegion, font_size: float = 5):
-    logger.info("Plot stroke")
     strokes = sorted(region.stroke, key=lambda x: [x.start, x.end])
 
     for i, stroke in enumerate(strokes):

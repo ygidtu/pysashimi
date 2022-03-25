@@ -11,7 +11,7 @@ Migrated from SplicePlot sashimi_plot_utils
 6. display chromosome and strand; DONE
 7. Junctions count的过滤筛选; DONE
 8. add title, remove title from setting files; DONE
-9. add parameter to decide if plot by shared y axis
+9. add parameter to decide if plot by shared y-axis
 10. fix transcripts display issues
 """
 from typing import Dict
@@ -284,8 +284,7 @@ def save_fig(
 
     """
 
-    assert isinstance(
-        splice_region, SpliceRegion), "splice_region should be SpliceRegion, not %s" % type(splice_region)
+    assert isinstance(splice_region, SpliceRegion), f"splice_region should be SpliceRegion, not {type(splice_region)}"
 
     u"""
     @2019.01.04
@@ -334,7 +333,7 @@ def save_fig(
         **kwargs
     )
 
-    logger.info("save to %s" % output_file_path)
+    logger.info(f"save to {output_file_path}")
     plt.savefig(
         output_file_path,
         transparent=True,

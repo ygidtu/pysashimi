@@ -63,7 +63,7 @@ def is_gtf(infile: str) -> bool:
 
         r.close()
     except TypeError as err:
-        logger.error("failed to open %s", infile)
+        logger.error(f"failed to open {infile}", )
         exit(err)
 
     return gtf
@@ -95,7 +95,7 @@ def is_bam(infile: str) -> bool:
                 create = True
 
         if create:
-            logger.info("Creating index for %s" % infile)
+            logger.info(f"Creating index for {infile}")
             pysam.index(infile)
         return True
 
@@ -123,7 +123,7 @@ def get_sites_from_splice_id(string, span=0, **kwargs):
     split = string.split("@")
 
     if not split:
-        raise ValueError("Invalid region %s" % string)
+        raise ValueError(f"Invalid region {string}")
 
     sites = []
     chromosome, strand = "", ""
@@ -143,10 +143,10 @@ def get_sites_from_splice_id(string, span=0, **kwargs):
                     sites.append(int(x))
             except ValueError as err:
                 logger.error(err)
-                logger.error("Contains illegal characters in %s" % string)
+                logger.error(f"Contains illegal characters in {string}")
                 exit(err)
     except ValueError as err:
-        logger.error("Invalid format of input region %s" % string)
+        logger.error(f"Invalid format of input region {string}")
         exit(err)
 
     sites = sorted(sites)
@@ -160,7 +160,7 @@ def get_sites_from_splice_id(string, span=0, **kwargs):
             span = float(span) * (sites[-1] - sites[0])
             start, end = sites[0] - span, sites[-1] + span
         except ValueError as err:
-            logger.error("Invalid format of span, %s" % str(span))
+            logger.error(f"Invalid format of span, {span}")
             exit(err)
 
     indicator_lines = kwargs.get("indicator_lines", "")
@@ -194,7 +194,7 @@ def get_merged_event(events, span, indicator_lines):
     coords = {}
     for e in events:
         tmp = get_sites_from_splice_id(e, span=span, indicator_lines=indicator_lines)
-        tmp_key = "%s#%s" % (tmp.chromosome, tmp.strand)
+        tmp_key = f"{tmp.chromosome}#{tmp.strand}"
 
         tmp_list = coords[tmp_key] if tmp_key in coords.keys() else []
         tmp_list.append(tmp)
@@ -305,7 +305,7 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
 
 def prepare_bam_list(
         bam, color_factor, colors, share_y_by=-1,
-        plot_by=None, barcodes=None, is_atac: bool = False,
+        plot_by=None, barcodes=None, kind: str = "bam",
         show_mean: bool = False
 ):
     u"""
@@ -313,16 +313,9 @@ def prepare_bam_list(
     :return: [list of bam files, dict recorded the share y details]
     """
     if is_bam(bam):
-        return [
-                   BamInfo(
-                       path=bam,
-                       alias=clean_star_filename(bam),
-                       title=None,
-                       label=None,
-                       color=colors[0],
-                       is_atac=is_atac
-                   )
-               ], {}
+        return [BamInfo(
+            path=bam, alias=clean_star_filename(bam), title=None,
+            label=None, color=colors[0], kind=kind)], {}
 
     # load barcode groups
     barcodes_group = load_barcode(barcodes) if barcodes else {}
@@ -338,11 +331,11 @@ def prepare_bam_list(
             lines = re.split(r"\t| {2,}", line.strip())
 
             if not os.path.exists(lines[0]) and not os.path.isfile(lines[0]):
-                logger.warn("wrong input path %s" % lines[0])
+                logger.warn(f"wrong input path {lines[0]}")
                 continue
 
-            if not is_atac and not is_bam(lines[0]):
-                raise ValueError("%s seem not ba a valid BAM file" % lines[0])
+            if kind == "bam" and not is_bam(lines[0]):
+                raise ValueError(f"{lines[0]} seem not ba a valid BAM file")
 
             temp_barcodes = barcodes_group.get(
                 clean_star_filename(lines[0]),
@@ -361,7 +354,7 @@ def prepare_bam_list(
                     label=alias,
                     color=colors[alias],
                     barcodes=set(barcode) if barcode else None,
-                    is_atac=is_atac
+                    kind=kind
                 )
                 tmp.show_mean = show_mean
 
@@ -384,8 +377,8 @@ def prepare_bam_list(
                         except IndexError as err:
                             logger.error(err)
                             logger.error("Wrong --plot-by index")
-                            logger.error("Your --plot-by is %d" % plot_by)
-                            logger.error("Your error line in %s" % lines)
+                            logger.error(f"Your --plot-by is {plot_by}")
+                            logger.error(f"Your error line in {lines}")
 
                             exit(err)
 
@@ -397,8 +390,8 @@ def prepare_bam_list(
                     except IndexError as err:
                         logger.error(err)
                         logger.error("Wrong --share-y-by index")
-                        logger.error("Your --share-y-by is %d" % share_y_by)
-                        logger.error("Your error line in %s" % lines)
+                        logger.error(f"Your --share-y-by is {share_y_by}")
+                        logger.error(f"Your error line in {lines}")
 
                         exit(err)
 
@@ -442,7 +435,7 @@ def prepare_bigwig_list(
             lines = re.split(r"\t| {2,}", line.strip())
 
             if not os.path.exists(lines[0]) and not os.path.isfile(lines[0]):
-                logger.warn("wrong input path %s" % lines[0])
+                logger.warn(f"Wrong input path {lines[0]}")
                 continue
 
             path = lines[0]
@@ -468,6 +461,7 @@ def prepare_bigwig_list(
                     alias=alias,
                     color_map=col
                 )
+                bigwig_list[alias].raster = region.raster
             else:
                 bigwig_list[alias].files.append(path)
 

@@ -31,7 +31,7 @@ class Junction(object):
         self.end = int(end)
 
         if self.end <= self.start:
-            raise ValueError("End site(%d) should bigger than start site(%d)" % (start, end))
+            raise ValueError(f"End site({start}) should bigger than start site({end})")
 
     @property
     def length(self):

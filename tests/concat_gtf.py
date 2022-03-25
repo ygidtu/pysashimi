@@ -46,17 +46,12 @@ def concat_dict_to_string(data: dict) -> str:
 
     for i in important:
         if i in data.keys():
-            res.append("%s \"%s\"" % (i, data[i]))
+            res.append(f"{i} \"{data[i]}\"")
 
     for k, v in data.items():
         if k not in important:
-            res.append("%s \"%s\"" % (k, v))
+            res.append(f"{k} \"{v}\"")
     return "; ".join(res)
-
-
-# m64054_191116_221538/36/ccs
-# m64054_191116_221538/377/ccs
-# m64054_191116_221538/243/ccs
 
 
 def read_gtf(path: str, label: str = None) -> list:

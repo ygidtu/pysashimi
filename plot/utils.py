@@ -53,10 +53,10 @@ def set_x_ticks(read_depth_object: ReadDepth, ax_var, region: SpliceRegion, logt
 
     # @2018.12.19 unnecessary text in figure
 
-    xlabel = 'Genomic coordinate (%s), "%s" strand' % (region.chromosome, region.strand)
+    xlabel = f'Genomic coordinate ({region.chromosome}), "{region.strand}" strand'
 
     if logtrans in (2, 10):
-        xlabel = xlabel + ", y axis is log%d transformed" % logtrans
+        xlabel = f"{xlabel}, y axis is log{logtrans} transformed"
 
     pylab.xlabel(xlabel, fontsize=font_size)
 

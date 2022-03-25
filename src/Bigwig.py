@@ -65,13 +65,14 @@ class Bigwig(object):
         self.clustering_method = clustering_method
         self.distance_metric = distance_metric
         self.color = color_map
+        self.raster = False
 
         if self.clustering:
             if self.clustering_method not in __CLUSTERING_METHOD__:
-                raise ValueError("%s is not a supported clustering method" % self.clustering_method)
+                raise ValueError(f"{self.clustering_method} is not a supported clustering method")
 
             if self.distance_metric not in __DISTANCE_METRIC__:
-                raise ValueError("%s is not a supported distance metric" % self.distance_metric)
+                raise ValueError(f"{self.distance_metric} is not a supported distance metric")
 
     def prepare(self, region: SpliceRegion, ):
         data = []

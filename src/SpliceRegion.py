@@ -3,7 +3,6 @@
 u"""
 Created by ygidtu@gmail.com at 2019.12.06
 """
-import re
 from typing import List, Optional
 from copy import deepcopy
 
@@ -58,6 +57,7 @@ class SpliceRegion(GenomicLoci):
         self.start = int(start)
         self.end = int(end)
         self.strand = strand
+        self.raster = False
 
         # {transcript_id: namedtuple(gtf proxy of transcript, [gtf proxy of exons])}
         self.__transcripts__ = {}
@@ -204,13 +204,10 @@ class SpliceRegion(GenomicLoci):
         )
 
     def x_label(self, logtrans=None) -> str:
-        label = 'Genomic coordinate (%s), "%s" strand' % (
-            self.chromosome,
-            self.strand
-        )
+        label = f'Genomic coordinate ({self.chromosome}), "{self.strand}" strand'
 
         if logtrans is not None:
-            label = label + ", y axis is log%d transformed" % logtrans
+            label = f"{label}, y axis is log{logtrans} transformed"
         return label
 
     def add_gtf(self, gtf_line, show_id: bool = False):
@@ -295,24 +292,7 @@ class SpliceRegion(GenomicLoci):
         self.__transcripts__ = res
 
     def copy(self):
-        temp = SpliceRegion(
-            chromosome=self.chromosome,
-            start=self.start,
-            end=self.end,
-            strand=self.strand,
-            sites=None,
-            events=self.events,
-            ori=self.ori
-        )
-
-        temp.sites = self.sites
-        temp.focus = self.focus
-        temp.graph_coords = self.graph_coords
-        temp.stroke = self.stroke
-
-        temp.__transcripts__ = self.__transcripts__
-        temp.sequence = self.sequence
-        return temp
+        return deepcopy(self)
 
     def remove_empty_transcripts(self):
         u"""

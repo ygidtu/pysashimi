@@ -19,7 +19,8 @@ def plot_heatmap(bigwig: Bigwig, ax_var, cbar_ax, font_size: float = 4, distance
         cbar_ax=cbar_ax,
         xticklabels=False,
         yticklabels=False,
-        center=True
+        center=True,
+        rasterized=bigwig.raster
     )
 
     ax_var.tick_params(axis='both', which='major', labelsize=font_size)
@@ -33,6 +34,9 @@ def plot_heatmap(bigwig: Bigwig, ax_var, cbar_ax, font_size: float = 4, distance
             labelpad=distance_between_label_axis,  # the distance between y label with axis
             rotation="horizontal"
         )
+
+    if bigwig.raster:
+        ax_var.set_rasterization_zorder(0)
 
 
 if __name__ == '__main__':

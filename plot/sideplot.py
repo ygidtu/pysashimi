@@ -57,10 +57,10 @@ def plot_sideplot(
         fit_value = fit_value / fit_value.max()
         if label == 'plus':
             ax_var.plot(region.graph_coords, fit_value * array_plot.max(), c=sample_info.color, lw=1)
-            ax_var.bar(range(len(region)), array_plot, color=sample_info.color)
+            ax_var.bar(range(len(region)), array_plot, color=sample_info.color, rasterized=region.raster)
         else:
             ax_var.plot(region.graph_coords, fit_value * array_plot.min(), c=sample_info.color, lw=1)
-            ax_var.bar(range(len(region)), array_plot, color=sample_info.color)
+            ax_var.bar(range(len(region)), array_plot, color=sample_info.color, rasterized=region.raster)
 
     # set the y limit
     # set y ticks, y label and label
@@ -73,19 +73,23 @@ def plot_sideplot(
 
     ax_var.set_yticks(universal_yticks)
     ax_var.set_yticklabels(curr_yticklabels, fontsize=font_size)
+
     ax_var.spines["left"].set_bounds(ymin, ymax)
     ax_var.yaxis.set_ticks_position('left')
-    ax_var.spines["right"].set_visible(False)
 
+    ax_var.spines["right"].set_visible(False)
     ax_var.spines['right'].set_color('none')
     ax_var.spines['top'].set_color('none')
-
     ax_var.spines['bottom'].set_color('none')
+
     pylab.xticks([])
     pylab.xlim(0, max(region.graph_coords))
 
-    if region:
-        add_additional_background(region)
+    add_additional_background(region)
+
+    print(region.raster)
+    if region.raster:
+        ax_var.set_rasterization_zorder(0)
     return ax_var
 
 
