@@ -92,7 +92,7 @@ class Bigwig(object):
 
         self.data = np.array(data)
 
-        if self.clustering:
+        if self.clustering and self.data.shape[0] > 1:
             data = linkage(self.data, method=self.clustering_method, metric=self.distance_metric)
             order = dendrogram(data, orientation='right')
             self.data = self.data[order["leaves"], :]

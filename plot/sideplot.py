@@ -87,7 +87,6 @@ def plot_sideplot(
 
     add_additional_background(region)
 
-    print(region.raster)
     if region.raster:
         ax_var.set_rasterization_zorder(0)
     return ax_var

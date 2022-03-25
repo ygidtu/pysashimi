@@ -146,7 +146,7 @@ def read_transcripts(
         raise FileNotFoundError(f"{gtf_file} not found")
 
     try:
-        logger.info("Reading from {gtf_file}")
+        logger.info(f"Reading from {gtf_file}")
 
         if genome:
             with pysam.FastaFile(genome) as fa:
@@ -199,6 +199,7 @@ def __read_from_bam__(args):
 
     if not splice_region:
         return None
+
     try:
         if bam.type == "atac":
             tmp = ReadDepth.determine_depth_by_fragments(
@@ -246,7 +247,8 @@ def __read_from_bam__(args):
         )
 
         return {bam: tmp}
-    except (OSError, IOError):
+    except (OSError, IOError) as e:
+        logger.warning(e)
         return None
 
 
@@ -290,8 +292,22 @@ def read_reads_depth_from_bam(
 
     cmds = []
     for bam in bam_list:
-        for key, groups in group_dict.items():
-            bam.alias = f"{bam.alias}[{key}]" if bam.alias else key
+        if group_dict:
+            for key, groups in group_dict.items():
+                bam.alias = f"{bam.alias}[{key}]" if bam.alias else key
+                cmds.append({
+                    "splice_region": splice_region,
+                    "bam": bam,
+                    "threshold": threshold,
+                    "threshold_of_reads": threshold_of_reads,
+                    "log": log,
+                    "reads": reads,
+                    "barcode_tag": barcode_tag,
+                    "strandless": strandless,
+                    "stack": stack,
+                    "groups": groups
+                })
+        else:
             cmds.append({
                 "splice_region": splice_region,
                 "bam": bam,

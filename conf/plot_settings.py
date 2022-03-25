@@ -132,41 +132,41 @@ def parse_hive_plot_settings(config):
             colorified[i] = RGB.from_hex_string(settings['bezier_colors'][i])
         settings['bezier_colors'] = colorified
     except Exception:
-        print('Invalid colors in bezier_colors')
+        logger.error('Invalid colors in bezier_colors')
         sys.exit(1)
 
     try:
         settings['axis_colors'] = RGB.from_hex_string(settings['axis_colors'])
     except Exception:
-        print('Invalid color in axis_colors')
+        logger.error('Invalid color in axis_colors')
         sys.exit(1)
 
     if settings['custom_scale']:
         if type(settings['custom_scale']) is not list:
-            print('custom_scale must be list')
+            logger.error('custom_scale must be list')
             sys.exit(1)
         for item in settings['custom_scale']:
             if type(item) is not list:
-                print('Items in custom_scale must be list')
+                logger.error('Items in custom_scale must be list')
                 sys.exit(1)
             elif len(item) != 2:
-                print('Invalid number of elements in element of custom_scale')
+                logger.error('Invalid number of elements in element of custom_scale')
                 sys.exit(1)
             elif item[0] < 0 or item[0] > 1 or item[1] < item[0] or item[1] > 1:
-                print('Invalid boundary in custom_scale')
+                logger.error('Invalid boundary in custom_scale')
                 sys.exit(1)
 
     if settings['include_key']:
         if type(settings['key_position']) is not list:
-            print('key_position must be list')
+            logger.error('key_position must be list')
             sys.exit(1)
         if len(settings['key_position']) != 2:
-            print('key_position can have exactly 2 coordinates')
+            logger.error('key_position can have exactly 2 coordinates')
             sys.exit(1)
         try:
             settings['key_text_color'] = RGB.from_hex_string(settings['key_text_color'])
         except:
-            print('key_text_color is not a valid color')
+            logger.error('key_text_color is not a valid color')
     
     return settings
 
@@ -230,7 +230,7 @@ def parse_struct_plot_settings(config_parser) -> dict:
     # check to make sure entries in settings have the correct format
 
     if type(settings['colors']) is not list:
-        print('colors must be a list of 3 element lists')
+        logger.error('colors must be a list of 3 element lists')
         sys.exit(1)
     else:
         colorified = [None] * len(settings['colors'])
@@ -239,31 +239,31 @@ def parse_struct_plot_settings(config_parser) -> dict:
                 colorified[i] = RGB.from_hex_string(settings['colors'][i])
             settings['colors'] = colorified
         except Exception:
-            print('Invalid colors in colors')
+            logger.error('Invalid colors in colors')
             sys.exit(1)
 
     try:
         settings['axis_color'] = RGB.from_hex_string(settings['axis_color'])
     except Exception:
-        print('Invalid color in axis_color')
+        logger.error('Invalid color in axis_color')
         sys.exit(1)
 
     if settings['include_key']:
         try:
             settings['key_text_color'] = RGB.from_hex_string(settings['key_text_color'])
         except Exception:
-            print('Invalid color in key_text_color')
+            logger.error('Invalid color in key_text_color')
             sys.exit(1)
 
         if len(settings['key_position']) != 2:
-            print('Invalid number of components in key_position')
+            logger.error('Invalid number of components in key_position')
             sys.exit(1)
 
         for i in range(2):
             try:
                 settings['key_position'][i] = float(settings['key_position'][i])
             except Exception:
-                print('Elements in key_position must be numbers')
+                logger.error('Elements in key_position must be numbers')
                 sys.exit(1)
 
     return settings
@@ -335,7 +335,7 @@ def parse_settings(settings_file) -> dict:
 
         return parse_sashimi_settings(config)
 
-        # print('Done reading settings.')
+        # logger.error('Done reading settings.')
         # return hive_plot_settings, struct_plot_settings, sashimi_plot_settings
     except IOError:
         logger.error('{0} is not a valid file path')

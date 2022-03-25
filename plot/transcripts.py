@@ -81,7 +81,6 @@ def plot_transcripts(
 
         # @2018.12.19
         # s and e is the start and end site of single exon
-        # print(transcript)
         for exon in transcript.exons:
             s, e, strand = exon.start, exon.end, exon.strand
 
