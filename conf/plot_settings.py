@@ -10,105 +10,50 @@ from src.logger import logger
 from conf.drawing import RGB
 
 
-def default_hive_settings():
+COLOR_MAP = [
+    'Blues', 'Greens', 'Oranges', 'Reds', 'Greys', 'Purples',
+    'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu',
+    'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn',
+    'binary', 'gist_yarg', 'gist_gray', 'gray', 'bone',
+    'viridis', 'plasma', 'inferno', 'magma', 'cividis',
+    'pink', 'spring', 'summer', 'autumn', 'winter',
+    'cool', 'Wistia', 'hot', 'afmhot', 'gist_heat',
+    'copper', 'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu',
+    'RdYlGn', 'Spectral', 'coolwarm', 'bwr', 'seismic'
+]
 
-    """ Creates dictionary containing the default hive plot settings
 
+def default_hive_settings() -> dict:
+    """
+    Creates dictionary containing the default hive plot settings
     """
 
-    hive_settings = {}
-
-    hive_settings['dimension'] = 1000
-    hive_settings['output_file_path']='hive.svg'
-    hive_settings['draw_hive_plot'] = True
-
-    hive_settings['tick_marks'] = True
-    hive_settings['axis_subdivision'] = 0.05
-    hive_settings['tick_labels'] = True
-    hive_settings['tick_label_font_size'] = 0
-    hive_settings['tick_label_distance'] = 3
-    hive_settings['tick_height'] = 3
-    hive_settings['tick_thickness'] = 1
-    
-    hive_settings['axis_start_radius'] = 50
-    hive_settings['axis_end_radius'] = 600
-    hive_settings['axis_thickness'] = 40
-    hive_settings['axis_angles'] = [0]
-    hive_settings['custom_scale'] = []
-
-    hive_settings['draw_bars'] = True
-    
-    hive_settings['axis_colors'] = '#000000'
-    hive_settings['bezier_colors'] = ['#FF0000','#00FF00','#0000FF']
-
-    hive_settings['use_custom_axis_labels'] = False
-    hive_settings['axis_labels'] = None
-    hive_settings['bezier_thickness'] = 10
-
-    hive_settings['include_key'] = True
-    hive_settings['key_position'] = ['-700','-700']
-    hive_settings['key_font_size'] = 10
-    hive_settings['key_title'] = 'Key'
-    hive_settings['key_text_color'] = [0,0,0]
-    hive_settings['key_title_size'] = 15
-
-    return hive_settings
+    return {'dimension': 1000, 'output_file_path': 'hive.svg', 'draw_hive_plot': True, 'tick_marks': True,
+                     'axis_subdivision': 0.05, 'tick_labels': True, 'tick_label_font_size': 0, 'tick_label_distance': 3,
+                     'tick_height': 3, 'tick_thickness': 1, 'axis_start_radius': 50, 'axis_end_radius': 600,
+                     'axis_thickness': 40, 'axis_angles': [0], 'custom_scale': [], 'draw_bars': True,
+                     'axis_colors': '#000000', 'bezier_colors': ['#FF0000', '#00FF00', '#0000FF'],
+                     'use_custom_axis_labels': False, 'axis_labels': None, 'bezier_thickness': 10, 'include_key': True,
+                     'key_position': ['-700', '-700'], 'key_font_size': 10, 'key_title': 'Key',
+                     'key_text_color': [0, 0, 0], 'key_title_size': 15}
 
 
-def default_struct_settings():
+def default_struct_settings() -> dict:
+    """
+    Creates dictionary containing the default structure plot settings
+    """
 
-    ''' Creates dictionary containing the default structure plot settings
-
-    '''
-
-    struct_settings = {}
-    struct_settings['draw_struct_plot'] = True
-    struct_settings['output_file_path']='structure.svg'
-
-    struct_settings['plot_width']=1000
-    struct_settings['plot_height']=600
-
-    struct_settings['left_margin']=100
-    struct_settings['right_margin']=100
-    struct_settings['top_margin']=100
-    struct_settings['bottom_margin']=100
-
-    struct_settings['colors']=['#FF0000','#00FF00','#0000FF']
-    struct_settings['axis_color']='#000000'
-
-    struct_settings['axis_thickness']=2
-
-    struct_settings['tick_length']=10
-
-    struct_settings['horiz_label_size']=15
-    struct_settings['horiz_label_spacing']=20
-
-    struct_settings['horiz_axis_title_size']=30
-    
-    struct_settings['use_vertical_ticks']=True
-    struct_settings['vertical_tick_spacing']=0.2
-    struct_settings['vert_label_size']=15
-    struct_settings['vert_label_spacing']=20
-
-
-    struct_settings['include_key'] = False
-    struct_settings['key_title_size'] = 10
-    struct_settings['key_position'] = [800,200]
-    struct_settings['key_font_size'] = 15
-    struct_settings['key_text_color'] = '#000000'
-
-    return struct_settings
+    return {'draw_struct_plot': True, 'output_file_path': 'structure.svg', 'plot_width': 1000,
+                       'plot_height': 600, 'left_margin': 100, 'right_margin': 100, 'top_margin': 100,
+                       'bottom_margin': 100, 'colors': ['#FF0000', '#00FF00', '#0000FF'], 'axis_color': '#000000',
+                       'axis_thickness': 2, 'tick_length': 10, 'horiz_label_size': 15, 'horiz_label_spacing': 20,
+                       'horiz_axis_title_size': 30, 'use_vertical_ticks': True, 'vertical_tick_spacing': 0.2,
+                       'vert_label_size': 15, 'vert_label_spacing': 20, 'include_key': False, 'key_title_size': 10,
+                       'key_position': [800, 200], 'key_font_size': 15, 'key_text_color': '#000000'}
 
 
 def default_sashimi_settings():
-    sashimi_settings = {}
-
-    sashimi_settings['width'] = 7
-    sashimi_settings['height'] = 5
-
-    sashimi_settings['intron_scale'] = 1
-    sashimi_settings['exon_scale'] = 1
-    sashimi_settings['colors'] = [
+    return {'width': 7, 'height': 5, 'intron_scale': 1, 'exon_scale': 1, 'colors': [
         '#FF8000',
         '#00C866',
         '#3399FF',
@@ -120,33 +65,20 @@ def default_sashimi_settings():
         '#5770db',
         '#a157db',
         '#db57b2'
-    ]
-    sashimi_settings['ymax'] = None
-    sashimi_settings['number_junctions'] = True
-    sashimi_settings['resolution'] = 0.5
-    sashimi_settings['junction_log_base'] = 10
-    sashimi_settings['reverse_minus'] = False
-    sashimi_settings['font_size'] = 6
-    sashimi_settings['nyticks'] = 3
-    sashimi_settings['nxticks'] = 4
-    sashimi_settings['show_ylabel'] = True
-    sashimi_settings['show_xlabel'] = True
-    sashimi_settings['plot_title'] = None
-    sashimi_settings['numbering_font_size']=6
-
-    return sashimi_settings
+    ], 'ymax': None, 'number_junctions': True, 'resolution': 0.5, 'junction_log_base': 10, 'reverse_minus': False,
+                        'font_size': 6, 'nyticks': 3, 'nxticks': 4, 'show_ylabel': True, 'show_xlabel': True,
+                        'plot_title': None, 'numbering_font_size': 6}
 
 
 def parse_hive_plot_settings(config):
 
-    ''' Parses custom settings for a hive plot from a configuration file. Returns a dictionary containing all
-    of the settings
+    """
+    Parses custom settings for a hive plot from a configuration file. Returns a dictionary containing all the settings
 
     config is a ConfigParser object which already contains all of the settings
     data is a pandas.DataFrame object containing all of the alternative splicing data
-
-    '''
-    print('Parsing settings for hive plot...')
+    """
+    logger.info('Parsing settings for hive plot...')
 
     settings = default_hive_settings()
     
@@ -200,55 +132,54 @@ def parse_hive_plot_settings(config):
             colorified[i] = RGB.from_hex_string(settings['bezier_colors'][i])
         settings['bezier_colors'] = colorified
     except Exception:
-        print('Invalid colors in bezier_colors')
+        logger.error('Invalid colors in bezier_colors')
         sys.exit(1)
 
     try:
         settings['axis_colors'] = RGB.from_hex_string(settings['axis_colors'])
     except Exception:
-        print('Invalid color in axis_colors')
+        logger.error('Invalid color in axis_colors')
         sys.exit(1)
 
     if settings['custom_scale']:
         if type(settings['custom_scale']) is not list:
-            print('custom_scale must be list')
+            logger.error('custom_scale must be list')
             sys.exit(1)
         for item in settings['custom_scale']:
             if type(item) is not list:
-                print('Items in custom_scale must be list')
+                logger.error('Items in custom_scale must be list')
                 sys.exit(1)
             elif len(item) != 2:
-                print('Invalid number of elements in element of custom_scale')
+                logger.error('Invalid number of elements in element of custom_scale')
                 sys.exit(1)
             elif item[0] < 0 or item[0] > 1 or item[1] < item[0] or item[1] > 1:
-                print('Invalid boundary in custom_scale')
+                logger.error('Invalid boundary in custom_scale')
                 sys.exit(1)
-
 
     if settings['include_key']:
         if type(settings['key_position']) is not list:
-            print('key_position must be list')
+            logger.error('key_position must be list')
             sys.exit(1)
         if len(settings['key_position']) != 2:
-            print('key_position can have exactly 2 coordinates')
+            logger.error('key_position can have exactly 2 coordinates')
             sys.exit(1)
         try:
             settings['key_text_color'] = RGB.from_hex_string(settings['key_text_color'])
         except:
-            print('key_text_color is not a valid color')
+            logger.error('key_text_color is not a valid color')
     
     return settings
 
 
-def parse_struct_plot_settings(config_parser):
-    ''' Parses custom settings for a structure plot from a configuration file. Returns a dictionary containing
-    all of the settings
+def parse_struct_plot_settings(config_parser) -> dict:
+    """
+    Parses custom settings for a structure plot from a configuration file. Returns a dictionary containing
+    all the settings
 
     config is a ConfigParser object which already contains all of the settings
     data is a pandas.DataFrame object containing all of the alternative splicing data
-
-    '''
-    print('Parsing settings for structure plot...')
+    """
+    logger.info('Parsing settings for structure plot...')
     
     settings = default_struct_settings()
 
@@ -288,7 +219,6 @@ def parse_struct_plot_settings(config_parser):
         'key_position'
     }
 
-
     for option in config_parser.options('struct_plot'):
         if option in FLOAT_PARAMS:
             settings[option] = config_parser.getfloat('struct_plot',option)
@@ -297,12 +227,10 @@ def parse_struct_plot_settings(config_parser):
         elif option in OTHER_PARAMS:
             settings[option] = ast.literal_eval(config_parser.get('struct_plot',option))
 
-
     # check to make sure entries in settings have the correct format
-    
 
     if type(settings['colors']) is not list:
-        print('colors must be a list of 3 element lists')
+        logger.error('colors must be a list of 3 element lists')
         sys.exit(1)
     else:
         colorified = [None] * len(settings['colors'])
@@ -311,37 +239,37 @@ def parse_struct_plot_settings(config_parser):
                 colorified[i] = RGB.from_hex_string(settings['colors'][i])
             settings['colors'] = colorified
         except Exception:
-            print('Invalid colors in colors')
+            logger.error('Invalid colors in colors')
             sys.exit(1)
 
     try:
         settings['axis_color'] = RGB.from_hex_string(settings['axis_color'])
     except Exception:
-        print('Invalid color in axis_color')
+        logger.error('Invalid color in axis_color')
         sys.exit(1)
 
     if settings['include_key']:
         try:
             settings['key_text_color'] = RGB.from_hex_string(settings['key_text_color'])
         except Exception:
-            print('Invalid color in key_text_color')
+            logger.error('Invalid color in key_text_color')
             sys.exit(1)
 
         if len(settings['key_position']) != 2:
-            print('Invalid number of components in key_position')
+            logger.error('Invalid number of components in key_position')
             sys.exit(1)
 
         for i in range(2):
             try:
                 settings['key_position'][i] = float(settings['key_position'][i])
             except Exception:
-                print('Elements in key_position must be numbers')
+                logger.error('Elements in key_position must be numbers')
                 sys.exit(1)
 
     return settings
 
 
-def parse_sashimi_settings(config_parser):
+def parse_sashimi_settings(config_parser) -> dict:
 
     settings = default_sashimi_settings()
 
@@ -385,7 +313,7 @@ def parse_sashimi_settings(config_parser):
     return settings
 
 
-def parse_settings(settings_file):
+def parse_settings(settings_file) -> dict:
 
     """ Creates multiple dictionaries containing the settings parsed from a settings file.
     Each type of plot has its own settings dictionary.
@@ -407,7 +335,7 @@ def parse_settings(settings_file):
 
         return parse_sashimi_settings(config)
 
-        # print('Done reading settings.')
+        # logger.error('Done reading settings.')
         # return hive_plot_settings, struct_plot_settings, sashimi_plot_settings
     except IOError:
         logger.error('{0} is not a valid file path')

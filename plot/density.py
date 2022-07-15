@@ -3,50 +3,36 @@
 u"""
 Created by Zhang at 2021.03.16
 
-Seperate the  single density plot from sashimi_plot_utils
+Separate the  single density plot from sashimi_plot_utils
 """
 
 import matplotlib.pyplot as plt
-from matplotlib import pylab
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
 from plot.utils import *
+from src.SpliceRegion import SpliceRegion
+from src.ReadDepth import ReadDepth
 
 
 def plot_density_single(
-        read_depth_object,
-        graph_coords,
+        read_depth_object: ReadDepth,
+        region: SpliceRegion,
         ax_var,
         sample_info,
         distance_between_label_axis,
         number_junctions=True,
-        show_ylabel = True,
+        show_ylabel=True,
         ny_ticks=4,
         font_size=6,
         numbering_font_size=6,
         no_bam=False,
         logtrans=None,
-        sites = None
 ):
     u"""
     @2018.12.19 remove unnecessary x label
     @2018.12.19 replace junc_comp_function with a new Junction class,
                 due to cmp function is removed in Python3
-    :param chromosome:
-    :param strand:
-    :param read_depth_object:
-    :param graph_coords:
-    :param graph_to_gene:
-    :param ax_var:
-    :param sample_info:
-    :param number_junctions:
-    :param nx_ticks:
-    :param font_size:
-    :param numbering_font_size:
-    :param no_bam:
-    :param logtrans:
-    :return:
     """
     # Round up
     max_used_y_val = read_depth_object.max
@@ -58,10 +44,6 @@ def plot_density_single(
     if max_used_y_val % 2 == 1:
         max_used_y_val += 1
 
-    # @2018.12.19
-    # tx_end = read_depth_object.high
-    # chrom = read_depth_object.chrm
-
     wiggle = read_depth_object.wiggle
 
     jxns = read_depth_object.junctions_dict
@@ -72,7 +54,6 @@ def plot_density_single(
     # Reduce memory footprint by using incremented graphcoords.
     compressed_x = []
     compressed_wiggle = []
-    # prev_x = graph_coords[0]
 
     u"""
     @2019.01.04
@@ -82,9 +63,9 @@ def plot_density_single(
     And draw a white point to maintain the height of the y axis
     
     """
-    for i in range(len(graph_coords)):
+    for i in range(len(region)):
         compressed_wiggle.append(wiggle[i])
-        compressed_x.append(graph_coords[i])
+        compressed_x.append(region.graph_coords[i])
 
     if no_bam:
         plt.plot(0, max(compressed_wiggle) * 2, color="white")
@@ -114,27 +95,22 @@ def plot_density_single(
 
     current_height = -3 * y_min / 4
     for plotted_count, jxn in enumerate(jxns_sorted_list):
-        # leftss, rightss = list(map(int, jxn.split(":")[1].split("-")))
-
-        leftss, rightss = jxn.start, jxn.end
-
         # @2018.12.19
         # set junctions coordinate here
         # the junction out of boundaries, set the boundaries as coordinate
-        ss1_idx, ss1_modified = get_limited_index(leftss - read_depth_object.start, len(graph_coords))
-        ss2_idx, ss2_modified = get_limited_index(rightss - read_depth_object.start, len(graph_coords))
+        ss1_idx, ss1_modified = get_limited_index(jxn.start - read_depth_object.start, len(region))
+        ss2_idx, ss2_modified = get_limited_index(jxn.end - read_depth_object.start, len(region))
 
         u"""
         @2019.01.14
 
         add two new variables to make it clear which one is index, which one is genomic site 
         """
-        ss1 = graph_coords[ss1_idx]
-        ss2 = graph_coords[ss2_idx]
+        ss1 = region.graph_coords[ss1_idx]
+        ss2 = region.graph_coords[ss2_idx]
 
         # draw junction on bottom
         if plotted_count % 2 == 0:
-
             pts = [
                 (ss1, 0 if not ss1_modified else -current_height),
                 (ss1, -current_height),
@@ -204,7 +180,6 @@ def plot_density_single(
         ax_var.add_patch(p)
 
     # set y ticks, y label and label
-
     ax_var.set_ybound(lower=fake_y_min, upper=1.2 * max_used_y_val)
     ax_var.spines["left"].set_bounds(0, max_used_y_val)
     ax_var.spines["right"].set_color('none')
@@ -212,23 +187,27 @@ def plot_density_single(
     universal_y_ticks = pylab.linspace(0, max_used_y_val, ny_ticks + 1)
 
     set_y_ticks(
-        ax_var, sample_info, 
-        universal_y_ticks, 
+        ax_var, sample_info,
+        universal_y_ticks,
         distance_between_label_axis,
-        font_size = font_size, 
-        logtrans = logtrans, 
-        show_ylabel = show_ylabel, 
+        font_size=font_size,
+        logtrans=logtrans,
+        show_ylabel=show_ylabel,
         no_bam=no_bam
     )
-    set_label(ax_var, sample_info, graph_coords, max_used_y_val, font_size=font_size)
-    set_indicator_lines(read_depth_object, ax_var, graph_coords, sites, max_used_y_val)
-
+    set_label(ax_var, sample_info, region.graph_coords, max_used_y_val, font_size=font_size)
 
     # Format plot
     ax_var.spines['right'].set_color('none')
     ax_var.spines['top'].set_color('none')
-
     ax_var.spines['bottom'].set_color('none')
     pylab.xticks([])
 
-    pylab.xlim(0, max(graph_coords))
+    if region:
+        add_additional_background(region)
+
+    pylab.xlim(0, max(region.graph_coords))
+
+
+if __name__ == '__main__':
+    pass

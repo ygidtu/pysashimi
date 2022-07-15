@@ -3,7 +3,7 @@
 u"""
 Created by ygidtu@gmail.com at 2019.12.06
 """
-from typing import List, Optional
+from typing import Optional, List
 
 import numpy as np
 import pysam
@@ -19,8 +19,6 @@ from src.BamInfo import BamInfo
 def __get_strand__(read: pysam.AlignedSegment) -> str:
     u"""
     determine the reads strand
-
-    :params read: 
     """
 
     if read.is_paired:
@@ -38,10 +36,10 @@ class ReadDepth(GenomicLoci):
     u"""
     Migrated from SplicePlot ReadDepth class
 
-    add a parent class to handle all the position comparision
+    add a parent class to handle all the position comparison
     """
 
-    def __init__(self, chromosome, start, end, wiggle, junctions_dict, reads = None, plus = None, minus = None):
+    def __init__(self, chromosome, start, end, wiggle, junctions_dict, reads=None, plus=None, minus=None):
         u"""
         init this class
         :param chromosome: str
@@ -69,7 +67,7 @@ class ReadDepth(GenomicLoci):
     def determine_depth(
         cls,
         bam: BamInfo,
-        chrm: str,
+        chrom: str,
         start_coord: int,
         end_coord: int,
         threshold: int,
@@ -78,7 +76,7 @@ class ReadDepth(GenomicLoci):
         reads1: Optional[bool] = None,
         barcode_tag: str = "CB",
         required_strand: Optional[str] = None,
-        stack: bool = False
+        stack: bool = False,
     ):
         """
             determine_depth determines the coverage at each base between start_coord and end_coord, inclusive.
@@ -94,8 +92,14 @@ class ReadDepth(GenomicLoci):
             The keys in spanned_junctions are the
                 names of the junctions, with the format chromosome:lowerBasePosition-higherBasePosition
 
-        :param log: whether use log transformed numbber of reads in sashimi
-        :param barcodes: for 10x single cell
+        :param chrom:
+        :param barcode_tag:
+        :param threshold_of_reads:
+        :param threshold:
+        :param end_coord:
+        :param start_coord:
+        :param bam:
+        :param log: whether to use log transformed number of reads in sashimi
         :param reads1: None -> all reads, True -> only R1 kept; False -> only R2 kept
         :param required_strand: None -> all reads, else reads on specific strand
         :param stack: whether to kept reads info for stack plot
@@ -111,23 +115,23 @@ class ReadDepth(GenomicLoci):
             try:
                 with pysam.AlignmentFile(bam_file_path, 'rb') as bam_file:
                     try:
-                        relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
+                        relevant_reads = bam_file.fetch(reference=chrom, start=start_coord, end=end_coord)
                     except ValueError as err:
                         logger.warning(err)
                         err = str(err)
 
                         if "without index" in err:
-                            logger.info("try to create index for %s" % bam_file_path)
+                            logger.info(f"try to create index for {bam_file_path}")
                             pysam.index(bam_file_path)
-                            relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
+                            relevant_reads = bam_file.fetch(reference=chrom, start=start_coord, end=end_coord)
                         else:
-                            if chrm.startswith("chr"):
+                            if chrom.startswith("chr"):
                                 logger.info("try without chr")
-                                chrm = chrm.replace("chr", "")
+                                chrom = chrom.replace("chr", "")
                             else:
                                 logger.info("try with chr")
-                                chrm = "chr{}".format(chrm)
-                            relevant_reads = bam_file.fetch(reference=chrm, start=start_coord, end=end_coord)
+                                chrom = "chr{}".format(chrom)
+                            relevant_reads = bam_file.fetch(reference=chrom, start=start_coord, end=end_coord)
                     
                     # tqdm()
                     for read in relevant_reads:
@@ -173,15 +177,15 @@ class ReadDepth(GenomicLoci):
                             cur_start = start + 1
                             cur_end = start + length + 1
 
-                            if cigar == 0: # M
+                            if cigar == 0:  # M
                                 for i in range(length):
                                     if start_coord <= start + i + 1 <= end_coord:
                                         try:
                                             depth_vector[start + i + 1 - start_coord] += 1
                                         except IndexError as err:
-                                            print(start_coord, end_coord)
-                                            print(cigar_string)
-                                            print(start, i)
+                                            logger.info(start_coord, end_coord)
+                                            logger.info(cigar_string)
+                                            logger.info(start, i)
                                             exit(err)
 
                                 if cur_start < end_coord and cur_end > start_coord:
@@ -195,13 +199,9 @@ class ReadDepth(GenomicLoci):
                             if cigar not in (1, 2, 4, 5):  # I, D, S, H
                                 start += length
 
-                            if cigar == 3: # N
+                            if cigar == 3:  # N
                                 try:
-                                    junction_name = Junction(
-                                        chrm,
-                                        cur_start,
-                                        cur_end
-                                    )
+                                    junction_name = Junction(chrom, cur_start, cur_end)
 
                                     if junction_name not in spanned_junctions:
                                         spanned_junctions[junction_name] = 0
@@ -225,7 +225,7 @@ class ReadDepth(GenomicLoci):
 
                         if strand == "+" and read.reference_start >= start_coord:
                             plus[t.start - start_coord] += 1
-                        elif strand == "-" and  read.reference_end <= end_coord:
+                        elif strand == "-" and read.reference_end <= end_coord:
                             minus[t.end - start_coord] += 1
                         
                 for k, v in spanned_junctions.items():
@@ -249,27 +249,48 @@ class ReadDepth(GenomicLoci):
                 logger.error(bam_file_path)
                 logger.error(err)
 
+        if bam.show_mean:
+            depth_vector = depth_vector / len(bam.path)
+            plus = plus / len(bam.path)
+            minus = minus / len(bam.path)
+
         return cls(
-            chromosome=chrm,
+            chromosome=chrom,
             start=start_coord,
             end=end_coord,
             wiggle=depth_vector,
             junctions_dict=filtered_junctions,
-            reads = filtered_reads,
-            plus = plus,
-            minus = minus
+            reads=filtered_reads,
+            plus=plus,
+            minus=minus
         )
 
     @classmethod
-    def determin_depth_by_fragments(
+    def __tabix_iter__(cls, tbx, chrom: str, start_coord: int, end_coord: int):
+        try:
+            r = tbx.fetch(chrom, start_coord, end_coord, parser=pysam.asTuple())
+        except ValueError as err:
+            logger.warning(err)
+
+            if chrom.startswith("chr"):
+                logger.info("try without chr")
+                chrom = chrom.replace("chr", "")
+            else:
+                logger.info("try with chr")
+                chrom = "chr{}".format(chrom)
+
+            r = tbx.fetch(chrom, start_coord, end_coord, parser=pysam.asTuple())
+        return r
+
+    @classmethod
+    def determine_depth_by_fragments(
         cls, bam: BamInfo,
-        chrm: str,
+        chrom: str,
         start_coord: int,
         end_coord: int,
         strand: str,
-        strandness: bool,
+        strandless: bool,
         log,
-        **kwargs
     ):
         filtered_reads = set()
         filtered_junctions = {}
@@ -277,22 +298,7 @@ class ReadDepth(GenomicLoci):
 
         for bam_file_path in bam.path:
             with pysam.TabixFile(bam_file_path) as tbx:
-                try:
-                    r = tbx.fetch(chrm, start_coord, end_coord, parser=pysam.asTuple())
-                except ValueError as err:
-                    logger.warning(err)
-                    err = str(err)
-
-                    if chrm.startswith("chr"):
-                        logger.info("try without chr")
-                        chrm = chrm.replace("chr", "")
-                    else:
-                        logger.info("try with chr")
-                        chrm = "chr{}".format(chrm)
-
-                    r = tbx.fetch(chrm, start_coord, end_coord, parser=pysam.asTuple())
-                
-                for _, start, end, barcode, count in r:
+                for _, start, end, barcode, count in cls.__tabix_iter__(tbx, chrom, start_coord, end_coord):
                     # filter reads by 10x barcodes
                     if not bam.empty_barcode():
                         if not bam.has_barcode(barcode):
@@ -300,7 +306,10 @@ class ReadDepth(GenomicLoci):
                     
                     start, end, count = int(start),  int(end), int(count)
                     for i in range(max(start, start_coord), min(end, end_coord)):
-                        depth_vector[i -  start_coord] += count
+                        depth_vector[i - start_coord] += count
+
+        if bam.show_mean:
+            depth_vector = depth_vector / len(bam.path)
 
         if log == 10:
             depth_vector = np.log10(depth_vector + 1)
@@ -310,14 +319,75 @@ class ReadDepth(GenomicLoci):
             depth_vector = zscore(depth_vector)
         
         return cls(
-            chromosome=chrm,
+            chromosome=chrom,
             start=start_coord,
             end=end_coord,
             wiggle=depth_vector,
             junctions_dict=filtered_junctions,
-            reads = filtered_reads,
-            plus = depth_vector if strandness or strand == "+" else None,
-            minus = depth_vector if strandness or strand == "-" else None,
+            reads=filtered_reads,
+            plus=depth_vector if strandless or strand == "+" else None,
+            minus=depth_vector if strandless or strand == "-" else None,
+        )
+
+    @classmethod
+    def determine_depth_by_depths(
+            cls, bam: BamInfo,
+            chrom: str,
+            start_coord: int,
+            end_coord: int,
+            strand: str,
+            strandless: bool,
+            log,
+            groups: List[int] = []
+    ):
+        u"""
+        depth file generated by samtools depth
+
+        samtools depth *.bam | bgzip > depth.gz && tabix indexed tabix -s 1 -b 2 -e 3 depth.gz
+        :param bam:
+        :param chrom:
+        :param start_coord:
+        :param end_coord:
+        :param strand:
+        :param strandless:
+        :param log:
+        :param groups: Used to query specific data from depth file
+        :return:
+        """
+        depth_vector = np.zeros(end_coord - start_coord + 1, dtype='f')
+        for bam_file_path in bam.path:
+            with pysam.TabixFile(bam_file_path) as tbx:
+                for vals in cls.__tabix_iter__(tbx, chrom, start_coord, end_coord):
+                    chrom, site = vals[0], vals[1]
+
+                    if not groups:
+                        count = sum(vals[3:])
+                    else:
+                        count = 0
+                        for g in groups:
+                            try:
+                                count += vals[g]
+                            except IndexError as e:
+                                logger.warning(f"the {g} is out of bound [{len(vals)}]: {e}")
+
+                    depth_vector[site - start_coord] += count / (len(bam.path) if bam.show_mean else 1)
+
+        if log == 10:
+            depth_vector = np.log10(depth_vector + 1)
+        elif log == 2:
+            depth_vector = np.log2(depth_vector + 1)
+        elif log == "zscore":
+            depth_vector = zscore(depth_vector)
+
+        return cls(
+            chromosome=chrom,
+            start=start_coord,
+            end=end_coord,
+            wiggle=depth_vector,
+            junctions_dict={},
+            reads={},
+            plus=depth_vector if strandless or strand == "+" else None,
+            minus=depth_vector if strandless or strand == "-" else None,
         )
 
     @classmethod
@@ -354,7 +424,7 @@ class ReadDepth(GenomicLoci):
     def create_blank(cls):
 
         """
-            create_blank creates an instance of ReadDepth where all of the attributes are None
+            create_blank creates an instance of ReadDepth where all the attributes are None
         """
         return cls("1", 0, 1, None, None)
 
@@ -379,12 +449,7 @@ class ReadDepth(GenomicLoci):
                 Nothing. Method changes the ReadDepth object
         """
         if new_low < self.start or new_high > self.end:
-            raise Exception('New boundaries are not valid, old: %d-%d, new: %d-%d' % (
-                self.start,
-                self.end,
-                new_low,
-                new_high
-            ))
+            raise Exception(f'New boundaries are not valid, old: {self.start}-{self.end}, new: {new_low}-{new_high}')
 
         # filter through junctions_dict to remove junctions which are no longer in the region
         new_junctions_dict = {}
@@ -426,24 +491,12 @@ class ReadDepth(GenomicLoci):
         assert self.start == other.start and self.end == other.end, 'Cannot add depths with different start and end'
         new_wiggle = self.wiggle + other.wiggle
 
-        new_junctions_dict = {}
-
-        for key, value in self.junctions_dict.items():
-            if key in other.junctions_dict:
-                new_junctions_dict[key] = value + other.junctions_dict[key]
-            else:
-                new_junctions_dict[key] = value
-
-        for key, value in list(other.junctions_dict.items()):
-            if key not in self.junctions_dict:
-                new_junctions_dict[key] = value
-
         return ReadDepth(
             self.chromosome,
             self.start,
             self.end,
             new_wiggle,
-            new_junctions_dict
+            self.add_customized_junctions(other)
         )
 
     def __str__(self):
@@ -456,7 +509,6 @@ class ReadDepth(GenomicLoci):
         )
 
     def divide_by_constant(self, constant):
-
         """
         divide_by_constant divides self.wiggle and self.junctions_dict by a constant value
 
@@ -484,8 +536,8 @@ class ReadDepth(GenomicLoci):
             filter_junctions_dict_for_event removes all entries frm junctions_dict that cannot possibly be
                 involved in the alternative splicing event splice_event_name
 
-            splice_event_name is the name of the alternative splicing event, in the format
-                format chr1:17055-17915,chr1:17055-17606,chr1:17055-17233,
+            splice_event_name is the name of the alternative splicing event,
+            in the format -> chr1:17055-17915,chr1:17055-17606,chr1:17055-17233,
                 where the numbers represent the genomic coordinates of the splice sites
 
             return values:
@@ -550,6 +602,7 @@ class ReadDepth(GenomicLoci):
                 new_junctions_dict[key] = value
 
         self.junctions_dict = new_junctions_dict
+        return new_junctions_dict
 
     def __iter__(self):
         for idx, val in enumerate(self.wiggle):
@@ -567,7 +620,6 @@ class ReadDepth(GenomicLoci):
 
         :return: [[{transcript: id, gene: id, exon: []}, {}, {}], [{}]]
         """
-        # print("reads in this region", len(self.__reads__))
         return sorted(
             self.__reads__,
             key=lambda x: (x.start, x.end, len(x.exons)),

@@ -29,13 +29,13 @@ class Transcript(GenomicLoci):
         chromosome: str, 
         start: int, 
         end: int,
-        strand: int, 
+        strand: str,
         exons: list, 
         gene: str = "",
         gene_id: str = "", 
         transcript: str = "",
         transcript_id: str = "", 
-        is_reads: bool=False, 
+        is_reads: bool = False,
         show_id: bool = False
     ):
         u"""
@@ -64,13 +64,7 @@ class Transcript(GenomicLoci):
         self.show_id = show_id
 
     def __str__(self):
-        u"""
-
-        :return:
-        """
-
         exons_str = []
-
         for i in self.exons:
             exons_str.append("{}-{}".format(i.start, i.end))
 
@@ -84,8 +78,9 @@ class Transcript(GenomicLoci):
         )
 
     def __hash__(self):
-
         exons = sorted([str(x.__hash__()) for x in self.exons])
-
         return hash((self.chromosome, self.start, self.end, self.strand, " ".join(exons)))
 
+
+if __name__ == "__main__":
+    pass

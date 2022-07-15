@@ -1,14 +1,21 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import gzip
 import os
 import re
-
 from collections import OrderedDict
+from typing import List
+from multiprocessing import Pool
 
 import filetype
+import pyBigWig
 import pysam
+
 from src.BamInfo import BamInfo
-from src.logger import logger
+from src.Bigwig import Bigwig
 from src.SpliceRegion import SpliceRegion
+from src.logger import logger
+from conf.plot_settings import COLOR_MAP
 
 
 def clean_star_filename(x):
@@ -20,7 +27,7 @@ def clean_star_filename(x):
     return re.sub("[_.]?(SJ.out.tab|Aligned.sortedByCoord.out)?.bam", "", os.path.basename(x))
 
 
-def is_gtf(infile):
+def is_gtf(infile: str) -> bool:
     u"""
     check if input file is gtf
     :param infile: path to input file
@@ -29,40 +36,40 @@ def is_gtf(infile):
     if infile is None:
         return False
 
-    is_gtf = 0
+    gtf = 0
     try:
         if filetype.guess_mime(infile) == "application/gzip":
-            is_gtf += 10
+            gtf += 10
             r = gzip.open(infile, "rt")
         else:
             r = open(infile)
-    except TypeError as err:
-        logger.error("failed to open %s", infile)
-        exit(err)
 
-    for line in r:
-        if line.startswith("#"):
-            continue
+        for line in r:
+            if line.startswith("#"):
+                continue
 
-        lines = re.split(r"\s+", line)
+            lines = re.split(r"\s+", line)
 
-        if len(lines) < 8:
+            if len(lines) < 8:
+                break
+
+            if re.search(
+                    r"([\w-]+ \"[\w.\s\-%,:]+\";? ?)+",
+                    " ".join(lines[8:])
+            ):
+                gtf += 1
+
             break
 
-        if re.search(
-            r"([\w-]+ \"[\w.\s\-%,:]+\";? ?)+",
-            " ".join(lines[8:])
-        ):
-            is_gtf += 1
+        r.close()
+    except TypeError as err:
+        logger.error(f"failed to open {infile}", )
+        exit(err)
 
-        break
-
-    r.close()
-
-    return is_gtf
+    return gtf
 
 
-def is_bam(infile):
+def is_bam(infile: str) -> bool:
     u"""
     check if input file is bam or sam file
     :param infile: path to input file
@@ -88,7 +95,7 @@ def is_bam(infile):
                 create = True
 
         if create:
-            logger.info("Creating index for %s" % infile)
+            logger.info(f"Creating index for {infile}")
             pysam.index(infile)
         return True
 
@@ -96,13 +103,19 @@ def is_bam(infile):
         return False
 
 
-def get_sites_from_splice_id(string, span=0, indicator_lines=None):
+def is_bigwig(infile: str) -> bool:
+    try:
+        with pyBigWig.open(infile) as r:
+            return r.isBigWig()
+    except RuntimeError:
+        return False
+
+
+def get_sites_from_splice_id(string, span=0, **kwargs):
     u"""
     get splice range from splice id
     :param string: splice id
-    :param sep: the separator between different junctions
     :param span: the range to span the splice region, int -> bp; float -> percentage
-    :param indicator_lines: bool
     :return: chromosome, start, end, strand
     """
 
@@ -110,9 +123,10 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
     split = string.split("@")
 
     if not split:
-        raise ValueError("Invalid region %s" % string)
+        raise ValueError(f"Invalid region {string}")
 
     sites = []
+    chromosome, strand = "", ""
     try:
         for i in split:
             if re.search(r"[\w.]:(\d+-?){2,}:[+-]", i):
@@ -129,10 +143,10 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
                     sites.append(int(x))
             except ValueError as err:
                 logger.error(err)
-                logger.error("Contains illegal characters in %s" % string)
+                logger.error(f"Contains illegal characters in {string}")
                 exit(err)
     except ValueError as err:
-        logger.error("Invalid format of input region %s" % string)
+        logger.error(f"Invalid format of input region {string}")
         exit(err)
 
     sites = sorted(sites)
@@ -146,9 +160,10 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
             span = float(span) * (sites[-1] - sites[0])
             start, end = sites[0] - span, sites[-1] + span
         except ValueError as err:
-            logger.error("Invalid format of span, %s" % str(span))
+            logger.error(f"Invalid format of span, {span}")
             exit(err)
 
+    indicator_lines = kwargs.get("indicator_lines", "")
     if indicator_lines is True:
         indicator_lines = {x: 'k' for x in sites}
     elif indicator_lines:
@@ -161,7 +176,9 @@ def get_sites_from_splice_id(string, span=0, indicator_lines=None):
         strand=strand,
         events=string,
         sites=indicator_lines,
-        ori=str(string)
+        ori=str(string),
+        focus=kwargs.get("focus", ""),
+        stroke=kwargs.get("stroke", "")
     )
 
 
@@ -177,7 +194,7 @@ def get_merged_event(events, span, indicator_lines):
     coords = {}
     for e in events:
         tmp = get_sites_from_splice_id(e, span=span, indicator_lines=indicator_lines)
-        tmp_key = "%s#%s" % (tmp.chromosome, tmp.strand)
+        tmp_key = f"{tmp.chromosome}#{tmp.strand}"
 
         tmp_list = coords[tmp_key] if tmp_key in coords.keys() else []
         tmp_list.append(tmp)
@@ -186,10 +203,11 @@ def get_merged_event(events, span, indicator_lines):
     return coords
 
 
-def assign_max_y(shared_y, reads_depth, batch = False):
+def assign_max_y(shared_y, reads_depth, batch: bool = False):
     u"""
     assign max y for input files
 
+    :param batch:
     :param shared_y: [[group1], [group2]]
     :param reads_depth: output from read_reads_depth_from_bam
     :return:
@@ -206,9 +224,7 @@ def assign_max_y(shared_y, reads_depth, batch = False):
         for j in shared_y:
             reads_depth[j].max = max_
     else:
-
         for i in shared_y:
-
             max_ = max([reads_depth[x].max for x in i if x in reads_depth.keys()])
 
             for j in i:
@@ -239,7 +255,6 @@ def load_barcode(path: str) -> dict:
 
 
 def load_colors(bam: str, barcodes: str, color_factor: str, colors):
-
     res = OrderedDict()
 
     if color_factor and re.search("^\\d+$", color_factor):
@@ -252,7 +267,7 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
                 if len(line) > 1:
                     res[line[0]] = line[1]
                 else:
-                    logger.error("the input color is not seperate by \\t, {}".format(line))
+                    logger.error("the input color is not separate by \\t, {}".format(line))
 
     try:
         with open(bam) as r:
@@ -269,7 +284,7 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
                             exit(1)
                         res[key] = line[color_factor].upper()
                         if "|" in res[key]:
-                            res[key] = res[key].split("|")[1]
+                            res[key] = res.get(key, "").split("|")[1]
     except Exception as err:
         logger.error("please check the input file, including: .bai index", err)
         exit(0)
@@ -288,29 +303,27 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
     return res
 
 
-def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, barcodes=None, is_atac = False):
+def prepare_bam_list(
+        bam, color_factor, colors, share_y_by=-1,
+        plot_by=None, barcodes=None, kind: str = "bam",
+        show_mean: bool = False
+):
     u"""
     Prepare bam list
-    :return:
+    :return: [list of bam files, dict recorded the share y details]
     """
     if is_bam(bam):
-        return [
-            BamInfo(
-                path=bam,
-                alias=clean_star_filename(bam),
-                title=None,
-                label=None,
-                color=colors[0]
-            )
-        ], {}
+        return [BamInfo(
+            path=bam, alias=clean_star_filename(bam), title=None,
+            label=None, color=colors[0], kind=kind)], {}
 
     # load barcode groups
     barcodes_group = load_barcode(barcodes) if barcodes else {}
 
     colors = load_colors(bam, barcodes, color_factor, colors)
-     
+
     # load bam list
-    shared_y = {}    # {sample group: [BamInfo...]}
+    shared_y = {}  # {sample group: [BamInfo...]}
     bam_list = OrderedDict()
     with open(bam) as r:
         for line in r:
@@ -318,14 +331,14 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
             lines = re.split(r"\t| {2,}", line.strip())
 
             if not os.path.exists(lines[0]) and not os.path.isfile(lines[0]):
-                logger.warn("wrong input path or input list sep by blank, it should be '\\t'")
+                logger.warn(f"wrong input path {lines[0]}")
                 continue
 
-            if not is_atac and not is_bam(lines[0]):
-                raise ValueError("%s seem not ba a valid BAM file" % lines[0])
+            if kind == "bam" and not is_bam(lines[0]):
+                raise ValueError(f"{lines[0]} seem not ba a valid BAM file")
 
             temp_barcodes = barcodes_group.get(
-                clean_star_filename(lines[0]), 
+                clean_star_filename(lines[0]),
                 barcodes_group.get(lines[1], {}) if len(lines) > 1 else {}
             )
 
@@ -340,9 +353,11 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                     title="",
                     label=alias,
                     color=colors[alias],
-                    barcodes=set(barcode) if barcode else None
+                    barcodes=set(barcode) if barcode else None,
+                    kind=kind
                 )
-       
+                tmp.show_mean = show_mean
+
                 if alias not in bam_list.keys():
                     bam_list[alias] = tmp
                 else:
@@ -362,8 +377,8 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                         except IndexError as err:
                             logger.error(err)
                             logger.error("Wrong --plot-by index")
-                            logger.error("Your --plot-by is %d" % plot_by)
-                            logger.error("Your error line in %s" % lines)
+                            logger.error(f"Your --plot-by is {plot_by}")
+                            logger.error(f"Your error line in {lines}")
 
                             exit(err)
 
@@ -375,8 +390,8 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
                     except IndexError as err:
                         logger.error(err)
                         logger.error("Wrong --share-y-by index")
-                        logger.error("Your --share-y-by is %d" % share_y_by)
-                        logger.error("Your error line in %s" % lines)
+                        logger.error(f"Your --share-y-by is {share_y_by}")
+                        logger.error(f"Your error line in {lines}")
 
                         exit(err)
 
@@ -386,4 +401,75 @@ def prepare_bam_list(bam, color_factor, colors, share_y_by=-1, plot_by=None, bar
 
     if not barcodes:
         return list(bam_list.values()), {i: [bam_list[k] for k in j] for i, j in shared_y.items()}
-    return [bam_list[x] for x in colors.keys() if x in bam_list.keys()], {i: [bam_list[k] for k in j] for i, j in shared_y.items()}
+
+    return [bam_list[x] for x in colors.keys() if x in bam_list.keys()], {i: [bam_list[k] for k in j] for i, j in
+                                                                          shared_y.items()}
+
+
+def prepare_bigwig(args):
+    b, region_ = args
+    b.prepare(region_)
+    return b
+
+
+def prepare_bigwig_list(
+        bigwig: str, region, process: int = 1,
+        clustering: bool = False,
+        clustering_method: str = "ward",
+        distance_metric: str = "euclidean",
+        do_scale: bool = False,
+) -> List[Bigwig]:
+    u"""
+    Prepare bam list
+    :return: [list of bam files, dict recorded the share y details]
+    """
+    if not bigwig or not os.path.exists(bigwig):
+        return []
+
+    # load bam list
+    bigwig_list = OrderedDict()
+    assign_colors = set()
+    with open(bigwig) as r:
+        for line in r:
+
+            lines = re.split(r"\t| {2,}", line.strip())
+
+            if not os.path.exists(lines[0]) and not os.path.isfile(lines[0]):
+                logger.warn(f"Wrong input path {lines[0]}")
+                continue
+
+            path = lines[0]
+
+            if not is_bigwig(path):
+                continue
+
+            alias = lines[1] if len(lines) > 1 else os.path.basename(lines[0])
+
+            if len(lines) > 2 and lines[-1] in COLOR_MAP:
+                col = lines[-1]
+            else:
+                assign_colors.add(alias)
+                col = COLOR_MAP[len(assign_colors) - 1 % len(COLOR_MAP)]
+
+            if alias not in bigwig_list.keys():
+                bigwig_list[alias] = Bigwig(
+                    [path],
+                    clustering=clustering,
+                    clustering_method=clustering_method,
+                    distance_metric=distance_metric,
+                    do_scale=do_scale,
+                    alias=alias,
+                    color_map=col
+                )
+                bigwig_list[alias].raster = region.raster
+            else:
+                bigwig_list[alias].files.append(path)
+
+    with Pool(process) as p:
+        res = p.map(prepare_bigwig, [[x, region] for x in bigwig_list.values()])
+
+    return res
+
+
+if __name__ == '__main__':
+    pass

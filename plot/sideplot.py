@@ -5,37 +5,23 @@ Created by Zhang Yiming at 2021.03.16
 
 This is migrated from Zhou's code
 """
-import numpy as np
 import scipy.stats as sts
-from matplotlib import pylab
 
 from plot.utils import *
+from src.ReadDepth import ReadDepth
+from src.SpliceRegion import SpliceRegion
 
 
 def plot_sideplot(
-    read_depth_object,
-    sample_info,
-    graph_coords,
-    ax_var,
-    font_size=8,
-    logtrans=None,
-    strand_choice: str =  None,
-    sites = None
+        read_depth_object: ReadDepth,
+        region: SpliceRegion,
+        sample_info,
+        ax_var,
+        font_size=8,
+        logtrans=None,
+        strand_choice: str = None,
 ):
     """
-    :param read_depth_object:
-    :param mRNAs:
-    :param smaple_info:
-    :param graph_coords:
-    :param ax_var:
-    :param sjthread:
-    :param ymax:
-    :param number_junctions:
-    :param resolution:
-    :param nxticks:
-    :param font_size:
-    :param numbering_font_size:
-    :param junction_log_base:
     :return:
     """
     plus = read_depth_object.plus
@@ -61,20 +47,20 @@ def plot_sideplot(
         if strand_choice is not None and label != strand_choice:
             continue
 
-        array_hist = np.repeat(graph_coords, np.abs(array_plot).astype(np.int))
+        array_hist = np.repeat(region.graph_coords, np.abs(array_plot).astype(np.int))
         try:
             kde = sts.gaussian_kde(array_hist)
-            fit_value = kde.pdf(graph_coords)
+            fit_value = kde.pdf(region.graph_coords)
         except Exception:
             continue
 
         fit_value = fit_value / fit_value.max()
         if label == 'plus':
-            ax_var.plot(graph_coords, fit_value * array_plot.max(), c=sample_info.color, lw=1)
-            ax_var.bar(range(len(graph_coords)), array_plot, color=sample_info.color)
+            ax_var.plot(region.graph_coords, fit_value * array_plot.max(), c=sample_info.color, lw=1)
+            ax_var.bar(range(len(region)), array_plot, color=sample_info.color, rasterized=region.raster)
         else:
-            ax_var.plot(graph_coords, fit_value * array_plot.min(), c=sample_info.color, lw=1)
-            ax_var.bar(range(len(graph_coords)), array_plot, color=sample_info.color)
+            ax_var.plot(region.graph_coords, fit_value * array_plot.min(), c=sample_info.color, lw=1)
+            ax_var.bar(range(len(region)), array_plot, color=sample_info.color, rasterized=region.raster)
 
     # set the y limit
     # set y ticks, y label and label
@@ -87,26 +73,24 @@ def plot_sideplot(
 
     ax_var.set_yticks(universal_yticks)
     ax_var.set_yticklabels(curr_yticklabels, fontsize=font_size)
+
     ax_var.spines["left"].set_bounds(ymin, ymax)
     ax_var.yaxis.set_ticks_position('left')
+
     ax_var.spines["right"].set_visible(False)
-
-    # ylab
-    # y_horz_alignment = 'right'
-    # ax_var.set_ylabel(sample_info.alias,
-    #                fontsize=font_size,
-    #                va="center",
-    #                rotation="horizontal",
-    #                ha=y_horz_alignment,
-    #                labelpad=distance_between_label_axis
-    #                )
-
     ax_var.spines['right'].set_color('none')
     ax_var.spines['top'].set_color('none')
-
     ax_var.spines['bottom'].set_color('none')
-    pylab.xticks([])
-    pylab.xlim(0, max(graph_coords))
 
-    set_indicator_lines(read_depth_object, ax_var, graph_coords, sites, ymax)
+    pylab.xticks([])
+    pylab.xlim(0, max(region.graph_coords))
+
+    add_additional_background(region)
+
+    if region.raster:
+        ax_var.set_rasterization_zorder(0)
     return ax_var
+
+
+if __name__ == '__main__':
+    pass

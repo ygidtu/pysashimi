@@ -40,11 +40,11 @@ class GenomicLoci(object):
         self.gtf_line = gtf_line
 
         if self.end < self.start:
-            raise ValueError("End site should bigger than start site, not %d -> %d" % (self.start, self.end))
+            raise ValueError(f"End site should bigger than start site, not {self.start} -> {self.end}")
         if strand == ".":
             strand = "*"
         if strand not in ("+", "-", "*"):
-            raise ValueError("strand should be + or -, not %s" % strand)
+            raise ValueError(f"strand should be + or -, not {strand}")
 
         self.strand = strand
 
@@ -53,18 +53,11 @@ class GenomicLoci(object):
         convert this to string
         :return:
         """
-        return "{chromosome}:{start}-{end}:{strand}".format(
-            **{
-                "chromosome": self.chromosome,
-                "start": self.start,
-                "end": self.end,
-                "strand": self.strand
-            }
-        )
+        return f"{self.chromosome}:{self.start}-{self.end}:{self.strand}"
 
     def __gt__(self, other):
         u"""
-        whether this loci is downstream of other
+        if other downstream of other
 
         Note:
             make sure the wider range is upstream of narrower
@@ -83,7 +76,7 @@ class GenomicLoci(object):
 
     def __lt__(self, other):
         u"""
-        whether this loci is upstream of other
+        if other is upstream of other
 
         Note:
             make sure the wider range is downstream of narrower
@@ -102,7 +95,7 @@ class GenomicLoci(object):
 
     def __eq__(self, other):
         u"""
-        whether two loci is the same
+        if two objects are the same
         :param other:
         :return:
         """
@@ -168,3 +161,6 @@ class GenomicLoci(object):
 
         return cls(chromosome, start, end, strand)
 
+
+if __name__ == "__main__":
+    pass

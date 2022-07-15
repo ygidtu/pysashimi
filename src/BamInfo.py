@@ -6,33 +6,36 @@ Created by ygidtu@gmail.com at 2019.12.06
 from typing import Dict, List, Optional
 
 
+def set_barcodes(barcodes: Optional[List[str]]) -> Dict:
+    u"""
+    separate barcodes by its first character to reduce set size
+    :params barcodes: list or set of barcodes
+    """
+    res = {}
+
+    if barcodes is not None:
+        for b in barcodes:
+            if b:
+                f = b[:min(3, len(b))]
+
+                if f not in res.keys():
+                    res[f] = set()
+
+                res[f].add(b)
+
+    return res
+
+
 class BamInfo(object):
-    def __init__(self, alias, title, label, path, color, barcodes = None):
+    def __init__(self, alias, title, label, path, color, barcodes=None, kind: str = "bam"):
         self.alias = alias
         self.title = title
         self.label = label
         self.path = [path]
         self.color = color
-        self.barcodes = self.set_barcodes(barcodes)
-
-    def set_barcodes(self, barcodes: Optional[List[str]]) -> Dict:
-        u"""
-        seperate barcodes by it's first character to reduce set size
-        :params barcodes: list or set of barcodes
-        """
-        res = {}
-
-        if barcodes is not None:
-            for b in barcodes:
-                if b:
-                    f = b[:min(3, len(b))]
-
-                    if f not in res.keys():
-                        res[f] = set()
-
-                    res[f].add(b)
-
-        return res
+        self.barcodes = set_barcodes(barcodes)
+        self.show_mean = False
+        self.type = kind
 
     def has_barcode(self, barcode: str) -> bool:
         u"""
@@ -49,7 +52,7 @@ class BamInfo(object):
 
     def empty_barcode(self) -> bool:
         u"""
-        check whether this bam do not contains any barcodes
+        check whether this bam do not contain any barcodes
 
         """
         count = 0
@@ -61,7 +64,6 @@ class BamInfo(object):
                 return False
 
         return True
-
 
     def __hash__(self):
         return hash(self.alias)
