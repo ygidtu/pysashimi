@@ -358,19 +358,22 @@ class ReadDepth(GenomicLoci):
         for bam_file_path in bam.path:
             with pysam.TabixFile(bam_file_path) as tbx:
                 for vals in cls.__tabix_iter__(tbx, chrom, start_coord, end_coord):
-                    chrom, site = vals[0], vals[1]
+                    chrom, site = vals[0], int(vals[1])
 
                     if not groups:
-                        count = sum(vals[3:])
+                        count = sum([int(x) for x in vals[3:]])
                     else:
                         count = 0
                         for g in groups:
                             try:
-                                count += vals[g]
+                                count += int(vals[g])
                             except IndexError as e:
                                 logger.warning(f"the {g} is out of bound [{len(vals)}]: {e}")
 
-                    depth_vector[site - start_coord] += count / (len(bam.path) if bam.show_mean else 1)
+                    depth_vector[site - start_coord] += count
+
+        if bam.show_mean:
+            depth_vector /= len(bam.path)
 
         if log == 10:
             depth_vector = np.log10(depth_vector + 1)

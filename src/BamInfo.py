@@ -3,6 +3,7 @@
 u"""
 Created by ygidtu@gmail.com at 2019.12.06
 """
+from copy import deepcopy
 from typing import Dict, List, Optional
 
 
@@ -104,6 +105,9 @@ class BamInfo(object):
                 self.barcodes[i] |= j
 
         return self
+
+    def copy(self):
+        return deepcopy(self)
 
 
 if __name__ == '__main__':

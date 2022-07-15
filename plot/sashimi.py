@@ -103,7 +103,7 @@ def plot(
     n_files = number_of_sashimi
 
     if len(transcripts) > 1:
-        n_files += (len(transcripts) // 2)
+        n_files += max(len(transcripts) // 2, 1)
 
     if stack:
         n_files += (len(reads) // 4) if len(reads) > 1 else 1
@@ -115,9 +115,12 @@ def plot(
     if splice_region.stroke:
         n_files += 1
 
-    gs = gridspec.GridSpec(n_files, 1, hspace=.15, wspace=.7)
+    n_files += 2
+
     if kwargs.get("bigwigs"):
         gs = gridspec.GridSpec(n_files, 2, width_ratios=(.99, .01), wspace=0.01, hspace=.15)
+    else:
+        gs = gridspec.GridSpec(n_files, 1, hspace=.15, wspace=.7)
 
     """
     @2019.01.07
@@ -141,7 +144,6 @@ def plot(
     This part of code, used to plot different allele specific, but I this to plot multiple BAM files
     """
     i = len(kwargs.get("bigwigs", []))
-
     for sample_info in read_depths_dict.keys():
         average_read_depth = read_depths_dict[sample_info]
 
@@ -194,8 +196,9 @@ def plot(
                 logtrans=logtrans,
                 strand_choice=side_strand_choice
             )
-
-        i += 3 if show_side else 1
+            i += 3
+        else:
+            i += 1
         if i == number_of_sashimi:
             set_x_ticks(
                 average_read_depth, curr_ax,
@@ -228,7 +231,7 @@ def plot(
     """
     if len(transcripts) > 0:
         # + 1 if splice_region.sequence else len(read_depths_dict)
-        plt.subplot(gs[i:(i + len(transcripts) // 2), 0])
+        plt.subplot(gs[i:(i + max(len(transcripts) // 2, 1)), 0])
 
         plot_transcripts(
             transcripts=transcripts,
@@ -238,7 +241,7 @@ def plot(
             distance_ratio=distance_ratio,
             region=splice_region
         )
-        i += len(transcripts) // 2
+        i += max(len(transcripts) // 2, 1)
 
     if splice_region.stroke:
         plt.subplot(gs[i:, 0])

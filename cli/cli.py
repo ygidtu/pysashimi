@@ -111,11 +111,14 @@ def draw_default(
         sc_atac,
         **kwargs
 ):
-    bam_list, shared_y = prepare_bam_list(
-        bam, color_factor, colors, share_y_by,
-        barcodes=barcode, kind="bam",
-        show_mean=kwargs.get("show_mean", False)
-    )
+    if bam:
+        bam_list, shared_y = prepare_bam_list(
+            bam, color_factor, colors, share_y_by,
+            barcodes=barcode, kind="bam",
+            show_mean=kwargs.get("show_mean", False)
+        )
+    else:
+        bam_list, shared_y = [], {}
 
     # if there is any sc_atac files
     if sc_atac:
@@ -129,7 +132,7 @@ def draw_default(
 
     if depth:
         depth_list, shared_y_depth = prepare_bam_list(
-            sc_atac, color_factor, colors, share_y_by, barcodes=barcode,
+            depth, color_factor, colors, share_y_by, barcodes=barcode,
             kind="depth", show_mean=kwargs.get("show_mean", False)
         )
 
@@ -184,6 +187,7 @@ def draw_default(
             if temp:
                 value.add_customized_junctions(temp)
 
+    logger.info("plotting")
     save_fig(
         output_file_path=output,
         settings=sashimi_plot_settings,
@@ -470,14 +474,17 @@ def plot(
     if remove_empty_gene:
         splice_region.remove_empty_transcripts()
 
-    wigs = prepare_bigwig_list(
-        heatmap, splice_region,
-        process=process,
-        clustering=heatmap_clustering,
-        clustering_method=heatmap_clustering_method,
-        distance_metric=heatmap_distance_metric,
-        do_scale=heatmap_scale
-    )
+    if heatmap:
+        wigs = prepare_bigwig_list(
+            heatmap, splice_region,
+            process=process,
+            clustering=heatmap_clustering,
+            clustering_method=heatmap_clustering_method,
+            distance_metric=heatmap_distance_metric,
+            do_scale=heatmap_scale
+        )
+    else:
+        wigs = []
 
     if count_table:
         draw_without_bam(

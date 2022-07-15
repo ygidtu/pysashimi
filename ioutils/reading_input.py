@@ -275,7 +275,7 @@ def read_reads_depth_from_bam(
     :param reads: whether to filter out R1/R2
     :return: dict {alias, ReadDepth}
     """
-    logger.info("Reading from bam files")
+    logger.info("Reading from input files")
     assert isinstance(splice_region, SpliceRegion), f"splice_region should be Splice Region, not {type(splice_region)}"
 
     res = OrderedDict()
@@ -291,13 +291,15 @@ def read_reads_depth_from_bam(
                 group_dict[line].append(idx + 2)
 
     cmds = []
+    new_list = []
     for bam in bam_list:
         if group_dict:
             for key, groups in group_dict.items():
-                bam.alias = f"{bam.alias}[{key}]" if bam.alias else key
+                bam1 = bam.copy()
+                bam1.alias = f"{bam1.alias}[{key}]" if bam1.alias else key
                 cmds.append({
                     "splice_region": splice_region,
-                    "bam": bam,
+                    "bam": bam1,
                     "threshold": threshold,
                     "threshold_of_reads": threshold_of_reads,
                     "log": log,
@@ -307,6 +309,7 @@ def read_reads_depth_from_bam(
                     "stack": stack,
                     "groups": groups
                 })
+                new_list.append(bam1)
         else:
             cmds.append({
                 "splice_region": splice_region,
@@ -321,6 +324,8 @@ def read_reads_depth_from_bam(
                 "groups": groups
             })
 
+    bam_list += new_list
+
     try:
         with Pool(min(n_jobs, len(bam_list))) as p:
             temp = list(track(p.imap(__read_from_bam__, cmds), total=len(cmds)))
@@ -328,6 +333,8 @@ def read_reads_depth_from_bam(
             for x in temp:
                 if x is not None:
                     res.update(x)
+
+        # print(len(res))
     except Exception as err:
         logger.error(err)
         traceback.print_exc()

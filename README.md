@@ -1,10 +1,15 @@
 # pysashimi
 
+## TODO
+
+- [ ] 检查subplots分配出错原因
+- [ ] 重构代码
+
 Pure python scripts to make sashimi plots
 
-Why am I write this?
+Why am I writing this?
 
-Cause I trying to integrate sashimi plots within Flask, rather than embed [JBrowse](https://github.com/GMOD/jbrowse) into it.
+Because I'm trying to integrate sashimi plots within Flask, rather than embed [JBrowse](https://github.com/GMOD/jbrowse) into it.
 
 Thanks to [ggsashimi](https://github.com/guigolab/ggsashimi), I learned how to extract junctions and so on from BAM/SAM files
 

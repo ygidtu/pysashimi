@@ -76,6 +76,9 @@ def is_bam(infile: str) -> bool:
     :return: Boolean
     """
 
+    if not os.path.exists(infile):
+        return False
+
     try:
         create = False
         if not os.path.exists(infile + ".bai"):
@@ -269,25 +272,21 @@ def load_colors(bam: str, barcodes: str, color_factor: str, colors):
                 else:
                     logger.error("the input color is not separate by \\t, {}".format(line))
 
-    try:
-        with open(bam) as r:
-            for idx, line in enumerate(r):
-                line = line.strip().split()
-                key = line[1] if len(line) > 1 else clean_star_filename(line[0])
+    with open(bam) as r:
+        for idx, line in enumerate(r):
+            line = line.strip().split()
+            key = line[1] if len(line) > 1 else clean_star_filename(line[0])
 
-                if key not in res.keys():
-                    if not isinstance(color_factor, int):
-                        res[key] = colors[idx % len(colors)]
-                    else:
-                        if len(line) <= color_factor:
-                            logger.error("--color-factor must <= number of columns from " + bam)
-                            exit(1)
-                        res[key] = line[color_factor].upper()
-                        if "|" in res[key]:
-                            res[key] = res.get(key, "").split("|")[1]
-    except Exception as err:
-        logger.error("please check the input file, including: .bai index", err)
-        exit(0)
+            if key not in res.keys():
+                if not isinstance(color_factor, int):
+                    res[key] = colors[idx % len(colors)]
+                else:
+                    if len(line) <= color_factor:
+                        logger.error("--color-factor must <= number of columns from " + bam)
+                        exit(1)
+                    res[key] = line[color_factor].upper()
+                    if "|" in res[key]:
+                        res[key] = res.get(key, "").split("|")[1]
 
     if barcodes:
         temp = set()
