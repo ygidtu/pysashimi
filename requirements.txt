@@ -6,27 +6,27 @@
 #
 
 -i https://mirrors.aliyun.com/pypi/simple
-click==8.1.3
-commonmark==0.9.1
-cycler==0.11.0
-et-xmlfile==1.1.0
-filetype==1.1.0
-fonttools==4.34.4; python_version >= '3.7'
-jdcal==1.4.1
-kiwisolver==1.4.3
-matplotlib==3.5.2
-numpy==1.23.1
-packaging==21.3; python_version >= '3.6'
-pandas==1.4.3; python_version >= '3.8'
-pillow==9.2.0; python_version >= '3.7'
-pybigwig==0.3.18
-pybind11==2.9.2
-pygments==2.12.0; python_version >= '3.6'
-pyparsing==3.0.9
-pysam==0.19.1
-python-dateutil==2.8.2
-pytz==2022.1
-rich==12.5.1
-scipy==1.8.1
-seaborn==0.11.2
-six==1.16.0
+click
+commonmark
+cycler
+et-xmlfile
+filetype
+fonttools
+jdcal
+kiwisolver
+matplotlib
+numpy
+packaging
+pandas
+pillow
+pybigwig
+pybind11
+pygments
+pyparsing
+pysam
+python-dateutil
+pytz
+rich
+scipy
+seaborn
+six
