@@ -1,5 +1,7 @@
 # pysashimi
 
+**[2022/11/1] A newer implementation of sashimi with more features were finished in [sahsimi.py](https://github.com/ygidtu/sashimi.py), please try. **
+
 Pure python scripts to make sashimi plots
 
 Why am I write this?
