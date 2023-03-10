@@ -18,7 +18,7 @@ matplotlib==3.5.2
 numpy==1.23.1
 packaging==21.3; python_version >= '3.6'
 pandas==1.4.3; python_version >= '3.8'
-pillow==9.2.0; python_version >= '3.7'
+pillow==9.3.0; python_version >= '3.7'
 pybigwig==0.3.18
 pybind11==2.9.2
 pygments==2.12.0; python_version >= '3.6'
